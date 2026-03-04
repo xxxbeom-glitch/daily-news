@@ -805,6 +805,19 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* 로그인 */}
+      <section className="mb-4">
+        <Link
+          to="/settings/login"
+          className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
+        >
+          <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
+            <span style={{ fontSize: 14, fontWeight: 600 }}>로그인</span>
+            <ChevronRight size={20} className="text-white/40 shrink-0" />
+          </div>
+        </Link>
+      </section>
+
       {/* 관리자 기능 */}
       <section className="mb-4">
         <Link

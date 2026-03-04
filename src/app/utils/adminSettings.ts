@@ -22,6 +22,7 @@ export function getAdminHideMarket(): boolean {
 export function setAdminHideMarket(value: boolean): void {
   try {
     localStorage.setItem(ADMIN_HIDE_MARKET_KEY, value ? "true" : "false");
+    window.dispatchEvent(new CustomEvent("newsbrief_admin_changed"));
   } catch {}
 }
 
@@ -38,6 +39,7 @@ export function getAdminShowNewsTab(): boolean {
 export function setAdminShowNewsTab(value: boolean): void {
   try {
     localStorage.setItem(ADMIN_SHOW_NEWS_TAB_KEY, value ? "true" : "false");
+    window.dispatchEvent(new CustomEvent("newsbrief_admin_changed"));
   } catch {}
 }
 
@@ -59,7 +61,7 @@ export function setAdminModelId(modelId: string | null): void {
 }
 
 /** M7·반도체주 종목 (ticker → name) */
-const DEFAULT_MOVERS: Record<string, string> = {
+export const DEFAULT_MOVERS: Record<string, string> = {
   NVDA: "엔비디아", AAPL: "애플", MSFT: "마이크로소프트", GOOGL: "알파벳",
   AMZN: "아마존", META: "메타", TSLA: "테슬라",
   PLTR: "팔란티어", INTC: "인텔", AMD: "AMD", MU: "마이크론", WDC: "웨스턴디지털",
@@ -79,6 +81,7 @@ export function getAdminMovers(): Record<string, string> {
 export function setAdminMovers(map: Record<string, string>): void {
   try {
     localStorage.setItem(ADMIN_MOVERS_KEY, JSON.stringify(map));
+    window.dispatchEvent(new CustomEvent("newsbrief_admin_changed"));
   } catch {}
 }
 
@@ -128,6 +131,7 @@ export function setAdminTestRunAt(timestamp: number | null): void {
   try {
     if (timestamp) localStorage.setItem(ADMIN_TEST_RUN_KEY, String(timestamp));
     else localStorage.removeItem(ADMIN_TEST_RUN_KEY);
+    window.dispatchEvent(new CustomEvent("newsbrief_admin_changed"));
   } catch {}
 }
 
@@ -146,5 +150,6 @@ export function setAdminTestExpectedReadyAt(timestamp: number | null): void {
   try {
     if (timestamp) localStorage.setItem(ADMIN_TEST_EXPECTED_READY_KEY, String(timestamp));
     else localStorage.removeItem(ADMIN_TEST_EXPECTED_READY_KEY);
+    window.dispatchEvent(new CustomEvent("newsbrief_admin_changed"));
   } catch {}
 }

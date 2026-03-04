@@ -194,7 +194,6 @@ export function MarketSummaryView({
 
           <BlockTitle emoji="📈">{data.stockMoversLabel}</BlockTitle>
           <div className="mt-[14px] space-y-[9px]">
-            <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white">상승</div>
             {data.moversUp.map((m, i) => (
               <div key={i}>
                 <div className="flex items-baseline gap-2 flex-wrap">
@@ -205,9 +204,8 @@ export function MarketSummaryView({
                 <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{m.reason}</div>
               </div>
             ))}
-            <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white mt-[18px]">하락</div>
             {data.moversDown.map((m, i) => (
-              <div key={i}>
+              <div key={i} className={i === 0 ? "mt-[18px]" : ""}>
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{m.name}</span>
                   <span style={{ fontSize: 14 }} className="text-white/40">({m.ticker})</span>
@@ -242,52 +240,6 @@ export function MarketSummaryView({
             </>
           )}
 
-          {/* 해외 시황: 실적발표 영역 항상 표시 */}
-          <>
-            <BlockTitle emoji="💰">실적발표 이슈</BlockTitle>
-            <div className="mt-[14px]">
-              {data.earningsPast && data.earningsPast.length > 0 ? (
-                <>
-                  <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white">간밤 실적 결과</div>
-                  <div className="space-y-[9px] mt-[9px]">
-                    {data.earningsPast.map((e: EarningsItem, i: number) => (
-                      <div key={i}>
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{e.company}</span>
-                          <span style={{ fontSize: 14 }} className="text-white/40">({e.ticker})</span>
-                          {e.changeRate && (
-                            <span style={{ fontSize: 14 }} className={e.changeRate.startsWith("+") ? "text-emerald-400" : "text-red-400"}>
-                              {e.changeRate}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{e.result}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: 14 }} className="text-white/50">뉴스에서 실적 발표 결과를 찾지 못했습니다.</div>
-              )}
-              {data.earningsUpcoming && data.earningsUpcoming.length > 0 ? (
-                <>
-                  <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white mt-[18px]">예정 발표 일정</div>
-                  <div className="space-y-[4px] mt-[9px]" style={lineStyle}>
-                    {data.earningsUpcoming.map((s, i) => (
-                      <div key={i} style={{ fontSize: 14 }} className="text-white/55">{s}</div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: 14 }} className="text-white/50 mt-[12px]">예정된 실적발표가 없습니다.</div>
-              )}
-            </div>
-            {data.earningsSources && data.earningsSources.length > 0 && (
-              <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
-                출처: {data.earningsSources.map((s) => s.outlet).join(", ")}
-              </div>
-            )}
-          </>
           <UsedArticlesSection articles={articles} />
         </div>
       </div>

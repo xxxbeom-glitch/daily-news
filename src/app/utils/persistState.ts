@@ -49,6 +49,7 @@ export function getSelectedSources(): SelectedSourcesState {
 export function setSelectedSources(state: SelectedSourcesState): void {
   try {
     localStorage.setItem(SELECTED_SOURCES_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
   } catch {}
 }
 
@@ -66,6 +67,7 @@ export function getInterestMemoryDomestic(): string {
 export function setInterestMemoryDomestic(text: string): void {
   try {
     localStorage.setItem(INTEREST_MEMORY_DOMESTIC_KEY, text.slice(0, INTEREST_MEMORY_MAX_LEN));
+    window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
   } catch {}
 }
 
@@ -81,6 +83,7 @@ export function getInterestMemoryInternational(): string {
 export function setInterestMemoryInternational(text: string): void {
   try {
     localStorage.setItem(INTEREST_MEMORY_INTERNATIONAL_KEY, text.slice(0, INTEREST_MEMORY_MAX_LEN));
+    window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
   } catch {}
 }
 
@@ -130,13 +133,17 @@ export interface PersistedArchiveState {
 function safeSet(key: string, value: unknown): void {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));
+    if (key === ARCHIVE_STATE_KEY) window.dispatchEvent(new CustomEvent("newsbrief_meta_changed"));
   } catch {
     // quota exceeded 등
   }
 }
 
 export function saveSearchState(state: PersistedSearchState): void {
-  safeSet(SEARCH_STATE_KEY, state);
+  try {
+    sessionStorage.setItem(SEARCH_STATE_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent("newsbrief_meta_changed"));
+  } catch {}
 }
 
 export function loadSearchState(): PersistedSearchState | null {

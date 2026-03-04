@@ -4,6 +4,7 @@ import { ArchivePageWrapper } from "./components/ArchivePageWrapper";
 import { SettingsPageWrapper } from "./components/SettingsPageWrapper";
 import { SearchPageWrapper } from "./components/SearchPageWrapper";
 import { AdminPage } from "./components/AdminPage";
+import { LoginPage } from "./components/LoginPage";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
         element: <Outlet />,
         children: [
           { index: true, element: <SettingsPageWrapper /> },
+          { path: "login", element: <LoginPage /> },
           { path: "admin", element: <AdminPage /> },
         ],
       },

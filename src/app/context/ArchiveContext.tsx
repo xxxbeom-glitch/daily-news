@@ -3,9 +3,11 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   type ReactNode,
 } from "react";
 import type { ArchiveSession } from "../data/newsSources";
+import { useFirebase } from "./FirebaseContext";
 
 const STORAGE_KEY = "newsbrief_archives";
 
@@ -31,22 +33,31 @@ function loadSessions(): ArchiveSession[] {
 
 export function ArchiveProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<ArchiveSession[]>(loadSessions);
+  const { syncAddSession, syncDeleteSession } = useFirebase();
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
   }, [sessions]);
 
-  const addSession = (session: ArchiveSession) => {
-    setSessions((prev) => [session, ...prev]);
-  };
+  const addSession = useCallback(
+    (session: ArchiveSession) => {
+      setSessions((prev) => [session, ...prev]);
+      syncAddSession(session);
+    },
+    [syncAddSession]
+  );
 
-  const deleteSession = (id: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== id));
-  };
+  const deleteSession = useCallback(
+    (id: string) => {
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      syncDeleteSession(id);
+    },
+    [syncDeleteSession]
+  );
 
-  const clearAllSessions = () => {
+  const clearAllSessions = useCallback(() => {
     setSessions([]);
-  };
+  }, []);
 
   return (
     <ArchiveContext.Provider value={{ sessions, addSession, deleteSession, clearAllSessions }}>
