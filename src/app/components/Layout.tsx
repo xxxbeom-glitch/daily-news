@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { SearchStateProvider } from "../context/SearchStateContext";
+import { useAdminSettings } from "../context/AdminSettingsContext";
 import { KeywordNewsProvider } from "../context/KeywordNewsContext";
 import { MarketScheduleProvider } from "../context/MarketScheduleContext";
 import { fetchHeaderTickerIndices } from "../utils/fetchMarketData";
@@ -52,6 +53,7 @@ function HeaderTicker({ indices }: { indices: IndexData[] }) {
 
 function HeaderContent() {
   const location = useLocation();
+  const { showNewsTab } = useAdminSettings();
   const isSettings = location.pathname === "/settings" || location.pathname.startsWith("/settings/");
   const [tickerIndices, setTickerIndices] = useState<IndexData[]>(() => {
     try {
@@ -100,16 +102,18 @@ function HeaderContent() {
             >
               오늘의 시황
             </Link>
-            <Link
-              to="/search"
-              className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/search"
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
-                  : "text-white/50 hover:text-white/70"
-              }`}
-            >
-              오늘의 뉴스
-            </Link>
+            {showNewsTab && (
+              <Link
+                to="/search"
+                className={`pb-2 text-sm transition-colors ${
+                  location.pathname === "/search"
+                    ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                    : "text-white/50 hover:text-white/70"
+                }`}
+              >
+                오늘의 뉴스
+              </Link>
+            )}
             <Link
               to="/settings"
               className={`pb-2 text-sm transition-colors ${

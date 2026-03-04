@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, BookmarkX } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
+import { useAdminSettings } from "../context/AdminSettingsContext";
 import { saveArchiveState, loadArchiveState } from "../utils/persistState";
 import type { ArchiveSession } from "../data/newsSources";
 import { MarketSummaryView } from "./MarketSummaryView";
@@ -9,6 +10,7 @@ const CONFIRM_MS = 2500;
 
 export function ArchivePage() {
   const { sessions, deleteSession } = useArchive();
+  const { hideMarket } = useAdminSettings();
   const [isInternational, setIsInternational] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -177,7 +179,13 @@ export function ArchivePage() {
       </div>
 
       {/* 시황 요약 단일 뷰 */}
-      {selectedSession?.marketSummary && Array.isArray(selectedSession.marketSummary?.indices) ? (
+      {hideMarket && selectedSession ? (
+        <div className="flex-1 flex items-center justify-center py-12">
+          <p style={{ fontSize: 14 }} className="text-white/50 text-center">
+            오늘의 시황이 숨김 처리되어 있습니다.
+          </p>
+        </div>
+      ) : selectedSession?.marketSummary && Array.isArray(selectedSession.marketSummary?.indices) ? (
         <div className="flex-1 min-h-0 overflow-y-auto">
           <MarketSummaryView
             key={selectedSession.id}

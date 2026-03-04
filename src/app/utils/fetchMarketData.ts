@@ -6,6 +6,7 @@
 
 import type { IndexData, StockMover, SourceRef, MarketMoversBlock } from "../data/marketSummary";
 import { fetchViaCorsProxy } from "./corsProxy";
+import { getAdminMovers } from "./adminSettings";
 
 const FINNHUB_QUOTE = "https://finnhub.io/api/v1/quote";
 const FINNHUB_EARNINGS = "https://finnhub.io/api/v1/calendar/earnings";
@@ -62,13 +63,14 @@ const DOMESTIC_INDICES_FINNHUB = [
   { symbol: "229720.KQ", name: "코스닥" },
 ];
 
-/** M7 + 반도체주 등락율 (심볼 → 기업명) */
-const M7_SEMI_MOVERS_MAP: Record<string, string> = {
-  NVDA: "엔비디아", AAPL: "애플", MSFT: "마이크로소프트", GOOGL: "알파벳",
-  AMZN: "아마존", META: "메타", TSLA: "테슬라", // M7
-  PLTR: "팔란티어", INTC: "인텔", AMD: "AMD", MU: "마이크론", WDC: "웨스턴디지털", // 반도체·스토리지
-};
-const M7_SEMI_MOVERS = Object.keys(M7_SEMI_MOVERS_MAP);
+/** M7 + 반도체주 등락율 (관리자 설정 우선) */
+function getM7SemiMoversMap(): Record<string, string> {
+  return getAdminMovers();
+}
+
+function getM7SemiMovers(): string[] {
+  return Object.keys(getM7SemiMoversMap());
+}
 
 /** 국내 코스피 대표 종목 (심볼 → 기업명, 코스피 상승/하락 TOP3용) */
 const DOMESTIC_MOVERS_MAP: Record<string, string> = {
@@ -397,8 +399,8 @@ export async function fetchTopMovers(
   | { up: StockMover[]; down: StockMover[]; sources: SourceRef[] }
   | { kospiMovers: MarketMoversBlock }
 > {
-  const symbols = isInternational ? M7_SEMI_MOVERS : [...DOMESTIC_MOVERS];
-  const nameMap = isInternational ? M7_SEMI_MOVERS_MAP : DOMESTIC_MOVERS_MAP;
+  const symbols = isInternational ? getM7SemiMovers() : [...DOMESTIC_MOVERS];
+  const nameMap = isInternational ? getM7SemiMoversMap() : DOMESTIC_MOVERS_MAP;
   const results = await Promise.all(
     symbols.map((sym) => fetchFinnhubQuoteWithName(sym, nameMap[sym] ?? sym))
   );

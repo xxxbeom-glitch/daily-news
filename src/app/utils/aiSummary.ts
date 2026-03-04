@@ -286,14 +286,15 @@ function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY"): string 
   return key;
 }
 
-async function callGemini(prompt: string): Promise<string> {
+async function callGemini(prompt: string, modelId?: string): Promise<string> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
     throw new Error("Gemini API 키가 설정되지 않았습니다. .env에 VITE_GEMINI_API_KEY를 추가해주세요.");
   }
 
+  const models = modelId && GEMINI_MODELS.includes(modelId) ? [modelId] : GEMINI_MODELS;
   let lastError: Error | null = null;
-  for (const model of GEMINI_MODELS) {
+  for (const model of models) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
     try {
@@ -334,12 +335,15 @@ async function callGemini(prompt: string): Promise<string> {
   throw lastError ?? new Error("Gemini API 호출 실패");
 }
 
-async function callOpenAI(prompt: string): Promise<string> {
+const OPENAI_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"];
+
+async function callOpenAI(prompt: string, modelId?: string): Promise<string> {
   const key = getApiKey("VITE_OPENAI_API_KEY");
   if (!key) {
     throw new Error("OpenAI API 키가 설정되지 않았습니다. .env에 VITE_OPENAI_API_KEY를 추가해주세요.");
   }
 
+  const model = modelId && OPENAI_MODELS.includes(modelId) ? modelId : OPENAI_MODEL;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
 
@@ -351,7 +355,7 @@ async function callOpenAI(prompt: string): Promise<string> {
         "Authorization": `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model,
         max_tokens: 8192,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: prompt }],
@@ -381,6 +385,8 @@ export interface GenerateSummaryOptions {
   articles: RawRssArticle[];
   isInternational: boolean;
   model: "gemini" | "gpt";
+  /** 관리자 지정 모델 ID (Gemini/OpenAI 모델 중 하나) */
+  modelId?: string;
   watchlist?: { symbol: string; name: string; isDomestic?: boolean }[];
   /** 사용자가 입력한 관심 섹터·기업 메모리. AI 프롬프트에 반영 */
   interestMemory?: string;
@@ -392,21 +398,26 @@ export interface GenerateSummaryOptions {
  * AI API를 호출하여 시황 요약 생성
  */
 export async function generateMarketSummary(options: GenerateSummaryOptions): Promise<MarketSummaryData> {
-  const { articles, isInternational, model, watchlist, interestMemory, moversSeed } = options;
+  const { articles, isInternational, model, modelId, watchlist, interestMemory, moversSeed } = options;
 
   if (articles.length === 0) {
     throw new Error("분석할 기사가 없습니다.");
   }
 
+  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const useOpenAI = modelId ? OPENAI_MODELS.includes(modelId) : model === "gpt";
+  const geminiModelId = useGemini && modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined;
+  const openAIModelId = useOpenAI && modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined;
+
   const prompt = buildPrompt(articles, isInternational, {
     watchlist,
     moversSeed,
     interestMemory,
-    includeTotalAssessment: model === "gemini",
+    includeTotalAssessment: useGemini,
   });
-  const rawResponse = model === "gemini" ? await callGemini(prompt) : await callOpenAI(prompt);
+  const rawResponse = useGemini ? await callGemini(prompt, geminiModelId) : await callOpenAI(prompt, openAIModelId);
   const data = parseAndNormalize(rawResponse, isInternational);
-  if (model === "gpt") {
+  if (!useGemini) {
     data.totalAssessmentError = true;
   } else if (!data.totalAssessment || !String(data.totalAssessment).trim()) {
     data.totalAssessmentError = true;

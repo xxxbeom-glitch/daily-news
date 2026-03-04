@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { getSelectedModel, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import type { MarketSummaryData } from "../data/marketSummary";
 
 interface SearchStateContextValue {
@@ -28,7 +29,13 @@ export function SearchStateProvider({ children }: { children: ReactNode }) {
   const [summaryInternational, setSummaryInternational] = useState<MarketSummaryData | null>(null);
   const [summaryDomestic, setSummaryDomestic] = useState<MarketSummaryData | null>(null);
   const [summaryModel, setSummaryModel] = useState<"gemini" | "gpt">("gemini");
-  const [selectedModel, setSelectedModel] = useState<"gemini" | "gpt">("gemini");
+  const [selectedModel, setSelectedModel] = useState<"gemini" | "gpt">(() => getSelectedModel());
+
+  useEffect(() => {
+    const handler = () => setSelectedModel(getSelectedModel());
+    window.addEventListener(SELECTED_MODEL_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(SELECTED_MODEL_CHANGED_EVENT, handler);
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);

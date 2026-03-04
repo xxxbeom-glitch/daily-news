@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { saveSearchState, loadSearchState, getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, parseInterestKeywords } from "../utils/persistState";
+import { saveSearchState, loadSearchState, getSelectedSources, getSelectedModel, getInterestMemoryDomestic, getInterestMemoryInternational, parseInterestKeywords } from "../utils/persistState";
 import { useSearchState } from "../context/SearchStateContext";
 import { RefreshCw } from "lucide-react";
 import type { Article } from "../data/newsSources";
@@ -66,11 +66,11 @@ export function SearchPage() {
 
   const hasAnySummary = summaryInternational !== null || summaryDomestic !== null;
 
-  // 페이지 진입 시 sessionStorage에서 폼 상태 복원
+  // 페이지 진입 시 sessionStorage에서 폼 상태 복원 (선택 모델은 설정 저장값 우선)
   useEffect(() => {
+    setSelectedModel(getSelectedModel());
     const saved = loadSearchState();
     if (!saved) return;
-    if (saved.selectedModel) setSelectedModel(saved.selectedModel);
     const si = saved.summaryInternational;
     const sd = saved.summaryDomestic;
     const isValid = (s: unknown): s is MarketSummaryData =>

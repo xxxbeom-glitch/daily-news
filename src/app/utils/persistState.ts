@@ -10,6 +10,9 @@ const INTEREST_MEMORY_DOMESTIC_KEY = "newsbrief_interest_memory_domestic";
 const INTEREST_MEMORY_INTERNATIONAL_KEY = "newsbrief_interest_memory_international";
 const SELECTED_MODEL_KEY = "newsbrief_selected_model";
 
+/** 설정에서 모델 저장 시 디스패치되는 이벤트 (SearchStateContext 동기화용) */
+export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
+
 export const DEFAULT_DOMESTIC_SOURCES = ["hankyung_all", "hankyung_finance", "mk", "sbs"];
 export const DEFAULT_INTERNATIONAL_SOURCES = ["finnhub", "yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"];
 
@@ -82,6 +85,7 @@ export function getSelectedModel(): "gemini" | "gpt" {
 export function setSelectedModel(model: "gemini" | "gpt"): void {
   try {
     localStorage.setItem(SELECTED_MODEL_KEY, model);
+    window.dispatchEvent(new CustomEvent(SELECTED_MODEL_CHANGED_EVENT, { detail: model }));
   } catch {}
 }
 

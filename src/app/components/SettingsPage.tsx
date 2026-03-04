@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, ChevronDown } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational, getSelectedModel, setSelectedModel } from "../utils/persistState";
@@ -125,18 +125,26 @@ async function checkDataGoKrIndexApi(): Promise<{ ok: boolean; message?: string 
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
-    const json = (await res.json()) as { response?: { body?: { items?: unknown } } };
+    const text = await res.text();
+    if (text.trimStart().startsWith("<")) {
+      return { ok: false, message: "HTML 응답 수신 (프록시 미적용·경로 확인 필요. vercel.json rewrite 적용 여부 확인)" };
+    }
+    const json = JSON.parse(text) as { response?: { body?: { items?: unknown } } };
     const items = json?.response?.body?.items;
     return { ok: !!items };
   } catch (e) {
     clearTimeout(timeout);
-    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+    const msg = e instanceof Error ? e.message : "연결 실패";
+    if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token '<'")) {
+      return { ok: false, message: "HTML 응답 수신 (프록시 미적용. 개발: Vite proxy / 프로덕션: vercel.json rewrite 확인)" };
+    }
+    return { ok: false, message: msg };
   }
 }
 
 async function checkDataGoKrStockApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getDataGoKrKey();
-  if (!key) return { ok: false, message: "API 키 미설정" };
+  if (!key) return { ok: false, message: "API 키 미설정 (VITE_DATA_GO_KR_SERVICE_KEY)" };
   const d = new Date();
   const basDt = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const url = `/api/data-go-kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo?serviceKey=${encodeURIComponent(key)}&numOfRows=5&pageNo=1&resultType=json&basDt=${basDt}`;
@@ -146,12 +154,20 @@ async function checkDataGoKrStockApi(): Promise<{ ok: boolean; message?: string 
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
-    const json = (await res.json()) as { response?: { body?: { items?: unknown } } };
+    const text = await res.text();
+    if (text.trimStart().startsWith("<")) {
+      return { ok: false, message: "HTML 응답 수신 (프록시 미적용·경로 확인 필요. vercel.json rewrite 적용 여부 확인)" };
+    }
+    const json = JSON.parse(text) as { response?: { body?: { items?: unknown } } };
     const items = json?.response?.body?.items;
     return { ok: !!items };
   } catch (e) {
     clearTimeout(timeout);
-    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+    const msg = e instanceof Error ? e.message : "연결 실패";
+    if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token '<'")) {
+      return { ok: false, message: "HTML 응답 수신 (프록시 미적용. 개발: Vite proxy / 프로덕션: vercel.json rewrite 확인)" };
+    }
+    return { ok: false, message: msg };
   }
 }
 
@@ -258,7 +274,10 @@ export function SettingsPage() {
 
   const handleSetSelectedModel = (model: "gemini" | "gpt") => {
     setSelectedModelState(model);
-    setSelectedModel(model);
+  };
+
+  const handleSaveSelectedModel = () => {
+    setSelectedModel(selectedModel);
   };
 
   const allSources = useMemo(
@@ -445,6 +464,13 @@ export function SettingsPage() {
                 />
                 <span style={{ fontSize: 14 }} className="text-white/90">Chat GPT</span>
               </label>
+              <button
+                type="button"
+                onClick={handleSaveSelectedModel}
+                className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
+              >
+                저장
+              </button>
             </div>
           )}
         </div>
@@ -745,6 +771,21 @@ export function SettingsPage() {
           )}
         </div>
       </section>
+
+      {/* 관리자 기능 (2뎁스) */}
+      {import.meta.env.VITE_ENABLE_ADMIN === "true" && (
+        <section className="mb-4">
+          <Link
+            to="/settings/admin"
+            className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
+          >
+            <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
+              <span style={{ fontSize: 14, fontWeight: 600 }}>관리자 기능</span>
+              <ChevronRight size={20} className="text-white/40 shrink-0" />
+            </div>
+          </Link>
+        </section>
+      )}
     </div>
   );
 }

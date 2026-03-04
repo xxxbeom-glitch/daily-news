@@ -9,6 +9,7 @@ import { runMarketSummaryPipeline } from "../utils/runMarketSummaryPipeline";
 import { getSelectedSources } from "../utils/persistState";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { shouldSkipUsSummary, isKrMarketHoliday } from "../utils/marketHolidays";
+import { getAdminSchedule, getAdminTestRunAt, setAdminTestRunAt } from "../utils/adminSettings";
 
 const RAN_US_KEY = "newsbrief_ran_us";
 const RAN_KR_KEY = "newsbrief_ran_kr";
@@ -39,6 +40,10 @@ function isInWindow(hour: number, minute: number, windowMin = 7): boolean {
   return nowMin >= targetMin - windowMin && nowMin <= targetMin + windowMin;
 }
 
+function getSchedule() {
+  return getAdminSchedule();
+}
+
 const MarketScheduleContext = createContext<{ isRunning: boolean } | null>(null);
 
 export function MarketScheduleProvider({ children }: { children: ReactNode }) {
@@ -49,12 +54,24 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function checkAndRun() {
       if (runningRef.current) return;
+      const now = Date.now();
+      const testRunAt = getAdminTestRunAt();
+      if (testRunAt != null && now >= testRunAt) {
+        setAdminTestRunAt(null);
+        runningRef.current = true;
+        Promise.all([
+          runMarketSummaryPipeline(true, { addSession }),
+          runMarketSummaryPipeline(false, { addSession }),
+        ]).catch(() => {}).finally(() => { runningRef.current = false; });
+        return;
+      }
       const today = toDateKey();
       const selectedSources = getSelectedSources();
       const hasIntl = internationalSources.filter((s) => selectedSources.international.includes(s.id)).length > 0;
       const hasDomestic = domesticSources.filter((s) => selectedSources.domestic.includes(s.id)).length > 0;
 
-      if (hasIntl && isInWindow(8, 30) && getRanKey("us") !== today && !shouldSkipUsSummary()) {
+      const sched = getSchedule();
+      if (hasIntl && isInWindow(sched.usHour, sched.usMinute) && getRanKey("us") !== today && !shouldSkipUsSummary()) {
         runningRef.current = true;
         setRanKey("us");
         runMarketSummaryPipeline(true, { addSession })
@@ -64,7 +81,7 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
           });
         return;
       }
-      if (hasDomestic && isInWindow(16, 30) && getRanKey("kr") !== today && !isKrMarketHoliday()) {
+      if (hasDomestic && isInWindow(sched.krHour, sched.krMinute) && getRanKey("kr") !== today && !isKrMarketHoliday()) {
         runningRef.current = true;
         setRanKey("kr");
         runMarketSummaryPipeline(false, { addSession })
@@ -76,7 +93,7 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
     }
 
     checkAndRun();
-    intervalRef.current = setInterval(checkAndRun, 60000);
+    intervalRef.current = setInterval(checkAndRun, 30000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
