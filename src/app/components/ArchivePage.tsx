@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, BookmarkX, RefreshCw } from "lucide-react";
+import { ChevronDown, BookmarkX } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
 import { useFirebase } from "../context/FirebaseContext";
@@ -108,7 +108,20 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <p className="text-white/40 mb-3" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <p className="text-white/40" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
+        {firebaseEnabled && (
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncing}
+            className="text-white/40 hover:text-white/70 disabled:opacity-50"
+            style={{ fontSize: 12 }}
+          >
+            {syncing ? "동기화 중…" : "동기화"}
+          </button>
+        )}
+      </div>
       {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
       <div className="flex items-stretch gap-4 mb-4">
         <div ref={dropdownRef} className="relative flex-1 min-w-0">
@@ -180,19 +193,7 @@ export function ArchivePage() {
           </div>
         )}
         </div>
-        <div className="flex flex-col gap-1.5 shrink-0">
-          {firebaseEnabled && (
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center justify-center p-2 rounded-[8px] border border-white/10 bg-white/5 text-white/50 hover:text-white/80 hover:bg-white/8 disabled:opacity-50"
-              title="클라우드에서 동기화"
-            >
-              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-            </button>
-          )}
-          <div className="flex rounded-[10px] border border-white/10 bg-white/5 px-[6px] py-2">
+        <div className="flex shrink-0 rounded-[10px] border border-white/10 bg-white/5 px-[6px] py-2">
             <button
               type="button"
               onClick={() => setIsInternational(true)}
@@ -210,7 +211,6 @@ export function ArchivePage() {
               한국
             </button>
           </div>
-        </div>
       </div>
 
       {/* 시황 요약 단일 뷰 */}
