@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, BookmarkX } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
+import { saveArchiveState, loadArchiveState } from "../utils/persistState";
 import type { ArchiveSession } from "../data/newsSources";
 import { MarketSummaryView } from "./MarketSummaryView";
 
@@ -13,6 +14,22 @@ export function ArchivePage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 모바일: 나갔다 오면 화면 초기화 방지 - 저장된 상태 복원
+  const hasRestoredRef = useRef(false);
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    const saved = loadArchiveState();
+    if (!saved) return;
+    setIsInternational(saved.isInternational);
+    if (saved.selectedSessionId) setSelectedSessionId(saved.selectedSessionId);
+  }, []);
+
+  // 상태 변경 시 sessionStorage에 저장
+  useEffect(() => {
+    saveArchiveState({ isInternational, selectedSessionId });
+  }, [isInternational, selectedSessionId]);
 
   const filteredSessions = useMemo(
     () =>

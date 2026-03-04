@@ -1,8 +1,8 @@
 /**
- * AI API (Gemini/Claude)를 이용한 시황 요약 생성
+ * AI API (Gemini/OpenAI GPT)를 이용한 시황 요약 생성
  */
 
-import type { MarketSummaryData, IssueItem, StockMover, IndexData, SourceRef } from "../data/marketSummary";
+import type { MarketSummaryData, IssueItem, StockMover, IndexData, SourceRef, EarningsItem } from "../data/marketSummary";
 
 export interface RawRssArticle {
   title: string;
@@ -13,8 +13,8 @@ export interface RawRssArticle {
   body?: string;
 }
 
-const GEMINI_MODEL = "gemini-1.5-flash";
-const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
+const GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+const OPENAI_MODEL = "gpt-4o-mini";
 
 function buildArticleContext(articles: RawRssArticle[], maxItems = 25): string {
   return articles
@@ -23,51 +23,100 @@ function buildArticleContext(articles: RawRssArticle[], maxItems = 25): string {
     .join("\n");
 }
 
-function buildPrompt(articles: RawRssArticle[], isInternational: boolean): string {
+function isDomesticSymbol(sym: string): boolean {
+  return sym.endsWith(".KS") || sym.endsWith(".KQ");
+}
+
+function buildPrompt(
+  articles: RawRssArticle[],
+  isInternational: boolean,
+  watchlist?: { symbol: string; name: string; isDomestic?: boolean }[],
+  moversSeed?: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] }
+): string {
   const region = isInternational ? "해외(미국·글로벌)" : "국내(한국)";
   const articleList = buildArticleContext(articles);
 
-  return `아래는 ${region} 금융·경제 뉴스 헤드라인입니다. 이 기사들을 분석하여 시황 요약 JSON을 생성해주세요.
+  const relevantWatchlist = (watchlist ?? []).filter((w) => {
+    const domestic = w.isDomestic ?? isDomesticSymbol(w.symbol);
+    return isInternational !== domestic;
+  });
+  const watchlistSection =
+    relevantWatchlist.length > 0
+      ? `\n## 관심종목\n뉴스에 아래 기업 관련 내용이 있으면 keyIssues에 자연스럽게 녹여 포함. (별도 섹션 만들지 말 것)\n${relevantWatchlist.map((w) => `${w.name}(${w.symbol})`).join(", ")}\n`
+      : "";
+
+  const moversSection = isInternational && moversSeed && (moversSeed.up.length > 0 || moversSeed.down.length > 0)
+    ? `\n## M7 및 반도체주 등락 (각 기업별 reason 필수)\nmoversUp/moversDown에 아래 종목 그대로 사용. 각 reason에 해당 기업 관련 이슈·상승/하락 이유를 2줄 이상 구체적으로 작성. 요약만 하지 말 것.\n상승: ${moversSeed.up.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n하락: ${moversSeed.down.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n`
+    : "";
+
+  return `아래는 ${region} 금융·경제 뉴스 헤드라인입니다. 이 기사들을 분석하여 시황 요약 JSON을 생성해주세요.${watchlistSection}${moversSection}
 
 ## 뉴스 헤드라인
 ${articleList}
 
 ## 요청
 위 기사들을 바탕으로 시황 요약을 작성해주세요. 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
-- 숫자·지수 값은 기사 내용을 바탕으로 합리적으로 추정하거나, 기사에 없으면 "—"로 표시
-- 문체: "~했음", "~됐음", "~임" (과거·현재 혼용)
-- 모든 문자열은 한글로
 
-## JSON 형식 (이 형식으로만 응답)
-{
+### 필수 규칙
+- 숫자·지수 값: 기사 내용 바탕 합리적 추정, 없으면 "—" 표시
+- 문체: 개조식·명사형 종결 (예: "~함", "~됨", "~임". 문장은 짧게 나열)
+- 모든 문자열: 한글로
+- 기업 표기: "기업명(티커)" 형태. 기업명은 한글로 표기 가능하면 한글로 (엔비디아, 애플, 테슬라 등).
+- keyIssues vs bigTechIssues: bigTechIssues는 사용하지 않음. 해외·국내 모두 keyIssues만 사용.
+- keyIssues: title 1줄, body 반드시 2줄 이상 (내용이 뭔 말인지 파악 가능할 정도로 구체적으로). 요약만 하지 말 것.
+${isInternational ? "- keyIssues 비율: 미국 중심 뉴스 약 80%. 미국 시장·정책·경제 이슈 우선." : "- keyIssues: [국내 전용] 반드시 정확히 12개. 100% 한국 기반. 경제·정책·부동산·의료·사회 등 + 삼성·SK·현대차·네이버·카카오 등 국내 상위 기업 관련 중요한 뉴스가 있으면 함께 포함. 부족하면 기타 시장 이슈로 채워 12개 맞출 것."}
+${isInternational ? "- geopoliticalIssues: 최소 5~8개. 각 body 2줄 이상 구체적으로." : ""}
+${isInternational ? "- earningsPast: 뉴스에서 간밤 발표된 실적(기업명, 결과) 추출. 없으면 빈 배열. earningsUpcoming: 뉴스에서 예정 실적 일정 추출. 없으면 빈 배열. (실적 일정은 API로 별도 수집됨)" : ""}
+
+### JSON 형식 (이 형식으로만 응답)
+${isInternational ? `{
   "date": "YYYY-MM-DD 요요일",
-  "regionLabel": "${isInternational ? "해외 시황 요약" : "국내 시황 요약"}",
+  "regionLabel": "해외 시황 요약",
   "indices": [
     { "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "2줄 서술" }
+    { "title": "1줄 제목", "body": "본문 2줄 이상 구체적 서술. 요약만 X." }
   ],
   "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
-  "stockMoversLabel": "${isInternational ? "S&P500" : ""}",
-  "moversUp": [
-    { "name": "기업명", "ticker": "티커", "changeRate": "+5.0%", "isUp": true, "reason": "이유 1~2줄" }
+  "stockMoversLabel": "M7 및 반도체주 등락율",
+  "moversUp": [...],
+  "moversDown": [...],
+  "moversSources": [...],
+  "geopoliticalLabel": "국제 정세 이슈",
+  "geopoliticalIssues": [{ "title": "1줄", "body": "2줄 이상 구체적 서술" }],
+  "geopoliticalSources": [...],
+  "earningsPast": [...],
+  "earningsUpcoming": [...],
+  "earningsSources": [...]
+}` : `{
+  "date": "YYYY-MM-DD 요요일",
+  "regionLabel": "국내 시황 요약",
+  "indices": [
+    { "name": "코스피", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true },
+    { "name": "코스닥", "value": "수치", "change": "-0.2%", "changeAbs": "▼1.75", "isUp": false },
+    { "name": "코스피 200", "value": "수치", "change": "+0.3%", "changeAbs": "▲2.10", "isUp": true }
   ],
-  "moversDown": [
-    { "name": "기업명", "ticker": "티커", "changeRate": "-2.0%", "isUp": false, "reason": "이유 1~2줄" }
+  "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
+  "keyIssues": [
+    { "title": "1줄 제목", "body": "본문 2줄 이상 구체적 서술. 요약만 X." }
   ],
-  "moversSources": [{ "outlet": "출처", "headline": "헤드라인" }],
-  "bigTechLabel": "${isInternational ? "빅테크 & AI 기업 이슈" : "국내 시가총액 100위 기업 이슈"}",
-  "bigTechIssues": [
-    { "title": "기업명(티커)", "body": "2줄 서술", "changeRate": "+3.2%" }
-  ],
-  "bigTechSources": [{ "outlet": "출처", "headline": "헤드라인" }]
-}
-${isInternational ? `
-해외의 경우 위 객체에 다음을 추가: "geopoliticalLabel": "국제 정세 이슈", "geopoliticalIssues": [...], "geopoliticalSources": [...]` : ""}
+  "keyIssuesSources": [...],
+  "stockMoversLabel": "",
+  "moversUp": [],
+  "moversDown": [],
+  "moversSources": [],
+  "bigTechLabel": "",
+  "bigTechIssues": [],
+  "bigTechSources": []
+}`}
 
-국내의 경우 indices는 코스피, 코스닥만 포함. 해외의 경우 S&P500, 나스닥, 다우존스 등.
+국내 indices: [필수] 코스피, 코스닥, 코스피200 포함.
+국내: 실적발표(earnings) 포함하지 말 것.
+해외 indices: S&P500, 나스닥, 다우존스 등.
+
+${isInternational ? "- earningsPast: 뉴스에 있으면 추출. earningsUpcoming은 API로 채움." : ""}
 반드시 유효한 JSON만 출력하세요.`;
 }
 
@@ -106,19 +155,62 @@ function ensureIndexData(items: { name?: string; value?: string; change?: string
   })) ?? [];
 }
 
+function mergeMoversWithSeed(
+  data: MarketSummaryData,
+  moversSeed?: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] }
+): void {
+  if (!moversSeed || (!moversSeed.up.length && !moversSeed.down.length)) return;
+  const aiReasonByTicker = new Map<string, string>();
+  const getTicker = (m: { name?: string; ticker?: string }) => {
+    if (m.ticker) return m.ticker;
+    const match = (m.name ?? "").match(/\(([A-Za-z0-9.]+)\)/);
+    return match ? match[1] : "";
+  };
+  for (const m of data.moversUp) {
+    const t = getTicker(m);
+    if (t && m.reason) aiReasonByTicker.set(t, m.reason);
+  }
+  for (const m of data.moversDown) {
+    const t = getTicker(m);
+    if (t && m.reason) aiReasonByTicker.set(t, m.reason);
+  }
+  data.moversUp = moversSeed.up.map((s) => ({
+    name: s.name,
+    ticker: s.ticker,
+    changeRate: s.changeRate,
+    isUp: true,
+    reason: aiReasonByTicker.get(s.ticker) || "관련 이슈 없음",
+  }));
+  data.moversDown = moversSeed.down.map((s) => ({
+    name: s.name,
+    ticker: s.ticker,
+    changeRate: s.changeRate,
+    isUp: false,
+    reason: aiReasonByTicker.get(s.ticker) || "관련 이슈 없음",
+  }));
+}
+
 function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSummaryData {
   // JSON 블록만 추출 (마크다운 코드블록 제거)
   let raw = jsonStr.trim();
   const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeMatch) raw = codeMatch[1].trim();
+  // 괄호 밖 텍스트 제거 (일부 모델이 앞뒤에 설명 추가할 수 있음)
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) raw = jsonMatch[0];
 
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
+  }
   const now = new Date();
   const weekDays = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${weekDays[now.getDay()]}`;
 
   const data: MarketSummaryData = {
-    date: (parsed.date as string) || dateStr,
+    date: dateStr, // 항상 오늘 날짜
     regionLabel: (parsed.regionLabel as string) || (isInternational ? "해외 시황 요약" : "국내 시황 요약"),
     indices: ensureIndexData((parsed.indices as IndexData[]) ?? []),
     indicesSources: ensureSourceRefs((parsed.indicesSources as SourceRef[]) ?? []),
@@ -128,7 +220,7 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
     moversUp: ensureStockMovers((parsed.moversUp as StockMover[]) ?? []),
     moversDown: ensureStockMovers((parsed.moversDown as StockMover[]) ?? []),
     moversSources: ensureSourceRefs((parsed.moversSources as SourceRef[]) ?? []),
-    bigTechLabel: (parsed.bigTechLabel as string) ?? (isInternational ? "빅테크 & AI 기업 이슈" : "국내 시가총액 100위 기업 이슈"),
+    bigTechLabel: (parsed.bigTechLabel as string) ?? (isInternational ? "빅테크 & AI 기업 이슈" : "국내 대표·대장주 이슈"),
     bigTechIssues: ensureIssueItems((parsed.bigTechIssues as IssueItem[]) ?? []),
     bigTechSources: ensureSourceRefs((parsed.bigTechSources as SourceRef[]) ?? []),
   };
@@ -139,89 +231,120 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
     data.geopoliticalSources = ensureSourceRefs((parsed.geopoliticalSources as SourceRef[]) ?? []);
   }
 
+  if (isInternational) {
+    const earningsRaw = parsed.earningsPast as Array<{ company?: string; ticker?: string; changeRate?: string; result?: string }> | undefined;
+    if (earningsRaw && Array.isArray(earningsRaw)) {
+      data.earningsPast = earningsRaw
+        .filter((e) => e?.company && e?.result)
+        .map((e) => ({
+          company: String(e.company ?? ""),
+          ticker: String(e.ticker ?? ""),
+          changeRate: e.changeRate,
+          result: String(e.result ?? ""),
+        })) as EarningsItem[];
+    }
+    const upcomingRaw = parsed.earningsUpcoming;
+    if (Array.isArray(upcomingRaw) && upcomingRaw.length > 0) {
+      data.earningsUpcoming = upcomingRaw.map((s) => String(s ?? "")).filter(Boolean);
+    }
+    if (parsed.earningsSources) {
+      data.earningsSources = ensureSourceRefs((parsed.earningsSources as SourceRef[]) ?? []);
+    }
+  }
+
   return data;
 }
 
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY"): string {
+  let key = (import.meta.env[name] as string) ?? "";
+  key = key.trim().replace(/^["']|["']$/g, "");
+  return key;
+}
+
 async function callGemini(prompt: string): Promise<string> {
-  const key = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!key || typeof key !== "string") {
+  const key = getApiKey("VITE_GEMINI_API_KEY");
+  if (!key) {
     throw new Error("Gemini API 키가 설정되지 않았습니다. .env에 VITE_GEMINI_API_KEY를 추가해주세요.");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  let lastError: Error | null = null;
+  for (const model of GEMINI_MODELS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-        },
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        lastError = new Error((err as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`);
+        continue;
+      }
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error((err as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`);
+      const json = await res.json();
+      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      if (!text) {
+        lastError = new Error("Gemini가 응답을 생성하지 못했습니다.");
+        continue;
+      }
+      return text;
+    } catch (e) {
+      clearTimeout(timeout);
+      lastError = e instanceof Error ? e : new Error(String(e));
     }
-
-    const json = await res.json();
-    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    if (!text) throw new Error("Gemini가 응답을 생성하지 못했습니다.");
-    return text;
-  } catch (e) {
-    clearTimeout(timeout);
-    throw e;
   }
+  throw lastError ?? new Error("Gemini API 호출 실패");
 }
 
-async function callClaude(prompt: string): Promise<string> {
-  const key = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!key || typeof key !== "string") {
-    throw new Error("Claude API 키가 설정되지 않았습니다. .env에 VITE_ANTHROPIC_API_KEY를 추가해주세요.");
+async function callOpenAI(prompt: string): Promise<string> {
+  const key = getApiKey("VITE_OPENAI_API_KEY");
+  if (!key) {
+    throw new Error("OpenAI API 키가 설정되지 않았습니다. .env에 VITE_OPENAI_API_KEY를 추가해주세요.");
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  const timeout = setTimeout(() => controller.abort(), 90000);
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: OPENAI_MODEL,
         max_tokens: 8192,
+        response_format: { type: "json_object" },
         messages: [{ role: "user", content: prompt }],
       }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
 
+    const json = await res.json().catch(() => ({}));
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = (err as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`;
+      const err = json as { error?: { message?: string; code?: string } };
+      const msg = err?.error?.message || `HTTP ${res.status}`;
       throw new Error(msg);
     }
 
-    const json = await res.json();
-    const content = json?.content;
-    const textPart = Array.isArray(content)
-      ? content.find((c: { type?: string }) => c?.type === "text")
-      : null;
-    const text = textPart?.text ?? "";
-    if (!text) throw new Error("Claude가 응답을 생성하지 못했습니다.");
+    const text = json?.choices?.[0]?.message?.content ?? "";
+    if (!text) throw new Error("ChatGPT가 응답을 생성하지 못했습니다.");
     return text;
   } catch (e) {
     clearTimeout(timeout);
@@ -232,20 +355,30 @@ async function callClaude(prompt: string): Promise<string> {
 export interface GenerateSummaryOptions {
   articles: RawRssArticle[];
   isInternational: boolean;
-  model: "gemini" | "claude";
+  model: "gemini" | "gpt";
+  watchlist?: { symbol: string; name: string; isDomestic?: boolean }[];
+  /** 해외: 상승/하락 TOP 종목. AI가 기사에서 상승/하락 이유 찾아 reason에 작성 */
+  moversSeed?: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] };
 }
 
 /**
  * AI API를 호출하여 시황 요약 생성
  */
 export async function generateMarketSummary(options: GenerateSummaryOptions): Promise<MarketSummaryData> {
-  const { articles, isInternational, model } = options;
+  const { articles, isInternational, model, watchlist, moversSeed } = options;
 
   if (articles.length === 0) {
     throw new Error("분석할 기사가 없습니다.");
   }
 
-  const prompt = buildPrompt(articles, isInternational);
-  const rawResponse = model === "gemini" ? await callGemini(prompt) : await callClaude(prompt);
-  return parseAndNormalize(rawResponse, isInternational);
+  const prompt = buildPrompt(articles, isInternational, watchlist, moversSeed);
+  const rawResponse = model === "gemini" ? await callGemini(prompt) : await callOpenAI(prompt);
+  const data = parseAndNormalize(rawResponse, isInternational);
+  if (moversSeed) mergeMoversWithSeed(data, moversSeed);
+  if (!isInternational) {
+    while (data.keyIssues.length < 12) {
+      data.keyIssues.push({ title: "기타 시장 이슈", body: "추가 뉴스 부족으로 별도 이슈 없음." });
+    }
+  }
+  return data;
 }

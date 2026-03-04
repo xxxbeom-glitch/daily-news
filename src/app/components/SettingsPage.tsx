@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, Search, Plus, X, ChevronDown } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, Search, X, ChevronDown } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useWatchlist } from "../context/WatchlistContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
+import { getSelectedSources, setSelectedSources } from "../utils/persistState";
 import { saveToLocalStorage, uploadToGoogleDrive } from "../utils/exportArchives";
-import { searchStocks, type StockSearchResult } from "../utils/stockSearch";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 const BackLink = () => (
@@ -24,15 +24,49 @@ const RECENT_RANGE_KEY = "newsbrief_recent_range";
 
 const RSS_CHECK_TIMEOUT_MS = 10000;
 
+function getFinnhubKey(): string {
+  let key = (import.meta.env.VITE_FINNHUB_API_KEY as string) ?? "";
+  return key.trim().replace(/^["']|["']$/g, "");
+}
+
+function getDataGoKrKey(): string {
+  let key = (import.meta.env.VITE_DATA_GO_KR_SERVICE_KEY as string) ?? "";
+  return key.trim().replace(/^["']|["']$/g, "");
+}
+
+async function checkFinnhubNews(): Promise<boolean> {
+  const key = getFinnhubKey();
+  if (!key) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RSS_CHECK_TIMEOUT_MS);
+  try {
+    const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${key}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return false;
+    const data = (await res.json()) as unknown[];
+    return Array.isArray(data) && data.length > 0;
+  } catch {
+    clearTimeout(timeout);
+    return false;
+  }
+}
+
 async function checkRssFeed(url: string): Promise<boolean> {
   const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
   if (!ok) return false;
   return text.includes("<rss") || text.includes("<feed") || text.includes("<?xml");
 }
 
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY"): string {
+  let key = (import.meta.env[name] as string) ?? "";
+  return key.trim().replace(/^["']|["']$/g, "");
+}
+
 async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
-  const key = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!key || typeof key !== "string") {
+  const key = getApiKey("VITE_GEMINI_API_KEY");
+  if (!key) {
     return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_GEMINI_API_KEY 추가)" };
   }
   const controller = new AbortController();
@@ -44,11 +78,9 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     );
     clearTimeout(timeout);
     if (res.ok) return { ok: true };
-    const err = await res.json().catch(() => ({}));
-    return {
-      ok: false,
-      message: err.error?.message || `HTTP ${res.status}`,
-    };
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+    const msg = err?.error?.message ?? err?.message ?? `HTTP ${res.status}`;
+    return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : "연결 실패";
@@ -56,35 +88,35 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
   }
 }
 
-async function checkClaudeApi(): Promise<{ ok: boolean; message?: string }> {
-  const key = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!key || typeof key !== "string") {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 추가)" };
+async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getApiKey("VITE_OPENAI_API_KEY");
+  if (!key) {
+    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_OPENAI_API_KEY 추가)" };
   }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 10,
-        messages: [{ role: "user", content: "Hi" }],
+        model: "gpt-4o-mini",
+        max_tokens: 5,
+        messages: [{ role: "user", content: "hi" }],
       }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
+    const data = (await res.json().catch(() => ({}))) as { error?: { message?: string; code?: string; type?: string } };
     if (res.ok) return { ok: true };
-    const err = await res.json().catch(() => ({}));
-    return {
-      ok: false,
-      message: err.error?.message || err.message || `HTTP ${res.status}`,
-    };
+    const err = data?.error;
+    const msg = err?.message || `HTTP ${res.status}`;
+    const code = err?.code ?? (res.status === 429 ? "rate_limit_exceeded" : res.status === 401 ? "invalid_api_key" : "");
+    const fullMsg = code ? `${msg} [${code}]` : msg;
+    return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : "연결 실패";
@@ -92,31 +124,110 @@ async function checkClaudeApi(): Promise<{ ok: boolean; message?: string }> {
   }
 }
 
+async function checkDataGoKrIndexApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getDataGoKrKey();
+  if (!key) return { ok: false, message: "API 키 미설정 (VITE_DATA_GO_KR_SERVICE_KEY)" };
+  const d = new Date();
+  const basDt = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const url = `/api/data-go-kr/1160100/service/GetMarketIndexInfoService/getStockMarketIndex?serviceKey=${encodeURIComponent(key)}&numOfRows=5&pageNo=1&resultType=json&basDt=${basDt}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
+    const json = (await res.json()) as { response?: { body?: { items?: unknown } } };
+    const items = json?.response?.body?.items;
+    return { ok: !!items };
+  } catch (e) {
+    clearTimeout(timeout);
+    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+  }
+}
+
+async function checkDataGoKrStockApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getDataGoKrKey();
+  if (!key) return { ok: false, message: "API 키 미설정" };
+  const d = new Date();
+  const basDt = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const url = `/api/data-go-kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo?serviceKey=${encodeURIComponent(key)}&numOfRows=5&pageNo=1&resultType=json&basDt=${basDt}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
+    const json = (await res.json()) as { response?: { body?: { items?: unknown } } };
+    const items = json?.response?.body?.items;
+    return { ok: !!items };
+  } catch (e) {
+    clearTimeout(timeout);
+    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+  }
+}
+
+async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getFinnhubKey();
+  if (!key) return { ok: false, message: "API 키 미설정 (VITE_FINNHUB_API_KEY)" };
+  const ok = await checkFinnhubNews();
+  return { ok, message: ok ? undefined : "뉴스·시세 API 연결 실패" };
+}
+
 async function checkConnectionStatus(
   sources: { id: string; rssUrl: string }[]
-): Promise<{ sourceStatus: Record<string, "ok" | "error">; aiStatus: { claude: "ok" | "error"; gemini: "ok" | "error"; errorMessage: string } }> {
-  const [sourceResults, geminiResult, claudeResult] = await Promise.all([
+): Promise<{
+  sourceStatus: Record<string, "ok" | "error">;
+  apiStatus: {
+    gpt: "ok" | "error";
+    gemini: "ok" | "error";
+    finnhub: "ok" | "error";
+    dataGoKrIndex: "ok" | "error";
+    dataGoKrStock: "ok" | "error";
+    errorMessage: string;
+  };
+}> {
+  const [sourceResults, geminiResult, gptResult, finnhubResult, dataGoKrIndexResult, dataGoKrStockResult] = await Promise.all([
     Promise.all(
       sources.map(async (s) => {
-        const ok = await checkRssFeed(s.rssUrl);
+        const ok =
+          s.id === "finnhub"
+            ? await checkFinnhubNews()
+            : await checkRssFeed(s.rssUrl);
         return [s.id, ok ? "ok" as const : "error" as const] as const;
       })
     ),
     checkGeminiApi(),
-    checkClaudeApi(),
+    checkOpenAIApi(),
+    checkFinnhubApi(),
+    checkDataGoKrIndexApi(),
+    checkDataGoKrStockApi(),
   ]);
 
   const sourceStatus = Object.fromEntries(sourceResults);
+  const translateError = (msg: string | undefined): string => {
+    if (!msg) return "연결 실패";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "할당량 초과";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API 키 오류";
+    if (msg.includes("403") || msg.includes("region") || msg.includes("country")) return "지역 제한";
+    if (msg.includes("not found") || msg.includes("model")) return "모델 오류";
+    return msg.length > 50 ? msg.slice(0, 50) + "…" : msg;
+  };
   const errors: string[] = [];
-  if (!geminiResult.ok) errors.push(`Gemini: ${geminiResult.message}`);
-  if (!claudeResult.ok) errors.push(`Claude: ${claudeResult.message}`);
+  if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
+  if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
+  if (!finnhubResult.ok) errors.push(`Finnhub: ${translateError(finnhubResult.message)}`);
+  if (!dataGoKrIndexResult.ok) errors.push(`공공데이터(지수): ${translateError(dataGoKrIndexResult.message)}`);
+  if (!dataGoKrStockResult.ok) errors.push(`공공데이터(주식): ${translateError(dataGoKrStockResult.message)}`);
   if (errors.length === 0) errors.push("모든 API 연결 정상");
 
   return {
     sourceStatus,
-    aiStatus: {
-      claude: claudeResult.ok ? "ok" : "error",
+    apiStatus: {
+      gpt: gptResult.ok ? "ok" : "error",
       gemini: geminiResult.ok ? "ok" : "error",
+      finnhub: finnhubResult.ok ? "ok" : "error",
+      dataGoKrIndex: dataGoKrIndexResult.ok ? "ok" : "error",
+      dataGoKrStock: dataGoKrStockResult.ok ? "ok" : "error",
       errorMessage: errors.join(" / "),
     },
   };
@@ -124,14 +235,11 @@ async function checkConnectionStatus(
 
 export function SettingsPage() {
   const { sessions, clearAllSessions } = useArchive();
-  const { items: watchlistItems, addItem: addWatchlist, removeItem: removeWatchlist, hasItem: hasWatchlist } = useWatchlist();
-  const [watchlistQuery, setWatchlistQuery] = useState("");
-  const [watchlistResults, setWatchlistResults] = useState<StockSearchResult[]>([]);
-  const [watchlistSearching, setWatchlistSearching] = useState(false);
+  const { items: watchlistItems, removeItem: removeWatchlist } = useWatchlist();
   const [rangeExpanded, setRangeExpanded] = useState(false);
   const [watchlistExpanded, setWatchlistExpanded] = useState(false);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
-  const [aiExpanded, setAiExpanded] = useState(false);
+  const [apiExpanded, setApiExpanded] = useState(false);
   const [archiveExpanded, setArchiveExpanded] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -143,18 +251,24 @@ export function SettingsPage() {
     ];
     return Object.fromEntries(ids.map((id) => [id, "ok" as const]));
   });
-  const [aiStatus, setAiStatus] = useState({
-    claude: "error" as "ok" | "error",
+  const [apiStatus, setApiStatus] = useState({
+    gpt: "error" as "ok" | "error",
     gemini: "ok" as "ok" | "error",
-    errorMessage: "API 키가 유효하지 않거나 할당량이 초과되었습니다.",
+    finnhub: "error" as "ok" | "error",
+    dataGoKrIndex: "error" as "ok" | "error",
+    dataGoKrStock: "error" as "ok" | "error",
+    errorMessage: "API 연결 상태 확인 중…",
   });
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
-  const [recentRange, setRecentRange] = useState<string>(() => {
+  const [selectedSourceIds, setSelectedSourceIds] = useState<{ domestic: string[]; international: string[] }>(() =>
+    getSelectedSources()
+  );
+  const [recentRange, setRecentRange] = useState(() => {
     try {
-      return localStorage.getItem(RECENT_RANGE_KEY) || "24h";
+      return localStorage.getItem(RECENT_RANGE_KEY) || "6h";
     } catch {
-      return "24h";
+      return "6h";
     }
   });
 
@@ -170,12 +284,24 @@ export function SettingsPage() {
     []
   );
 
+  const toggleSourceSelection = useCallback((id: string, region: "domestic" | "international") => {
+    setSelectedSourceIds((prev) => {
+      const list = prev[region];
+      const next = list.includes(id)
+        ? list.filter((x) => x !== id)
+        : [...list, id];
+      const nextState = { ...prev, [region]: next };
+      setSelectedSources(nextState);
+      return nextState;
+    });
+  }, []);
+
   const runCheck = useCallback(async () => {
     setIsChecking(true);
     try {
-      const { sourceStatus: s, aiStatus: a } = await checkConnectionStatus(allSources);
+      const { sourceStatus: s, apiStatus: a } = await checkConnectionStatus(allSources);
       setSourceStatus(s);
-      setAiStatus(a);
+      setApiStatus(a);
       setLastCheckTime(Date.now());
     } finally {
       setIsChecking(false);
@@ -198,21 +324,6 @@ export function SettingsPage() {
     const interval = setInterval(runCheck, SIX_HOURS_MS);
     return () => clearInterval(interval);
   }, [runCheck]);
-
-  // 관심종목 검색 (디바운스)
-  useEffect(() => {
-    if (watchlistQuery.trim().length < 2) {
-      setWatchlistResults([]);
-      return;
-    }
-    const tid = setTimeout(async () => {
-      setWatchlistSearching(true);
-      const results = await searchStocks(watchlistQuery);
-      setWatchlistResults(results);
-      setWatchlistSearching(false);
-    }, 400);
-    return () => clearTimeout(tid);
-  }, [watchlistQuery]);
 
   const handleClearAllClick = () => {
     setDeleteConfirm(true);
@@ -371,76 +482,15 @@ export function SettingsPage() {
           </button>
           {watchlistExpanded && (
           <div className="px-4 pb-4 pt-4 border-t border-white/6">
-          <div className="relative mb-3">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
-          />
-          <input
-            type="text"
-            value={watchlistQuery}
-            onChange={(e) => setWatchlistQuery(e.target.value)}
-            placeholder="종목명 또는 티커 검색 (2글자 이상)"
-            className="w-full pl-10 pr-4 py-3 rounded-[10px] bg-white/5 border border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-[#618EFF]/50"
-            style={{ fontSize: 14 }}
-          />
-          {watchlistQuery && (
-            <button
-              type="button"
-              onClick={() => { setWatchlistQuery(""); setWatchlistResults([]); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
-            >
-              <X size={16} />
-            </button>
-          )}
-          {watchlistQuery.trim().length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-1 max-h-[240px] overflow-y-auto rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl z-20">
-              {watchlistSearching ? (
-                <div className="px-4 py-6 text-center text-white/50" style={{ fontSize: 13 }}>
-                  검색 중…
-                </div>
-              ) : watchlistResults.length === 0 ? (
-                <div className="px-4 py-6 text-center text-white/50" style={{ fontSize: 13 }}>
-                  검색 결과 없음
-                </div>
-              ) : (
-                <div className="divide-y divide-white/6">
-                  {watchlistResults.map((s) => (
-                    <div
-                      key={s.symbol}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-white/5"
-                    >
-                      <div>
-                        <span style={{ fontSize: 14 }} className="text-white/90">{s.name}</span>
-                        <span style={{ fontSize: 12 }} className="ml-2 text-white/40">
-                          {s.symbol} {s.isDomestic ? "국내" : "해외"}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!hasWatchlist(s.symbol)) addWatchlist(s);
-                          setWatchlistQuery("");
-                          setWatchlistResults([]);
-                        }}
-                        disabled={hasWatchlist(s.symbol)}
-                        className={`flex items-center gap-1.5 rounded-[6px] px-2.5 py-1.5 transition-colors ${
-                          hasWatchlist(s.symbol)
-                            ? "bg-white/5 text-white/40 cursor-default"
-                            : "bg-[#618EFF]/30 border border-[#618EFF]/50 text-[#618EFF] hover:bg-[#618EFF]/50"
-                        }`}
-                        style={{ fontSize: 12 }}
-                      >
-                        <Plus size={14} />
-                        {hasWatchlist(s.symbol) ? "추가됨" : "추가"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          <Link
+            to="/settings/watchlist-search"
+            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-[10px] border border-[#618EFF]/50 bg-[#618EFF]/20 text-[#618EFF] hover:bg-[#618EFF]/30 transition-colors"
+            style={{ fontSize: 14, fontWeight: 500 }}
+          >
+            <Search size={18} />
+            종목 검색
+          </Link>
+          <div className="mt-4">
         {watchlistItems.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {watchlistItems.map((item) => (
@@ -458,9 +508,10 @@ export function SettingsPage() {
           </div>
         ) : (
           <p style={{ fontSize: 13 }} className="text-white/40">
-            검색하여 종목을 추가하세요. (국내·해외 지원)
+            종목 검색 버튼을 눌러 관심종목을 추가하세요. (국내·해외 지원)
           </p>
         )}
+          </div>
           </div>
           )}
         </div>
@@ -494,57 +545,72 @@ export function SettingsPage() {
             </button>
           </div>
           {sourcesExpanded && (
-          <div className="border-t border-white/6 divide-y divide-white/6 px-4 pb-4 pt-4">
-            {allSources.map((s) => {
+          <div className="border-t border-white/6 px-4 pb-4 pt-4">
+            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>국내 언론사</div>
+            <div className="divide-y divide-white/6 mb-4">
+            {domesticSources.map((s) => {
               const status = sourceStatus[s.id] ?? "ok";
+              const isSelected = selectedSourceIds.domestic.includes(s.id);
               return (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between px-4 py-3"
-                >
-                  <span style={{ fontSize: 14 }} className="text-white/90">
-                    {s.name}
-                  </span>
-                  <span
-                    className={`flex items-center gap-1.5 ${
-                      status === "ok" ? "text-emerald-400" : "text-red-400"
-                    }`}
-                    style={{ fontSize: 13 }}
-                  >
-                    {status === "ok" ? (
-                      <>
-                        <CheckCircle2 size={14} />
-                        정상
-                      </>
-                    ) : (
-                      <>
-                        <XCircle size={14} />
-                        오류
-                      </>
-                    )}
+                <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSourceSelection(s.id, "domestic")}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                    />
+                    <span style={{ fontSize: 14 }} className="text-white/90 truncate">{s.name}</span>
+                  </label>
+                  <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
+                    {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
                   </span>
                 </div>
               );
             })}
+            </div>
+            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>해외 언론사</div>
+            <div className="divide-y divide-white/6">
+            {internationalSources.map((s) => {
+              const status = sourceStatus[s.id] ?? "ok";
+              const isSelected = selectedSourceIds.international.includes(s.id);
+              return (
+                <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSourceSelection(s.id, "international")}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                    />
+                    <span style={{ fontSize: 14 }} className="text-white/90 truncate">{s.name}</span>
+                  </label>
+                  <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
+                    {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
+                  </span>
+                </div>
+              );
+            })}
+            </div>
           </div>
           )}
         </div>
       </section>
 
-      {/* AI API 연결상태 */}
+      {/* API 연결상태 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
             <button
               type="button"
-              onClick={() => setAiExpanded((v) => !v)}
+              onClick={() => setApiExpanded((v) => !v)}
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              AI API 연결상태
+              API 연결상태
               <ChevronDown
                 size={16}
-                className={`text-white/60 transition-transform shrink-0 ${aiExpanded ? "rotate-180" : ""}`}
+                className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
               />
             </button>
             <button
@@ -558,62 +624,53 @@ export function SettingsPage() {
               새로고침
             </button>
           </div>
-          {aiExpanded && (
+          {apiExpanded && (
           <div className="border-t border-white/6 divide-y divide-white/6 px-4 pb-4 pt-4">
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-2">
-              <Cpu size={16} className="text-orange-300" />
-              <span style={{ fontSize: 14 }} className="text-white/90">
-                Claude
+          <div style={{ fontSize: 11 }} className="text-white/30 mb-2">
+            Gemini / ChatGPT / Finnhub / 공공데이터(지수·주식)
+          </div>
+          {[
+            { key: "gpt" as const, label: "ChatGPT", icon: Cpu },
+            { key: "gemini" as const, label: "Gemini", icon: Sparkles },
+            { key: "finnhub" as const, label: "Finnhub", icon: null },
+            { key: "dataGoKrIndex" as const, label: "공공데이터 지수시세", icon: null },
+            { key: "dataGoKrStock" as const, label: "공공데이터 주식시세", icon: null },
+          ].map(({ key, label, icon: Icon }) => (
+            <div key={key} className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-2">
+                {Icon && <Icon size={16} className="text-white/70" />}
+                <span style={{ fontSize: 14 }} className="text-white/90">{label}</span>
+              </div>
+              <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
+                {apiStatus[key] === "ok" ? (
+                  <>
+                    <CheckCircle2 size={14} />
+                    연결
+                  </>
+                ) : (
+                  <>
+                    <XCircle size={14} />
+                    오류
+                  </>
+                )}
               </span>
             </div>
-            <span className={`flex items-center gap-1.5 ${aiStatus.claude === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-              {aiStatus.claude === "ok" ? (
-                <>
-                  <CheckCircle2 size={14} />
-                  연결
-                </>
-              ) : (
-                <>
-                  <XCircle size={14} />
-                  오류
-                </>
-              )}
-            </span>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-sky-300" />
-              <span style={{ fontSize: 14 }} className="text-white/90">
-                Gemini
-              </span>
-            </div>
-            <span className={`flex items-center gap-1.5 ${aiStatus.gemini === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-              {aiStatus.gemini === "ok" ? (
-                <>
-                  <CheckCircle2 size={14} />
-                  연결
-                </>
-              ) : (
-                <>
-                  <XCircle size={14} />
-                  오류
-                </>
-              )}
-            </span>
-          </div>
+          ))}
           <div className="pt-2">
             <div style={{ fontSize: 12 }} className="text-white/40 mb-1">
-              {aiStatus.claude === "ok" && aiStatus.gemini === "ok" ? "상태" : "오류내용"} :
+              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.finnhub === "ok" && apiStatus.dataGoKrIndex === "ok" && apiStatus.dataGoKrStock === "ok" ? "상태" : "오류내용"} :
             </div>
             <div
               className="rounded-[8px] bg-white/5 border border-white/8 px-3 py-2"
               style={{ fontSize: 13, lineHeight: 1.5 }}
             >
-              <span className={aiStatus.claude === "ok" && aiStatus.gemini === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
-                {aiStatus.errorMessage}
+              <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.finnhub === "ok" && apiStatus.dataGoKrIndex === "ok" && apiStatus.dataGoKrStock === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
+                {apiStatus.errorMessage}
               </span>
             </div>
+            <p style={{ fontSize: 12 }} className="text-white/35 mt-2">
+              ※ 공공데이터는 개발 서버(Vite 프록시)에서만 연결. 프로덕션 빌드 시 백엔드 프록시 필요.
+            </p>
           </div>
           </div>
           )}

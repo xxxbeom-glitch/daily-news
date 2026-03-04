@@ -1,13 +1,14 @@
-import { useState, useCallback } from "react";
-import {
-  RefreshCw,
-  CheckCheck,
-  Sparkles,
-  Cpu,
-} from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
+import { saveSearchState, loadSearchState, getSelectedSources } from "../utils/persistState";
+import { useSearchState } from "../context/SearchStateContext";
+import { RefreshCw } from "lucide-react";
 import type { Article } from "../data/newsSources";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import type { MarketSummaryData } from "../data/marketSummary";
+import {
+  mockMarketSummaryInternational,
+  mockMarketSummaryDomestic,
+} from "../data/marketSummary";
 import { generateMarketSummary } from "../utils/aiSummary";
 import { useArchive } from "../context/ArchiveContext";
 import { MarketSummaryView } from "./MarketSummaryView";
@@ -18,17 +19,7 @@ import {
 } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { useWatchlist } from "../context/WatchlistContext";
-import { Link } from "react-router-dom";
-
-const RANGE_LABELS: Record<string, string> = {
-  "24h": "24시간 이내",
-  "6h": "6시간 이내",
-  "3h": "3시간 이내",
-  "1h": "1시간 이내",
-};
-
-const DEFAULT_DOMESTIC = ["hankyung_all", "hankyung_finance", "mk", "sbs"];
-const DEFAULT_INTERNATIONAL = ["yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"];
+import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
 
 const LOAD_STEPS: Record<number, string> = {
   0: "RSS 피드 수집 중…",
@@ -37,330 +28,374 @@ const LOAD_STEPS: Record<number, string> = {
   3: "시황 리포트 생성 중…",
 };
 
-function getLoadStepLabel(step: number, model: "gemini" | "claude") {
+function getLoadStepLabel(step: number, model: "gemini" | "gpt") {
   if (step <= 2) return LOAD_STEPS[step];
-  if (step === 3) return (model === "gemini" ? "Gemini AI" : "Claude AI") + " 분석·요약 중…";
+  if (step === 3) return (model === "gemini" ? "Gemini AI" : "ChatGPT") + " 분석·요약 중…";
   return "시황 리포트 생성 중…";
 }
 
 export function SearchPage() {
   const { addSession } = useArchive();
   const { items: watchlistItems } = useWatchlist();
-  const [isInternational, setIsInternational] = useState(true);
-  const [selectedSources, setSelectedSources] = useState<Set<string>>(
-    () => new Set(DEFAULT_INTERNATIONAL)
-  );
-  const [selectedModel, setSelectedModel] = useState<"gemini" | "claude">("gemini");
-  const [isLoading, setIsLoading] = useState(false);
-  const [summary, setSummary] = useState<MarketSummaryData | null>(null);
-  const [loadStep, setLoadStep] = useState(0);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const {
+    summaryInternational,
+    summaryDomestic,
+    setSummaryInternational,
+    setSummaryDomestic,
+    summaryModel,
+    setSummaryModel,
+    selectedModel,
+    setSelectedModel,
+    isLoading,
+    setIsLoading,
+    loadStep,
+    setLoadStep,
+    loadProgress,
+    setLoadProgress,
+    fetchError,
+    setFetchError,
+    fetchInfo,
+    setFetchInfo,
+  } = useSearchState();
 
-  const sources = isInternational ? internationalSources : domesticSources;
+  const selectedSources = getSelectedSources();
+  const hasIntlSources = selectedSources.international.length > 0;
+  const hasDomesticSources = selectedSources.domestic.length > 0;
+  const hasSources = hasIntlSources || hasDomesticSources;
 
-  const setRegion = useCallback((international: boolean) => {
-    setIsInternational(international);
-    setSelectedSources(new Set(international ? DEFAULT_INTERNATIONAL : DEFAULT_DOMESTIC));
-    setSummary(null);
-    setFetchError(null);
-  }, []);
+  const intlSourceList = internationalSources.filter((s) => selectedSources.international.includes(s.id));
+  const domesticSourceList = domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
 
-  const toggleSource = useCallback((id: string) => {
-    setSelectedSources((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const hasAnySummary = summaryInternational !== null || summaryDomestic !== null;
+
+  // 페이지 진입 시 sessionStorage에서 폼 상태 복원
+  useEffect(() => {
+    const saved = loadSearchState();
+    if (!saved) return;
+    if (saved.selectedModel) setSelectedModel(saved.selectedModel);
+    const si = saved.summaryInternational;
+    const sd = saved.summaryDomestic;
+    const isValid = (s: unknown): s is MarketSummaryData =>
+      s != null && typeof s === "object" && Array.isArray((s as MarketSummaryData).indices);
+    if (si != null && isValid(si)) setSummaryInternational(si as MarketSummaryData);
+    if (sd != null && isValid(sd)) setSummaryDomestic(sd as MarketSummaryData);
+    if (saved.summaryModel) setSummaryModel(saved.summaryModel);
+    // 이전 형식 호환
+    if (saved.summary != null && isValid(saved.summary)) {
+      const s = saved.summary as MarketSummaryData;
+      if (saved.isInternational) setSummaryInternational(s);
+      else setSummaryDomestic(s);
+    }
+  }, [setSelectedModel, setSummaryInternational, setSummaryDomestic, setSummaryModel]);
+
+  // 상태 변경 시 sessionStorage 저장
+  useEffect(() => {
+    saveSearchState({
+      selectedModel,
+      sourcesExpanded: false,
+      ...(summaryInternational ? { summaryInternational } : {}),
+      ...(summaryDomestic ? { summaryDomestic } : {}),
+      ...((summaryInternational || summaryDomestic) ? { summaryModel } : {}),
     });
-  }, []);
+  }, [selectedModel, summaryInternational, summaryDomestic, summaryModel]);
 
-  const handleFetch = useCallback(async () => {
-    if (selectedSources.size === 0) return;
-    setIsLoading(true);
-    setSummary(null);
-    setFetchError(null);
-    setLoadStep(0);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const recentRange = getRecentRangeFromSettings();
-    const sourceList = sources.filter((s) => selectedSources.has(s.id));
+  useEffect(() => {
+    if (!isLoading || loadStep !== 3) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      return;
+    }
+    progressIntervalRef.current = setInterval(() => {
+      setLoadProgress((p) => Math.min(p + 3, 88));
+    }, 1500);
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, [isLoading, loadStep]);
 
-    try {
-      // Step 0: RSS 피드 수집
+  const runPipeline = useCallback(
+    async (isInternational: boolean): Promise<MarketSummaryData | null> => {
+      const sourceList = isInternational ? intlSourceList : domesticSourceList;
+      const sourceIds = isInternational ? selectedSources.international : selectedSources.domestic;
+      if (sourceList.length === 0) return null;
+
       const { articles: rawArticles, error: rssError } = await fetchRssFeeds({
         sources: sourceList,
-        onProgress: () => setLoadStep(0),
+        onProgress: () => {},
       });
+      if (rssError) throw new Error(rssError);
 
-      if (rssError) {
-        setFetchError(rssError);
-        setIsLoading(false);
-        return;
-      }
-
-      // Step 1: 기사 검색 기간 내 필터링
-      setLoadStep(1);
-      await new Promise((r) => setTimeout(r, 300));
+      const recentRange = getRecentRangeFromSettings();
       const byRange = filterArticlesByRange(rawArticles, recentRange);
-
-      // Step 2: 고품질 기사 선별 (5가지 규칙)
-      setLoadStep(2);
-      await new Promise((r) => setTimeout(r, 200));
       const filtered = filterHighQualityNews(byRange, {
-        watchlist: watchlistItems.map((w) => ({ symbol: w.symbol, name: w.name })),
-      });
-
-      if (filtered.length === 0) {
-        setFetchError("검색 기간 내 수집된 기사가 없습니다. 기사 검색 기간을 늘리거나 다른 언론사를 선택해보세요.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Step 3-4: AI 시황 요약 API 호출
-      setLoadStep(3);
-      const data = await generateMarketSummary({
-        articles: filtered.slice(0, 30).map((a) => ({
-          title: a.title,
-          link: a.link,
-          pubDate: a.pubDate,
-          sourceId: a.sourceId,
-          sourceName: a.sourceName,
-          body: a.body,
+        watchlist: watchlistItems.map((w) => ({
+          symbol: w.symbol,
+          name: w.name,
+          isDomestic: w.isDomestic,
         })),
         isInternational,
-        model: selectedModel,
       });
-      setLoadStep(4);
-      await new Promise((r) => setTimeout(r, 100));
-      setSummary(data);
-      setIsLoading(false);
+      if (filtered.length === 0) return null;
+
+      let moversSeed: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] } | undefined;
+      if (isInternational) {
+        const movers = await fetchTopMovers(true);
+        if (movers && "up" in movers) {
+          moversSeed = {
+            up: movers.up.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate })),
+            down: movers.down.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate })),
+          };
+        }
+      }
+
+      const articlePayload = filtered.slice(0, 30).map((a) => ({
+        title: a.title,
+        link: a.link,
+        pubDate: a.pubDate,
+        sourceId: a.sourceId,
+        sourceName: a.sourceName,
+        body: a.body,
+      }));
+
+      const watchlistForMode = watchlistItems.map((w) => ({
+        symbol: w.symbol,
+        name: w.name,
+        isDomestic: w.isDomestic,
+      }));
+
+      let data: MarketSummaryData;
+      let actualModel: "gemini" | "gpt" = selectedModel;
+      try {
+        data = await generateMarketSummary({
+          articles: articlePayload,
+          isInternational,
+          model: selectedModel,
+          watchlist: watchlistForMode,
+          moversSeed,
+        });
+      } catch {
+        const otherModel = selectedModel === "gemini" ? "gpt" : "gemini";
+        try {
+          data = await generateMarketSummary({
+            articles: articlePayload,
+            isInternational,
+            model: otherModel,
+            watchlist: watchlistForMode,
+            moversSeed,
+          });
+          actualModel = otherModel;
+        } catch {
+          data = isInternational ? mockMarketSummaryInternational : mockMarketSummaryDomestic;
+          actualModel = selectedModel;
+        }
+      }
+
+      await enrichMarketData(data, isInternational, { preserveMovers: !!moversSeed });
 
       const now = new Date();
-      const title = `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
-        (now.getHours() < 12 ? "오전" : "오후") + ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · ${data.regionLabel}`;
+      const title =
+        `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
+        (now.getHours() < 12 ? "오전" : "오후") +
+        ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · ${data.regionLabel}`;
 
-      const articlesForSession: Article[] = filtered.length > 0
-        ? filtered.slice(0, 20).map((a, i) => ({
-            id: `rss-${Date.now()}-${i}`,
-            title: a.title,
-            source: a.sourceName,
-            sourceId: a.sourceId,
-            publishedAt: new Date(a.pubDate).toISOString(),
-            url: a.link,
-            summary: "",
-            aiModel: selectedModel,
-            category: "Economy",
-            isInternational,
-          }))
-        : [{
-            id: "m1",
-            title: "시황 요약 (검색 기간 내 기사 없음)",
-            source: sourceList[0]?.name ?? "Unknown",
-            sourceId: sourceList[0]?.id ?? "unknown",
-            publishedAt: now.toISOString(),
-            url: "https://example.com",
-            summary: data.keyIssues[0]?.body ?? "",
-            aiModel: selectedModel,
-            category: "Economy",
-            isInternational,
-          }];
+      const articlesForSession: Article[] =
+        filtered.length > 0
+          ? filtered.slice(0, 20).map((a, i) => ({
+              id: `rss-${Date.now()}-${i}`,
+              title: a.title,
+              source: a.sourceName,
+              sourceId: a.sourceId,
+              publishedAt: new Date(a.pubDate).toISOString(),
+              url: a.link,
+              summary: "",
+              aiModel: actualModel,
+              category: "Economy",
+              isInternational,
+            }))
+          : [
+              {
+                id: "m1",
+                title: "시황 요약 (검색 기간 내 기사 없음)",
+                source: sourceList[0]?.name ?? "Unknown",
+                sourceId: sourceList[0]?.id ?? "unknown",
+                publishedAt: now.toISOString(),
+                url: "https://example.com",
+                summary: data.keyIssues[0]?.body ?? "",
+                aiModel: actualModel,
+                category: "Economy",
+                isInternational,
+              },
+            ];
 
       addSession({
-        id: `session-${Date.now()}`,
+        id: `session-${Date.now()}-${isInternational ? "intl" : "dom"}`,
         title,
         createdAt: now.toISOString(),
         isInternational,
-        sources: Array.from(selectedSources),
+        sources: sourceIds,
         articles: articlesForSession,
         marketSummary: data,
-        aiModel: selectedModel,
+        aiModel: actualModel,
       });
+
+      return data;
+    },
+    [
+      intlSourceList,
+      domesticSourceList,
+      selectedSources,
+      selectedModel,
+      watchlistItems,
+      addSession,
+    ]
+  );
+
+  const handleFetch = useCallback(async () => {
+    if (!hasSources) return;
+    setIsLoading(true);
+    setSummaryInternational(null);
+    setSummaryDomestic(null);
+    setFetchError(null);
+    setFetchInfo(null);
+    setLoadStep(0);
+    setLoadProgress(0);
+
+    const errors: string[] = [];
+    let fallbackMsg: string | null = null;
+
+    try {
+      setLoadStep(0);
+      setLoadProgress(10);
+
+      const tasks: { isInternational: boolean }[] = [];
+      if (hasIntlSources) tasks.push({ isInternational: true });
+      if (hasDomesticSources) tasks.push({ isInternational: false });
+
+      if (tasks.length === 0) {
+        setFetchError("선택된 언론사가 없습니다. 설정에서 언론사를 선택해주세요.");
+        setIsLoading(false);
+        return;
+      }
+
+      setLoadStep(1);
+      setLoadProgress(25);
+      await new Promise((r) => setTimeout(r, 200));
+
+      setLoadStep(2);
+      setLoadProgress(40);
+      await new Promise((r) => setTimeout(r, 200));
+
+      setLoadStep(3);
+      setLoadProgress(52);
+
+      if (tasks.length === 1) {
+        const { isInternational } = tasks[0];
+        try {
+          const data = await runPipeline(isInternational);
+          setLoadProgress(100);
+          if (data) {
+            if (isInternational) setSummaryInternational(data);
+            else setSummaryDomestic(data);
+          } else {
+            errors.push(isInternational ? "해외" : "국내" + " 기사가 없어 시황을 생성하지 못했습니다.");
+          }
+        } catch (e) {
+          errors.push((e instanceof Error ? e.message : "알 수 없는 오류") + (isInternational ? " (해외)" : " (국내)"));
+        }
+      } else {
+        const [intlData, domData] = await Promise.all([
+          runPipeline(true),
+          runPipeline(false),
+        ]);
+        setLoadProgress(100);
+        if (intlData) setSummaryInternational(intlData);
+        else if (hasIntlSources) errors.push("해외 기사가 없어 해외 시황을 생성하지 못했습니다.");
+        if (domData) setSummaryDomestic(domData);
+        else if (hasDomesticSources) errors.push("국내 기사가 없어 국내 시황을 생성하지 못했습니다.");
+      }
+
+      setSummaryModel(selectedModel);
+      if (fallbackMsg) setFetchInfo(fallbackMsg);
+      if (errors.length > 0) setFetchError(errors.join("\n"));
+      setIsLoading(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.";
       setFetchError(`API 오류: ${msg}`);
-      setSummary(null);
+      setSummaryInternational(null);
+      setSummaryDomestic(null);
       setIsLoading(false);
     }
-  }, [isInternational, selectedSources, selectedModel, sources, addSession, watchlistItems]);
+  }, [
+    hasSources,
+    hasIntlSources,
+    hasDomesticSources,
+    selectedModel,
+    runPipeline,
+    setIsLoading,
+    setSummaryInternational,
+    setSummaryDomestic,
+    setSummaryModel,
+    setFetchError,
+    setFetchInfo,
+  ]);
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex-1 px-4 pt-5 space-y-4 pb-[130px]">
-        {/* 1. 지역 선택 카드 */}
-        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden p-4">
-          <div
-            className="text-white/50 uppercase mb-3"
-            style={{ fontSize: 15, fontWeight: 500, letterSpacing: "0.05em" }}
-          >
-            지역 선택
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setRegion(true)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[6px] border transition-all ${
-                isInternational
-                  ? "bg-[#618EFF] text-white border-transparent"
-                  : "bg-white/5 border-white/10 text-white/50"
-              }`}
-              style={{ fontSize: 14 }}
-            >
-              <span className="mr-1">🇺🇸</span>
-              해외
-            </button>
-            <button
-              type="button"
-              onClick={() => setRegion(false)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[6px] border transition-all ${
-                !isInternational
-                  ? "bg-[#618EFF] text-white border-transparent"
-                  : "bg-white/5 border-white/10 text-white/50"
-              }`}
-              style={{ fontSize: 14 }}
-            >
-              <span className="mr-1">🇰🇷</span>
-              국내
-            </button>
-          </div>
-        </div>
-
-        {/* 2. 언론사 선택 카드 */}
-        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden p-4">
-          <div
-            className="text-white/50 uppercase mb-3"
-            style={{ fontSize: 15, fontWeight: 500, letterSpacing: "0.05em" }}
-          >
-            언론사 선택
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {sources.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => toggleSource(s.id)}
-                className={`inline-flex items-center rounded-[6px] border px-3 py-1.5 transition-all ${
-                  selectedSources.has(s.id)
-                    ? "bg-[#618EFF]/25 border-[#618EFF]/50 text-[#618EFF]"
-                    : "bg-white/5 border-white/10 text-white/50"
-                }`}
-                style={{ fontSize: 14 }}
-              >
-                {s.name}
-              </button>
-            ))}
-          </div>
-          <div
-            className="mt-3 text-white/30 border-t border-white/6 pt-3 flex items-center justify-between"
-            style={{ fontSize: 14 }}
-          >
-            <span>{selectedSources.size}개 선택됨</span>
-            <Link
-              to="/settings"
-              className="text-[#618EFF]/80 hover:text-[#8BABFF]"
-            >
-              기간: {RANGE_LABELS[getRecentRangeFromSettings()] ?? "24시간 이내"}
-            </Link>
-          </div>
-        </div>
-
-        {/* 3. 로딩 프로그래스 */}
+      <div className="flex-1 px-4 pt-5 space-y-4 pb-[200px]">
         {isLoading && (
-          <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden divide-y divide-white/6">
-            {[0, 1, 2, 3, 4].map((step) => (
-              <div
-                key={step}
-                className={`flex items-center gap-3 px-4 py-3 ${
-                  step < loadStep
-                    ? "bg-[#2C3D6B]/50 text-[#8BABFF]"
-                    : step === loadStep
-                      ? "bg-[#618EFF]/30 text-[#618EFF]"
-                      : "bg-white/5 text-white/20"
-                }`}
-              >
-                {step < loadStep ? (
-                  <CheckCheck size={16} />
-                ) : step === loadStep ? (
-                  <RefreshCw size={16} className="animate-spin" />
-                ) : (
-                  <span style={{ fontSize: 14 }}>{step + 1}</span>
-                )}
-                <span style={{ fontSize: 14 }}>
-                  {getLoadStepLabel(step, selectedModel)}
-                </span>
-              </div>
-            ))}
+          <div className="bg-white/5 border border-white/8 rounded-[10px] px-5 py-6 text-center">
+            <div style={{ fontSize: 14 }} className="text-white/80">
+              {getLoadStepLabel(loadStep, selectedModel)}
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 600 }} className="text-white/90 mt-1">
+              {loadProgress}%
+            </div>
+            <div style={{ fontSize: 12 }} className="text-white/40 mt-2">
+              RSS 수집 → 기사 선별 → AI 분석 순으로 진행 중입니다
+            </div>
           </div>
         )}
 
-        {/* 4. 오류 표시 */}
         {fetchError && !isLoading && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-[10px] px-5 py-6">
-            <p
-              className="text-red-400"
-              style={{ fontSize: 14, lineHeight: 1.6 }}
-            >
-              {fetchError}
-            </p>
+            <p className="text-red-400" style={{ fontSize: 14, lineHeight: 1.6 }}>{fetchError}</p>
+          </div>
+        )}
+        {fetchInfo && !isLoading && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-[10px] px-5 py-4">
+            <p className="text-amber-400" style={{ fontSize: 14, lineHeight: 1.6 }}>ℹ️ {fetchInfo}</p>
           </div>
         )}
 
-        {/* 5. AI 시황 요약 결과 */}
-        {summary !== null && !isLoading && !fetchError && (
-          <MarketSummaryView
-            data={summary}
-            aiModel={selectedModel}
-          />
+        {summaryInternational !== null && !isLoading && !fetchError && (
+          <MarketSummaryView data={summaryInternational} aiModel={summaryModel} />
+        )}
+        {summaryDomestic !== null && !isLoading && !fetchError && (
+          <MarketSummaryView data={summaryDomestic} aiModel={summaryModel} />
         )}
 
-        {/* 6. 빈 상태 안내 */}
-        {summary === null && !isLoading && !fetchError && (
-          <div className="bg-white/5 border border-white/8 rounded-[10px] px-6 py-8 text-center">
-            <p
-              className="text-white/50"
-              style={{ fontSize: 14, lineHeight: 1.7 }}
-            >
-              지역과 언론사를 고른 뒤<br />
-              하단 <span className="text-[#618EFF]" style={{ fontSize: 14, fontWeight: 500 }}>AI요약하기</span> 버튼을 눌러주세요.
+        {!hasAnySummary && !isLoading && !fetchError && (
+          <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] text-center">
+            <p className="text-white/50" style={{ fontSize: 14, lineHeight: 1.7 }}>
+              하단 <span className="text-[#618EFF]" style={{ fontWeight: 500 }}>AI요약하기</span> 버튼을 눌러주세요.
+              <br />
+              해외·국내 시황이 자동으로 생성됩니다.
             </p>
           </div>
         )}
       </div>
 
-      {/* 하단 고정 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#0a0a0f]/95 backdrop-blur-md border-t border-white/6 px-4 pt-3 pb-5 space-y-3 z-10">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedModel("gemini")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border transition-all ${
-              selectedModel === "gemini"
-                ? "bg-[#618EFF]/20 border-[#618EFF]/40 text-[#618EFF]"
-                : "bg-white/5 border-white/10 text-white/35"
-            }`}
-            style={{ fontSize: 14 }}
-          >
-            <Sparkles size={14} />
-            Gemini
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedModel("claude")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border transition-all ${
-              selectedModel === "claude"
-                ? "bg-[#2C3D6B]/50 border-[#2C3D6B]/60 text-[#8BABFF]"
-                : "bg-white/5 border-white/10 text-white/35"
-            }`}
-            style={{ fontSize: 14 }}
-          >
-            <Cpu size={14} />
-            Claude
-          </button>
-        </div>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#0a0a0f]/95 backdrop-blur-md border-t border-white/6 px-4 pt-3 pb-5 z-10">
         <button
           type="button"
           onClick={handleFetch}
-          disabled={selectedSources.size === 0 || isLoading}
+          disabled={!hasSources || isLoading}
           className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
-            selectedSources.size === 0 || isLoading
+            !hasSources || isLoading
               ? "bg-white/5 text-white/30 cursor-not-allowed"
               : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
           }`}

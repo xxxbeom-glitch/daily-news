@@ -14,7 +14,7 @@ export interface Article {
   publishedAt: string; // ISO8601
   url: string;
   summary: string;
-  aiModel: "gemini" | "claude";
+  aiModel: "gemini" | "gpt";
   category: string;
   isInternational: boolean;
 }
@@ -28,7 +28,7 @@ export interface ArchiveSession {
   articles: Article[];
   /** 생성된 시황 요약 데이터 (표시용) */
   marketSummary?: MarketSummaryData;
-  aiModel?: "gemini" | "claude";
+  aiModel?: "gemini" | "gpt";
 }
 
 // 국내 언론사
@@ -39,8 +39,9 @@ export const domesticSources: NewsSource[] = [
   { id: "sbs", name: "SBS", rssUrl: "https://news.sbs.co.kr/news/newsflashRssFeed.do?plink=RSSREADER" },
 ];
 
-// 해외 언론사 (3대지수는 Yahoo Finance에서만 자료 가져오기)
+// 해외 언론사
 export const internationalSources: NewsSource[] = [
+  { id: "finnhub", name: "Finnhub 뉴스", rssUrl: "https://finnhub.io/api/v1/news" },
   { id: "yahoofinance", name: "Yahoo Finance", rssUrl: "https://finance.yahoo.com/news/rssindex" },
   { id: "cnbc_investing", name: "CNBC Investing", rssUrl: "https://www.cnbc.com/id/10001147/device/rss/rss.html" },
   { id: "cnbc_tech", name: "CNBC Technology", rssUrl: "https://www.cnbc.com/id/19854910/device/rss/rss.html" },
@@ -70,7 +71,7 @@ export const mockArticles: Article[] = [
     publishedAt: "2026-03-04T02:15:00Z",
     url: "https://example.com/2",
     summary: "엔비디아가 예상 대비 높은 실적을 발표하며 주가가 급등했음.",
-    aiModel: "claude",
+    aiModel: "gpt",
     category: "Tech",
     isInternational: true,
   },

@@ -13,6 +13,12 @@ export interface NewsArticle extends RawRssArticle {
 export interface WatchlistItem {
   symbol: string;
   name: string;
+  /** 국내(.KS/.KQ)인지. 없으면 symbol로 유추 */
+  isDomestic?: boolean;
+}
+
+function isDomesticSymbol(symbol: string): boolean {
+  return symbol.endsWith(".KS") || symbol.endsWith(".KQ");
 }
 
 // 규칙 2: 클릭베이트 차단 블랙리스트
@@ -38,6 +44,16 @@ const CORE_THEME_KEYWORDS = [
   "전력", "인프라", "인프라스트럭처", "방산", "우주", "항공",
   "지정학", "글로벌 공급망", "G7", "수소", "배터리", "전기차", "EV",
   "클라우드", "데이터센터", "5G", "통신",
+];
+
+// 빅테크 M7 + AI테크 기업 (기사 우선 포함 대상)
+const BIG_TECH_M7_KEYWORDS = [
+  "Nvidia", "NVDA", "엔비디아", "Apple", "AAPL", "애플", "Microsoft", "MSFT", "마이크로소프트",
+  "Google", "GOOGL", "Alphabet", "알파벳", "구글", "Amazon", "AMZN", "아마존",
+  "Meta", "META", "메타", "Facebook", "페이스북", "Tesla", "TSLA", "테슬라",
+  "AMD", "Palantir", "PLTR", "팔란티어", "Broadcom", "AVGO", "Qualcomm", "QCOM",
+  "Oracle", "ORCL", "Salesforce", "CRM", "Adobe", "ADBE", "Netflix", "NFLX", "넷플릭스",
+  "Intel", "INTC", "인텔", "Micron", "MU", "Super Micro", "SMCI",
 ];
 
 /** 규칙 2: 클릭베이트 체크 → 포함 시 true (폐기 대상) */
@@ -74,18 +90,22 @@ function getOfficialGuidanceScore(title: string, body: string = ""): number {
   ).length;
 }
 
-/** 규칙 4: 관심 종목 일치 점수 (1순위) */
+/** 규칙 4: 관심 종목 일치 점수 (1순위) - 국내/해외 모드에 맞는 종목만 반영 */
 function getWatchlistScore(
   title: string,
   body: string,
-  watchlist: WatchlistItem[]
+  watchlist: WatchlistItem[],
+  isInternational: boolean
 ): number {
   if (watchlist.length === 0) return 0;
   const text = `${title} ${body}`;
   let score = 0;
   for (const w of watchlist) {
-    if (text.includes(w.name) || text.includes(w.symbol)) score += 10;
-    if (text.includes(w.name.split(/\s/)[0])) score += 5; // "삼성" 등
+    const domestic = w.isDomestic ?? isDomesticSymbol(w.symbol);
+    // 국내 모드: 국내 종목만, 해외 모드: 해외 종목만 관심종목 점수 부여
+    if (isInternational !== domestic) continue;
+    if (text.includes(w.name) || text.includes(w.symbol)) score += 80; // 1순위
+    else if (text.includes(w.name.split(/\s/)[0])) score += 40; // "삼성" 등 부분 일치
   }
   return score;
 }
@@ -96,6 +116,14 @@ function getThemeScore(title: string, body: string = ""): number {
   return CORE_THEME_KEYWORDS.filter(
     (kw) => text.toLowerCase().includes(kw.toLowerCase())
   ).length;
+}
+
+/** 빅테크 M7·AI테크 기업 언급 점수 (우선 포함) */
+function getBigTechM7Score(title: string, body: string = ""): number {
+  const text = `${title} ${body}`;
+  return BIG_TECH_M7_KEYWORDS.filter(
+    (kw) => text.toLowerCase().includes(kw.toLowerCase())
+  ).length * 8; // 빅테크 기사 강하게 우선
 }
 
 /** 간단한 텍스트 토큰화 (공백/한글 단위) */
@@ -166,8 +194,30 @@ function deduplicate(
   return result;
 }
 
+/** 한국 언론사 기사에서 순수 해외소식(한국 기업 무관) 제외용 키워드 */
+const KOREAN_COMPANY_INDICATORS = [
+  "삼성", "SK", "하이닉스", "현대", "기아", "네이버", "카카오", "쿠팡", "LG", "POSCO", "포스코",
+  "에코프로", "셀리버리", "피엔티", "제넥신", "로보티즈", "유니셈", "한화", "두산", "현대차",
+  "코스피", "코스닥", "국내", "한국", "서울", "수출", "원화", "한국은행", "금융위",
+];
+/** 순수 해외 주제 키워드 (이만 있고 한국 기업 없으면 제외) */
+const OVERSEAS_ONLY_INDICATORS = [
+  "엔비디아", "Nvidia", "NVDA", "애플", "Apple", "AAPL", "테슬라", "Tesla", "TSLA",
+  "마이크로소프트", "Microsoft", "MSFT", "구글", "Google", "아마존", "Amazon", "메타", "Meta",
+  "S&P500", "나스닥", "NASDAQ", "다우존스", "Fed", "연준", "FOMC", "파월",
+];
+
+function isOverseasOnlyArticle(title: string, body: string): boolean {
+  const text = `${title} ${body}`;
+  const hasKorean = KOREAN_COMPANY_INDICATORS.some((k) => text.includes(k));
+  if (hasKorean) return false;
+  return OVERSEAS_ONLY_INDICATORS.some((k) => text.includes(k));
+}
+
 export interface FilterOptions {
   watchlist: WatchlistItem[];
+  /** true=해외, false=국내. 국내 시 한국언론사의 순수 해외소식 제외 */
+  isInternational?: boolean;
 }
 
 /**
@@ -177,24 +227,30 @@ export function filterHighQualityNews(
   articles: NewsArticle[],
   options: FilterOptions
 ): NewsArticle[] {
-  const { watchlist } = options;
+  const { watchlist, isInternational = true } = options;
 
   // 규칙 2: 클릭베이트 즉시 폐기
-  const afterClickbait = articles.filter(
-    (a) => !hasClickbait(a.title, a.body)
-  );
+  let afterClickbait = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
 
-  // 규칙 1, 3, 4 점수 산출
+  // 국내 시: 한국 언론사의 순수 해외소식 제외 (한국 기업 관련은 유지)
+  if (!isInternational) {
+    afterClickbait = afterClickbait.filter(
+      (a) => !isOverseasOnlyArticle(a.title, a.body ?? "")
+    );
+  }
+
+  // 규칙 1, 3, 4 점수 산출 (관심종목 1순위, 국내/해외 구분 반영)
   const scored = afterClickbait.map((a) => {
     const body = a.body ?? "";
     let score = 0;
 
+    score += getWatchlistScore(a.title, body, watchlist, isInternational); // 1순위: 관심종목
     if (hasFactAndFigure(a.title, body)) score += 20;
     if (hasSpeculativePhrase(a.title, body)) score -= 10;
 
     score += getOfficialGuidanceScore(a.title, body) * 5;
-    score += getWatchlistScore(a.title, body, watchlist);
     score += getThemeScore(a.title, body) * 2;
+    score += getBigTechM7Score(a.title, body); // 빅테크 M7·AI 기업 기사 우선
 
     return { ...a, _score: Math.max(0, score) };
   });
