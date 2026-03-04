@@ -112,24 +112,13 @@ export function ArchivePage() {
       {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
       <div className="flex items-stretch gap-4 mb-4">
         <div ref={dropdownRef} className="relative flex-1 min-w-0">
-          {firebaseEnabled && (
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncing}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full text-white/50 hover:text-white/80 hover:bg-white/5 disabled:opacity-50"
-              title="클라우드에서 동기화"
-            >
-              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-            </button>
-          )}
           <button
           type="button"
           onClick={() => setDropdownOpen((o) => !o)}
             className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-[10px] border border-white/10 bg-white/5 text-left"
             style={{ fontSize: 12 }}
           >
-            <span className="text-white/90 truncate pr-8">
+            <span className="text-white/90 truncate">
               {selectedSession
                 ? selectedSession.title
                 : filteredSessions.length === 0
@@ -191,23 +180,36 @@ export function ArchivePage() {
           </div>
         )}
         </div>
-        <div className="flex shrink-0 rounded-[10px] border border-white/10 bg-white/5 px-[6px] py-2">
-          <button
-            type="button"
-            onClick={() => setIsInternational(true)}
-            className={`px-[6px] py-0 transition-colors ${isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
-            style={{ fontSize: 12 }}
-          >
-            미국
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsInternational(false)}
-            className={`px-[6px] py-0 transition-colors ${!isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
-            style={{ fontSize: 12 }}
-          >
-            한국
-          </button>
+        <div className="flex flex-col gap-1.5 shrink-0">
+          {firebaseEnabled && (
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center justify-center p-2 rounded-[8px] border border-white/10 bg-white/5 text-white/50 hover:text-white/80 hover:bg-white/8 disabled:opacity-50"
+              title="클라우드에서 동기화"
+            >
+              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+            </button>
+          )}
+          <div className="flex rounded-[10px] border border-white/10 bg-white/5 px-[6px] py-2">
+            <button
+              type="button"
+              onClick={() => setIsInternational(true)}
+              className={`px-[6px] py-0 transition-colors ${isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
+              style={{ fontSize: 12 }}
+            >
+              미국
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsInternational(false)}
+              className={`px-[6px] py-0 transition-colors ${!isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
+              style={{ fontSize: 12 }}
+            >
+              한국
+            </button>
+          </div>
         </div>
       </div>
 

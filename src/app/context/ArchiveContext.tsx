@@ -42,9 +42,11 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handler = (e: Event) => {
       const ev = e as CustomEvent<ArchiveSession[]>;
-      if (ev.detail !== undefined && Array.isArray(ev.detail)) {
-        setSessions(ev.detail);
-      }
+      if (ev.detail === undefined || !Array.isArray(ev.detail)) return;
+      setSessions((prev) => {
+        if (ev.detail.length === 0 && prev.length > 0) return prev;
+        return ev.detail;
+      });
     };
     window.addEventListener("newsbrief_sessions_loaded", handler);
     return () => window.removeEventListener("newsbrief_sessions_loaded", handler);
