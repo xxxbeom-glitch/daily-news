@@ -1,11 +1,13 @@
-/** 내부저장소에 저장: File System Access API 또는 다운로드 */
-export async function saveToLocalStorage(data: string, filename: string): Promise<{ ok: boolean; error?: string }> {
+/** Blob을 내부저장소에 저장 (ZIP 등) */
+export async function saveBlobToLocalStorage(
+  blob: Blob,
+  filename: string
+): Promise<{ ok: boolean; error?: string }> {
   try {
-    const blob = new Blob([data], { type: "application/json" });
     if (typeof window !== "undefined" && "showSaveFilePicker" in window) {
       const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
         suggestedName: filename,
-        types: [{ description: "JSON 파일", accept: { "application/json": [".json"] } }],
+        types: [{ description: "ZIP 파일", accept: { "application/zip": [".zip"] } }],
       });
       const writable = await handle.createWritable();
       await writable.write(blob);
@@ -70,30 +72,28 @@ function getGoogleAccessToken(): Promise<string> {
   });
 }
 
-/** 구글 드라이브에 파일 업로드 */
-export async function uploadToGoogleDrive(
-  data: string,
-  filename: string
+/** 구글 드라이브에 Blob 업로드 (ZIP 등) */
+export async function uploadBlobToGoogleDrive(
+  blob: Blob,
+  filename: string,
+  mimeType: string
 ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
   try {
     const token = await getGoogleAccessToken();
     const boundary = "-------" + Date.now().toString(16);
-    const metadata = JSON.stringify({ name: filename, mimeType: "application/json" });
-    const body =
-      `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${metadata}\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Type: application/json\r\n\r\n` +
-      `${data}\r\n` +
-      `--${boundary}--`;
+    const metadata = JSON.stringify({ name: filename, mimeType });
+    const metaPart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`;
+    const mediaHeader = `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`;
+    const endPart = `\r\n--${boundary}--`;
+    const zipBuf = await blob.arrayBuffer();
+    const body = new Blob(
+      [metaPart, mediaHeader, zipBuf, endPart],
+      { type: `multipart/related; boundary=${boundary}` }
+    );
 
     const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
       body,
     });
 
@@ -111,3 +111,4 @@ export async function uploadToGoogleDrive(
     return { ok: false, error: msg };
   }
 }
+

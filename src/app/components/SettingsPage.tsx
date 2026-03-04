@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational, getSelectedModel, setSelectedModel } from "../utils/persistState";
-import { saveToLocalStorage, uploadToGoogleDrive } from "../utils/exportArchives";
+import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
+import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 
@@ -266,6 +267,7 @@ export function SettingsPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
+  const [exportPdfLoading, setExportPdfLoading] = useState(false);
   const [sourceStatus, setSourceStatus] = useState<Record<string, "ok" | "error">>(() => {
     const ids = [
       ...domesticSources.map((s) => s.id),
@@ -355,32 +357,48 @@ export function SettingsPage() {
     setDeleteConfirm(false);
   };
 
-  const handleExportToStorage = async () => {
-    const data = JSON.stringify(sessions, null, 2);
-    const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.json`;
-    const result = await saveToLocalStorage(data, filename);
-    setShowExportMenu(false);
-    setExportStatus({
-      type: "storage",
-      ok: result.ok,
-      message: result.ok ? "내부저장소에 저장되었습니다." : (result.error || "저장 실패"),
-    });
-    setTimeout(() => setExportStatus(null), 4000);
+  const handleExportPdfZipToStorage = async () => {
+    setExportPdfLoading(true);
+    try {
+      const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
+      setShowExportMenu(false);
+      if (!ok || !blob) {
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 변환 실패" });
+      } else {
+        const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
+        const result = await saveBlobToLocalStorage(blob, filename);
+        setExportStatus({
+          type: "pdfzip",
+          ok: result.ok,
+          message: result.ok ? "PDF(ZIP)로 내부저장소에 저장되었습니다." : (result.error || "저장 실패"),
+        });
+      }
+    } finally {
+      setExportPdfLoading(false);
+      setTimeout(() => setExportStatus(null), 4000);
+    }
   };
 
-  const handleExportToGoogleDrive = async () => {
-    const data = JSON.stringify(sessions, null, 2);
-    const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.json`;
-    const result = await uploadToGoogleDrive(data, filename);
-    setShowExportMenu(false);
-    setExportStatus({
-      type: "gdrive",
-      ok: result.ok,
-      message: result.ok
-        ? "구글 드라이브에 저장되었습니다."
-        : (result.error || "업로드 실패"),
-    });
-    setTimeout(() => setExportStatus(null), 4000);
+  const handleExportPdfZipToGoogleDrive = async () => {
+    setExportPdfLoading(true);
+    try {
+      const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
+      setShowExportMenu(false);
+      if (!ok || !blob) {
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 변환 실패" });
+      } else {
+        const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
+        const result = await uploadBlobToGoogleDrive(blob, filename, "application/zip");
+        setExportStatus({
+          type: "pdfzip",
+          ok: result.ok,
+          message: result.ok ? "PDF(ZIP)가 구글 드라이브에 저장되었습니다." : (result.error || "업로드 실패"),
+        });
+      }
+    } finally {
+      setExportPdfLoading(false);
+      setTimeout(() => setExportStatus(null), 4000);
+    }
   };
 
   return (
@@ -751,21 +769,27 @@ export function SettingsPage() {
                 <div className="fixed bottom-24 left-4 right-4 max-w-[430px] mx-auto rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl z-[101] overflow-hidden">
                   <button
                     type="button"
-                    onClick={handleExportToStorage}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left"
+                    onClick={handleExportPdfZipToStorage}
+                    disabled={exportPdfLoading || sessions.length === 0}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left border-t border-white/6 first:border-t-0 disabled:opacity-50"
                     style={{ fontSize: 14 }}
                   >
-                    <HardDrive size={18} className="text-white/60" />
-                    <span className="text-white/90">내부저장소에 저장</span>
+                    <Download size={18} className="text-white/60" />
+                    <span className="text-white/90">
+                      {exportPdfLoading ? "PDF 생성 중…" : "PDF(ZIP) · 내부저장소에 저장"}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleExportToGoogleDrive}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left border-t border-white/6"
+                    onClick={handleExportPdfZipToGoogleDrive}
+                    disabled={exportPdfLoading || sessions.length === 0}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left border-t border-white/6 disabled:opacity-50"
                     style={{ fontSize: 14 }}
                   >
                     <Cloud size={18} className="text-white/60" />
-                    <span className="text-white/90">구글드라이브에 내보내기</span>
+                    <span className="text-white/90">
+                      {exportPdfLoading ? "PDF 생성 중…" : "PDF(ZIP) · 구글드라이브에 저장"}
+                    </span>
                   </button>
                 </div>
               </>
