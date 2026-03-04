@@ -1,20 +1,16 @@
 /**
  * 관리자 설정 (설정 > 관리자)
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useAdminSettings } from "../context/AdminSettingsContext";
-import { getSelectedModel } from "../utils/persistState";
 import {
   setAdminHideMarket,
   setAdminShowNewsTab,
-  setAdminModelId,
   setAdminMovers,
   setAdminSchedule,
   setAdminTestRunAt,
-  GEMINI_MODELS,
-  OPENAI_MODELS,
   type AdminSchedule,
 } from "../utils/adminSettings";
 
@@ -26,22 +22,14 @@ const inputClass =
 export function AdminPage() {
   const location = useLocation();
   const isUnderSettings = location.pathname.startsWith("/settings/");
-  const { refresh, hideMarket, showNewsTab, modelId, schedule, movers, testRunAt } = useAdminSettings();
-  const selectedEngine = getSelectedModel();
-  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
-  const [modelSelect, setModelSelect] = useState<string | null>(() => modelId ?? null);
+  const { refresh, hideMarket, showNewsTab, schedule, movers, testRunAt } = useAdminSettings();
   const [countdownSec, setCountdownSec] = useState<number>(0);
   const [moversEdit, setMoversEdit] = useState<string>("");
   const [scheduleEdit, setScheduleEdit] = useState<AdminSchedule>({ usHour: 8, usMinute: 30, krHour: 16, krMinute: 30 });
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setScheduleEdit(schedule);
   }, [schedule]);
-
-  useEffect(() => {
-    setModelSelect(modelId);
-  }, [modelId]);
 
   useEffect(() => {
     if (testRunAt == null || testRunAt <= Date.now()) {
@@ -65,16 +53,6 @@ export function AdminPage() {
     );
   }, [movers]);
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const applyRefresh = () => {
     refresh();
   };
@@ -86,16 +64,6 @@ export function AdminPage() {
 
   const handleShowNewsTab = (v: boolean) => {
     setAdminShowNewsTab(v);
-    applyRefresh();
-  };
-
-  const handleModelSelect = (id: string | null) => {
-    setModelSelect(id);
-    setDropdownOpen(null);
-  };
-
-  const handleModelSave = () => {
-    setAdminModelId(modelSelect);
     applyRefresh();
   };
 
@@ -209,74 +177,7 @@ export function AdminPage() {
         </div>
       </section>
 
-      {/* 4. 모델 선택 */}
-      <section className={sectionClass}>
-        <h3 className={labelClass}>AI 엔진 모델</h3>
-        <p className="text-white/50 text-xs mb-2">설정 기준: {selectedEngine === "gemini" ? "Gemini" : "Chat GPT"}</p>
-        <div className="flex gap-2">
-          <div className="relative flex-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => setDropdownOpen((o) => (o === "model" ? null : "model"))}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-[8px] border border-white/15 bg-white/5 text-white text-sm"
-            >
-              <span>
-                {modelSelect ?? `기본 설정 사용 (${selectedEngine === "gemini" ? "Gemini" : "GPT"})`}
-              </span>
-              <ChevronDown size={16} className={`transition-transform shrink-0 ${dropdownOpen === "model" ? "rotate-180" : ""}`} />
-            </button>
-            {dropdownOpen === "model" && (
-              <div className="absolute top-full left-0 right-0 mt-1 max-h-[200px] overflow-y-auto rounded-[8px] border border-white/15 bg-[#12121a] shadow-xl z-20">
-                <button
-                  type="button"
-                  onClick={() => handleModelSelect(null)}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === null ? "text-white font-medium" : "text-white/90"}`}
-                >
-                  기본 설정 사용 ({selectedEngine === "gemini" ? "Gemini" : "GPT"})
-                </button>
-                {selectedEngine === "gemini" ? (
-                  <div className="border-t border-white/10 py-1">
-                    <div className="px-3 py-1 text-white/50 text-xs">Gemini</div>
-                    {GEMINI_MODELS.map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => handleModelSelect(id)}
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === id ? "text-white font-medium" : "text-white/90"}`}
-                      >
-                        {id}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="border-t border-white/10 py-1">
-                    <div className="px-3 py-1 text-white/50 text-xs">OpenAI</div>
-                    {OPENAI_MODELS.map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => handleModelSelect(id)}
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === id ? "text-white font-medium" : "text-white/90"}`}
-                      >
-                        {id}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleModelSave}
-            className="shrink-0 px-4 py-2 rounded-[8px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
-          >
-            저장
-          </button>
-        </div>
-      </section>
-
-      {/* 5. M7·반도체 종목 */}
+      {/* 4. M7·반도체 종목 */}
       <section className={sectionClass}>
         <h3 className={labelClass}>M7 및 반도체주 등락율 종목</h3>
         <p className="text-white/50 text-xs mb-2">형식: TICKER:기업명 (한 줄에 하나)</p>
@@ -296,7 +197,7 @@ export function AdminPage() {
         </button>
       </section>
 
-      {/* 6. 자동생성 시간 */}
+      {/* 5. 자동생성 시간 */}
       <section className={sectionClass}>
         <h3 className={labelClass}>자동 생성 시간 (KST)</h3>
         <div className="grid grid-cols-2 gap-3 mb-3">

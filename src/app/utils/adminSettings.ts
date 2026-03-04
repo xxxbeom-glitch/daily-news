@@ -45,14 +45,9 @@ export const GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-
 export const OPENAI_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"];
 export const ALL_MODEL_IDS = [...GEMINI_MODELS, ...OPENAI_MODELS];
 
-/** 관리자 지정 모델 ID (없으면 null → 일반 설정 gemini/gpt 사용) */
+/** 관리자 지정 모델 ID - 비활성화 (항상 기본 설정 사용) */
 export function getAdminModelId(): string | null {
-  try {
-    const v = localStorage.getItem(ADMIN_MODEL_ID_KEY);
-    return v && ALL_MODEL_IDS.includes(v) ? v : null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export function setAdminModelId(modelId: string | null): void {
