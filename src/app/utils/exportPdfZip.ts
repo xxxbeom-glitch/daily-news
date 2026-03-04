@@ -5,7 +5,7 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import JSZip from "jszip";
 import type { ArchiveSession } from "../data/newsSources";
-import type { MarketSummaryData, IndexData, IssueItem, StockMover, EarningsItem } from "../data/marketSummary";
+import type { IndexData, IssueItem, StockMover, EarningsItem } from "../data/marketSummary";
 
 const PDF_WIDTH = 595;
 const PDF_HEIGHT = 842;
