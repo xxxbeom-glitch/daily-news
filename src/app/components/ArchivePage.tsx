@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, BookmarkX } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
-import { useFirebase } from "../context/FirebaseContext";
 import { saveArchiveState, loadArchiveState } from "../utils/persistState";
 import type { ArchiveSession } from "../data/newsSources";
 import { MarketSummaryView } from "./MarketSummaryView";
@@ -12,22 +11,11 @@ const CONFIRM_MS = 2500;
 export function ArchivePage() {
   const { sessions, deleteSession } = useArchive();
   const { hideMarket } = useAdminSettings();
-  const { refreshSessionsFromCloud, isEnabled: firebaseEnabled, user } = useFirebase();
-  const [syncing, setSyncing] = useState(false);
   const [isInternational, setIsInternational] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Firebase: 진입 시 + 탭 복귀 시 클라우드 세션 동기화
-  useEffect(() => {
-    if (!firebaseEnabled) return;
-    refreshSessionsFromCloud();
-    const onVisible = () => refreshSessionsFromCloud();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [firebaseEnabled, refreshSessionsFromCloud]);
 
   // 모바일: 나갔다 오면 화면 초기화 방지 - 저장된 상태 복원
   const hasRestoredRef = useRef(false);
@@ -81,16 +69,6 @@ export function ArchivePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSync = async () => {
-    if (!firebaseEnabled || syncing) return;
-    setSyncing(true);
-    try {
-      await refreshSessionsFromCloud();
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const handleDeleteClick = (e: React.MouseEvent, session: ArchiveSession) => {
     e.stopPropagation();
     if (confirmDeleteId === session.id) {
@@ -108,25 +86,7 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <p className="text-white/40" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
-        {firebaseEnabled && (
-          <span className="flex items-center gap-2">
-            {user?.isAnonymous && (
-              <span className="text-white/30" style={{ fontSize: 11 }}>이메일 로그인 시 다른 기기와 동기화</span>
-            )}
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncing}
-              className="text-white/40 hover:text-white/70 disabled:opacity-50"
-              style={{ fontSize: 12 }}
-            >
-              {syncing ? "동기화 중…" : "동기화"}
-            </button>
-          </span>
-        )}
-      </div>
+      <p className="text-white/40 mb-3" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
       {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
       <div className="flex items-stretch gap-4 mb-4">
         <div ref={dropdownRef} className="relative flex-1 min-w-0">
