@@ -1,0 +1,49 @@
+---
+description: daily-news RSS·품질필터·요약 파이프라인 구성·규칙 (임의 변경 금지)
+globs: src/app/utils/fetchRssFeeds.ts, src/app/utils/filterHighQualityNews.ts, src/app/data/newsSources.ts, src/app/utils/aiSummary.ts, src/app/utils/runMarketSummaryPipeline.ts, api/cors-proxy.ts
+alwaysApply: false
+---
+
+# daily-news 파이프라인 고정 구성 (변경 금지)
+
+이 프로젝트의 뉴스 수집·필터링·요약 로직은 검증된 설정이다. **사용자가 명시적으로 요청하지 않는 한 이 구성을 임의로 변경하지 마라.**
+
+---
+
+## 1. RSS 수집 (fetchRssFeeds.ts)
+
+- **기간**: 기본 24h. 계층형 검색 `3h → 6h → 12h → 24h`, 최소 10편 도달 시 해당 범위 사용
+- **rss2json 우선**: `gn_*`, `sbs_economy`, `yna_economy`는 rss2json 우선 시도 후 CORS 직접 fetch
+- **TIERED_RANGE_KEYS**: `["3h", "6h", "12h", "24h"]`
+- **MIN_ARTICLES_FOR_TIERED**: 10
+
+## 2. 뉴스 소스 (newsSources.ts)
+
+**국내**: gn_hankyung, gn_mk, sbs_economy, yna_economy
+- sbs_economy: `https://api.sbs.co.kr/xml/news/rss.jsp?pmDiv=economy`
+- yna_economy: `https://www.yna.co.kr/rss/economy.xml`
+
+**해외**: finnhub, gn_cnbc, gn_wsj, gn_bloomberg, gn_reuters, gn_yahoo, gn_investing, gn_marketwatch
+
+## 3. 품질 필터 (filterHighQualityNews.ts)
+
+**즉시 제외(블랙리스트)**
+- 클릭베이트: 초대박, 폭등, 폭락, 찌라시, 뇌동매매 등
+- 브라켓: [MK포토], [포토], [페이스캠], [날씨], [영상], [인사], [부고], [운세], [날씨/XR], [포토뉴스]
+- 콘텐츠 유형: 출연, 개봉, 데뷔, 우승, 득점, 아이돌, 드라마, 살인, 혐의, 구속, 날씨, 기온, 습도
+
+**국내 전용**: 경제 핵심 키워드 1개 이상 필수(금리, 증시, 상장, 실적, 공시, 국채, 코스피, 코스닥 등)
+
+**수치 가점(hasFactAndFigure)**: 경제 맥락 수치만 (%·포인트·억원·달러·PER·PBR·CPI·GDP 등). 연예 나이·날씨 수치 제외
+
+**유사도 dedup**: SIMILARITY_THRESHOLD 0.75. 수집 부족 시(<10편) 0.9
+
+## 4. CORS 프록시 (api/cors-proxy.ts)
+
+**허용 호스트**: www.hankyung.com, www.mk.co.kr, news.sbs.co.kr, **api.sbs.co.kr**, **www.yna.co.kr**, *.yna.co.kr, news.google.com, finnhub.io, api.rss2json.com 등
+
+## 5. AI 요약 (aiSummary.ts)
+
+- 문체: 개조식·명사형 종결. 금지: ~다, ~습니다, 문두 불릿
+- 기사 5편 미만: moversSeed·시장데이터 비중 확대, 기사별 심층 분석
+- 국내 keyIssues 12개, 해외 keyIssues 미국 중심 약 80%
