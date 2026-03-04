@@ -322,6 +322,51 @@ export async function fetchIndices(isInternational: boolean): Promise<FetchIndic
   return { indices, source: finnhubSource };
 }
 
+/** 헤더 티커용 전용 심볼 (Finnhub만 사용 - CORS/Yahoo 우회로 빠른 로딩) */
+const HEADER_TICKER_SYMBOLS = [
+  { symbol: "SPY", name: "S&P500" },
+  { symbol: "QQQ", name: "나스닥" },
+  { symbol: "DIA", name: "다우존스" },
+  { symbol: "GLD", name: "금" },
+  { symbol: "SLV", name: "은" },
+  { symbol: "069500.KS", name: "코스피" },
+  { symbol: "229720.KQ", name: "코스닥" },
+];
+
+/** 헤더 티커용: Finnhub 7건 병렬 조회 (약 1~2초), 실패 시 기존 fetchIndices 경로 fallback */
+export async function fetchHeaderTickerIndices(): Promise<IndexData[]> {
+  const key = getFinnhubKey();
+  if (key) {
+    const results = await Promise.all(
+      HEADER_TICKER_SYMBOLS.map(({ symbol, name }) =>
+        fetchFinnhubQuoteWithName(symbol, name)
+      )
+    );
+    const fast = results
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .map((r) => ({
+        name: r.name,
+        value: formatNum(r.price),
+        change: formatChange(r.changePct),
+        changeAbs: formatChangeAbs(r.change),
+        isUp: r.change >= 0,
+      }));
+    if (fast.length >= 5) {
+      const order = ["S&P500", "나스닥", "다우존스", "금", "은", "코스피", "코스닥"];
+      const byName = new Map(fast.map((i) => [i.name, i]));
+      return order.filter((n) => byName.has(n)).map((n) => byName.get(n)!);
+    }
+  }
+  const [intl, dom] = await Promise.all([fetchIndices(true), fetchIndices(false)]);
+  const order = ["S&P500", "나스닥", "다우존스", "금", "은", "코스피", "코스닥"];
+  const byName = new Map<string, IndexData>();
+  for (const i of intl.indices) byName.set(i.name, i);
+  for (const i of dom.indices) byName.set(i.name, i);
+  return order
+    .filter((name) => byName.has(name))
+    .map((name) => byName.get(name)!);
+}
+
 function toStockMovers(items: { symbol: string; name: string; changePct: number }[]): { up: StockMover[]; down: StockMover[] } {
   const sorted = [...items].sort((a, b) => b.changePct - a.changePct);
   const up = sorted

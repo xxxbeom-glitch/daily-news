@@ -30,9 +30,17 @@ function isDomesticSymbol(sym: string): boolean {
 function buildPrompt(
   articles: RawRssArticle[],
   isInternational: boolean,
-  watchlist?: { symbol: string; name: string; isDomestic?: boolean }[],
-  moversSeed?: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] }
+  opts?: {
+    watchlist?: { symbol: string; name: string; isDomestic?: boolean }[];
+    moversSeed?: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] };
+    interestMemory?: string;
+    includeTotalAssessment?: boolean;
+  }
 ): string {
+  const watchlist = opts?.watchlist;
+  const moversSeed = opts?.moversSeed;
+  const interestMemory = opts?.interestMemory;
+  const includeTotalAssessment = opts?.includeTotalAssessment ?? false;
   const region = isInternational ? "해외(미국·글로벌)" : "국내(한국)";
   const articleList = buildArticleContext(articles);
 
@@ -45,11 +53,16 @@ function buildPrompt(
       ? `\n## 관심종목\n뉴스에 아래 기업 관련 내용이 있으면 keyIssues에 자연스럽게 녹여 포함. (별도 섹션 만들지 말 것)\n${relevantWatchlist.map((w) => `${w.name}(${w.symbol})`).join(", ")}\n`
       : "";
 
+  const memorySection =
+    interestMemory && interestMemory.trim().length > 0
+      ? `\n## 사용자 관심사\n아래 키워드/섹터/기업 관련 뉴스가 있으면 keyIssues에 우선 포함.\n${interestMemory.trim()}\n`
+      : "";
+
   const moversSection = isInternational && moversSeed && (moversSeed.up.length > 0 || moversSeed.down.length > 0)
-    ? `\n## M7 및 반도체주 등락 (각 기업별 reason 필수)\nmoversUp/moversDown에 아래 종목 그대로 사용. 각 reason에 해당 기업 관련 이슈·상승/하락 이유를 2줄 이상 구체적으로 작성. 요약만 하지 말 것.\n상승: ${moversSeed.up.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n하락: ${moversSeed.down.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n`
+    ? `\n## M7 및 반도체주 등락 (각 기업별 reason 필수)\nmoversUp/moversDown에 아래 종목 그대로 사용. 각 reason: 명사형 종결(~함/~됨/~임) 필수. 2줄 이상 구체적으로. 요약만 하지 말 것.\n상승: ${moversSeed.up.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n하락: ${moversSeed.down.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n`
     : "";
 
-  return `아래는 ${region} 금융·경제 뉴스 헤드라인입니다. 이 기사들을 분석하여 시황 요약 JSON을 생성해주세요.${watchlistSection}${moversSection}
+  return `아래는 ${region} 금융·경제 뉴스 헤드라인입니다. 이 기사들을 분석하여 시황 요약 JSON을 생성해주세요.${watchlistSection}${memorySection}${moversSection}
 
 ## 뉴스 헤드라인
 ${articleList}
@@ -59,25 +72,34 @@ ${articleList}
 
 ### 필수 규칙
 - 숫자·지수 값: 기사 내용 바탕 합리적 추정, 없으면 "—" 표시
-- 문체: 개조식·명사형 종결 (예: "~함", "~됨", "~임". 문장은 짧게 나열)
+- 문체 [전체 적용]: 반드시 '개조식' 및 '명사형 종결'만 사용.
+  · 개조식: 줄글 금지. 글머리 기호(■ 상위, - 하위)로 항목별 분리. 핵심 정보 위주.
+  · 명사형 종결: 문장 끝은 명사 또는 명사형 어미(-음, -기, -함, -됨)로만 맺음.
+  · 금지어: ~다, ~습니다, ~요, ~합니다 등 서술형·경어체 절대 사용 금지.
+  · 간결성: 수식어·감정 표현 배제, 사실·핵심 데이터 위주 압축.
+  · 적용 대상: keyIssues, geopoliticalIssues, movers reason, totalAssessment, earnings result 전체.
+- 문체 예시: [입력] 장 초반에 국제유가가 9% 넘게 치솟으면서... → [출력] - 장 초반 국제유가 급등(9%↑)에 따른 투자심리 위축 및 주식·채권 전반 매도세 확산
 - 모든 문자열: 한글로
 - 기업 표기: "기업명(티커)" 형태. 기업명은 한글로 표기 가능하면 한글로 (엔비디아, 애플, 테슬라 등).
 - keyIssues vs bigTechIssues: bigTechIssues는 사용하지 않음. 해외·국내 모두 keyIssues만 사용.
-- keyIssues: title 1줄, body 반드시 2줄 이상 (내용이 뭔 말인지 파악 가능할 정도로 구체적으로). 요약만 하지 말 것.
+- keyIssues: title 1줄, body 개조식(■/- 기호)·명사형 종결. 2줄 이상. 구체적 서술. 요약만 하지 말 것.
 ${isInternational ? "- keyIssues 비율: 미국 중심 뉴스 약 80%. 미국 시장·정책·경제 이슈 우선." : "- keyIssues: [국내 전용] 반드시 정확히 12개. 100% 한국 기반. 경제·정책·부동산·의료·사회 등 + 삼성·SK·현대차·네이버·카카오 등 국내 상위 기업 관련 중요한 뉴스가 있으면 함께 포함. 부족하면 기타 시장 이슈로 채워 12개 맞출 것."}
-${isInternational ? "- geopoliticalIssues: 최소 5~8개. 각 body 2줄 이상 구체적으로." : ""}
-${isInternational ? "- earningsPast: 뉴스에서 간밤 발표된 실적(기업명, 결과) 추출. 없으면 빈 배열. earningsUpcoming: 뉴스에서 예정 실적 일정 추출. 없으면 빈 배열. (실적 일정은 API로 별도 수집됨)" : ""}
+${isInternational ? "- geopoliticalIssues: 최소 5~8개. 각 body 개조식·명사형 종결. 2줄 이상." : ""}
+${isInternational ? "- earningsPast: 뉴스에서 간밤 발표된 실적(기업명, result는 개조식·명사형 종결) 추출. 없으면 빈 배열. earningsUpcoming: 뉴스에서 예정 실적 일정 추출. 없으면 빈 배열. (실적 일정은 API로 별도 수집됨)" : ""}
+
+${includeTotalAssessment ? `- totalAssessment: [필수] 뉴스 종합 분석·추론 기반 총평. 개조식·명사형 종결 필수. 비워두지 말 것.` : ""}
 
 ### JSON 형식 (이 형식으로만 응답)
 ${isInternational ? `{
   "date": "YYYY-MM-DD 요요일",
-  "regionLabel": "해외 시황 요약",
+  "regionLabel": "해외 시황 요약",${includeTotalAssessment ? `
+  "totalAssessment": "개조식(■/-)·명사형 종결로 총평. 뉴스 분석·추론 기반.",` : ""}
   "indices": [
     { "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "본문 2줄 이상 구체적 서술. 요약만 X." }
+    { "title": "1줄 제목", "body": "- 항목1 (명사형 종결)\n- 항목2 (명사형 종결)" }
   ],
   "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "stockMoversLabel": "M7 및 반도체주 등락율",
@@ -85,14 +107,15 @@ ${isInternational ? `{
   "moversDown": [...],
   "moversSources": [...],
   "geopoliticalLabel": "국제 정세 이슈",
-  "geopoliticalIssues": [{ "title": "1줄", "body": "2줄 이상 구체적 서술" }],
+  "geopoliticalIssues": [{ "title": "1줄", "body": "- 항목 (명사형 종결)" }],
   "geopoliticalSources": [...],
   "earningsPast": [...],
   "earningsUpcoming": [...],
   "earningsSources": [...]
 }` : `{
   "date": "YYYY-MM-DD 요요일",
-  "regionLabel": "국내 시황 요약",
+  "regionLabel": "국내 시황 요약",${includeTotalAssessment ? `
+  "totalAssessment": "개조식(■/-)·명사형 종결로 총평. 뉴스 분석·추론 기반.",` : ""}
   "indices": [
     { "name": "코스피", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true },
     { "name": "코스닥", "value": "수치", "change": "-0.2%", "changeAbs": "▼1.75", "isUp": false },
@@ -100,7 +123,7 @@ ${isInternational ? `{
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "본문 2줄 이상 구체적 서술. 요약만 X." }
+    { "title": "1줄 제목", "body": "- 항목1 (명사형 종결)\n- 항목2 (명사형 종결)" }
   ],
   "keyIssuesSources": [...],
   "stockMoversLabel": "",
@@ -206,12 +229,14 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
     throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
   }
   const now = new Date();
-  const weekDays = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${weekDays[now.getDay()]}`;
+  const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+  const dateStr = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")} (${weekDays[now.getDay()]})`;
 
+  const totalAssessment = parsed.totalAssessment != null ? String(parsed.totalAssessment).trim() : undefined;
   const data: MarketSummaryData = {
     date: dateStr, // 항상 오늘 날짜
     regionLabel: (parsed.regionLabel as string) || (isInternational ? "해외 시황 요약" : "국내 시황 요약"),
+    ...(totalAssessment ? { totalAssessment } : {}),
     indices: ensureIndexData((parsed.indices as IndexData[]) ?? []),
     indicesSources: ensureSourceRefs((parsed.indicesSources as SourceRef[]) ?? []),
     keyIssues: ensureIssueItems((parsed.keyIssues as IssueItem[]) ?? []),
@@ -357,6 +382,8 @@ export interface GenerateSummaryOptions {
   isInternational: boolean;
   model: "gemini" | "gpt";
   watchlist?: { symbol: string; name: string; isDomestic?: boolean }[];
+  /** 사용자가 입력한 관심 섹터·기업 메모리. AI 프롬프트에 반영 */
+  interestMemory?: string;
   /** 해외: 상승/하락 TOP 종목. AI가 기사에서 상승/하락 이유 찾아 reason에 작성 */
   moversSeed?: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] };
 }
@@ -365,15 +392,25 @@ export interface GenerateSummaryOptions {
  * AI API를 호출하여 시황 요약 생성
  */
 export async function generateMarketSummary(options: GenerateSummaryOptions): Promise<MarketSummaryData> {
-  const { articles, isInternational, model, watchlist, moversSeed } = options;
+  const { articles, isInternational, model, watchlist, interestMemory, moversSeed } = options;
 
   if (articles.length === 0) {
     throw new Error("분석할 기사가 없습니다.");
   }
 
-  const prompt = buildPrompt(articles, isInternational, watchlist, moversSeed);
+  const prompt = buildPrompt(articles, isInternational, {
+    watchlist,
+    moversSeed,
+    interestMemory,
+    includeTotalAssessment: model === "gemini",
+  });
   const rawResponse = model === "gemini" ? await callGemini(prompt) : await callOpenAI(prompt);
   const data = parseAndNormalize(rawResponse, isInternational);
+  if (model === "gpt") {
+    data.totalAssessmentError = true;
+  } else if (!data.totalAssessment || !String(data.totalAssessment).trim()) {
+    data.totalAssessmentError = true;
+  }
   if (moversSeed) mergeMoversWithSeed(data, moversSeed);
   if (!isInternational) {
     while (data.keyIssues.length < 12) {

@@ -65,3 +65,9 @@
 body {
   font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
 }
+
+/* 헤더 지수 티커: 우→좌 스크롤 */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

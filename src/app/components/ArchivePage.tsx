@@ -84,61 +84,32 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      {/* 국내 / 해외 탭 */}
-      <div className="flex gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => setIsInternational(true)}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[6px] border ${
-            isInternational
-              ? "bg-[#618EFF] text-white border-transparent"
-              : "bg-white/5 border-white/10 text-white/50"
-          }`}
-          style={{ fontSize: 15, fontWeight: 500 }}
-        >
-          <span className="mr-1">🇺🇸</span>
-          해외
-        </button>
-        <button
-          type="button"
-          onClick={() => setIsInternational(false)}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[6px] border ${
-            !isInternational
-              ? "bg-[#618EFF] text-white border-transparent"
-              : "bg-white/5 border-white/10 text-white/50"
-          }`}
-          style={{ fontSize: 15, fontWeight: 500 }}
-        >
-          <span className="mr-1">🇰🇷</span>
-          국내
-        </button>
-      </div>
-
-      {/* 시황 요약 드롭다운 */}
-      <div ref={dropdownRef} className="relative mb-4">
-        <button
+      {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
+      <div className="flex items-stretch gap-[36px] mb-4">
+        <div ref={dropdownRef} className="relative flex-1 min-w-0">
+          <button
           type="button"
           onClick={() => setDropdownOpen((o) => !o)}
-          className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-[10px] border border-white/10 bg-white/5 text-left"
-          style={{ fontSize: 14 }}
-        >
-          <span className="text-white/90 truncate">
-            {selectedSession
-              ? selectedSession.title
-              : filteredSessions.length === 0
-                ? (isInternational ? "저장된 해외 시황이 없습니다" : "저장된 국내 시황이 없습니다")
-                : "시황 요약 선택"}
-          </span>
-          <ChevronDown
-            size={18}
-            className={`text-white/40 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
-          />
-        </button>
+            className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-[10px] border border-white/10 bg-white/5 text-left"
+            style={{ fontSize: 12 }}
+          >
+            <span className="text-white/90 truncate">
+              {selectedSession
+                ? selectedSession.title
+                : filteredSessions.length === 0
+                  ? (isInternational ? "저장된 해외 시황이 없습니다" : "저장된 국내 시황이 없습니다")
+                  : "시황 요약 선택"}
+            </span>
+            <ChevronDown
+              size={18}
+              className={`text-white/40 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+            />
+          </button>
 
-        {dropdownOpen && filteredSessions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 max-h-[280px] overflow-y-auto rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl z-20">
-            {filteredSessions.map((s) => (
-              <div
+          {dropdownOpen && filteredSessions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 max-h-[280px] overflow-y-auto rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl z-20">
+              {filteredSessions.map((s) => (
+                <div
                 key={s.id}
                 role="button"
                 tabIndex={0}
@@ -159,7 +130,7 @@ export function ArchivePage() {
                 }}
               >
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 14 }} className="text-white/90 truncate">
+                  <div style={{ fontSize: 12 }} className="text-white/90 truncate">
                     {s.title}
                   </div>
                   <div style={{ fontSize: 12 }} className="text-white/40 mt-0.5">
@@ -183,6 +154,25 @@ export function ArchivePage() {
             ))}
           </div>
         )}
+        </div>
+        <div className="flex shrink-0 rounded-[10px] border border-white/10 bg-white/5 px-[6px] py-2">
+          <button
+            type="button"
+            onClick={() => setIsInternational(true)}
+            className={`px-[6px] py-0 transition-colors ${isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
+            style={{ fontSize: 12 }}
+          >
+            미국
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsInternational(false)}
+            className={`px-[6px] py-0 transition-colors ${!isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
+            style={{ fontSize: 12 }}
+          >
+            한국
+          </button>
+        </div>
       </div>
 
       {/* 시황 요약 단일 뷰 */}

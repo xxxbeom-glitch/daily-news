@@ -102,10 +102,21 @@ function getWatchlistScore(
   let score = 0;
   for (const w of watchlist) {
     const domestic = w.isDomestic ?? isDomesticSymbol(w.symbol);
-    // 국내 모드: 국내 종목만, 해외 모드: 해외 종목만 관심종목 점수 부여
     if (isInternational !== domestic) continue;
-    if (text.includes(w.name) || text.includes(w.symbol)) score += 80; // 1순위
-    else if (text.includes(w.name.split(/\s/)[0])) score += 40; // "삼성" 등 부분 일치
+    if (text.includes(w.name) || text.includes(w.symbol)) score += 80;
+    else if (text.includes(w.name.split(/\s/)[0])) score += 40;
+  }
+  return score;
+}
+
+/** 관심 키워드(메모리) 일치 점수 - 사용자가 입력한 섹터·기업 키워드 */
+function getInterestKeywordScore(title: string, body: string, keywords: string[]): number {
+  if (keywords.length === 0) return 0;
+  const text = `${title} ${body}`.toLowerCase();
+  let score = 0;
+  for (const kw of keywords) {
+    if (kw.length < 2) continue;
+    if (text.includes(kw.toLowerCase())) score += 60;
   }
   return score;
 }
@@ -216,6 +227,8 @@ function isOverseasOnlyArticle(title: string, body: string): boolean {
 
 export interface FilterOptions {
   watchlist: WatchlistItem[];
+  /** 사용자 메모리에서 파싱한 관심 키워드 (섹터·기업명 등) */
+  interestKeywords?: string[];
   /** true=해외, false=국내. 국내 시 한국언론사의 순수 해외소식 제외 */
   isInternational?: boolean;
 }
@@ -227,7 +240,7 @@ export function filterHighQualityNews(
   articles: NewsArticle[],
   options: FilterOptions
 ): NewsArticle[] {
-  const { watchlist, isInternational = true } = options;
+  const { watchlist, interestKeywords = [], isInternational = true } = options;
 
   // 규칙 2: 클릭베이트 즉시 폐기
   let afterClickbait = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
@@ -239,12 +252,13 @@ export function filterHighQualityNews(
     );
   }
 
-  // 규칙 1, 3, 4 점수 산출 (관심종목 1순위, 국내/해외 구분 반영)
+  // 규칙 1, 3, 4 점수 산출 (관심종목·관심키워드 1순위)
   const scored = afterClickbait.map((a) => {
     const body = a.body ?? "";
     let score = 0;
 
-    score += getWatchlistScore(a.title, body, watchlist, isInternational); // 1순위: 관심종목
+    score += getWatchlistScore(a.title, body, watchlist, isInternational);
+    score += getInterestKeywordScore(a.title, body, interestKeywords); // 사용자 메모리 키워드
     if (hasFactAndFigure(a.title, body)) score += 20;
     if (hasSpeculativePhrase(a.title, body)) score -= 10;
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { saveSearchState, loadSearchState, getSelectedSources } from "../utils/persistState";
+import { saveSearchState, loadSearchState, getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, parseInterestKeywords } from "../utils/persistState";
 import { useSearchState } from "../context/SearchStateContext";
 import { RefreshCw } from "lucide-react";
 import type { Article } from "../data/newsSources";
@@ -18,7 +18,6 @@ import {
   getRecentRangeFromSettings,
 } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
-import { useWatchlist } from "../context/WatchlistContext";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
 
 const LOAD_STEPS: Record<number, string> = {
@@ -36,7 +35,6 @@ function getLoadStepLabel(step: number, model: "gemini" | "gpt") {
 
 export function SearchPage() {
   const { addSession } = useArchive();
-  const { items: watchlistItems } = useWatchlist();
   const {
     summaryInternational,
     summaryDomestic,
@@ -131,12 +129,11 @@ export function SearchPage() {
 
       const recentRange = getRecentRangeFromSettings();
       const byRange = filterArticlesByRange(rawArticles, recentRange);
+      const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
+      const interestKeywords = parseInterestKeywords(interestMemory);
       const filtered = filterHighQualityNews(byRange, {
-        watchlist: watchlistItems.map((w) => ({
-          symbol: w.symbol,
-          name: w.name,
-          isDomestic: w.isDomestic,
-        })),
+        watchlist: [],
+        interestKeywords,
         isInternational,
       });
       if (filtered.length === 0) return null;
@@ -161,12 +158,6 @@ export function SearchPage() {
         body: a.body,
       }));
 
-      const watchlistForMode = watchlistItems.map((w) => ({
-        symbol: w.symbol,
-        name: w.name,
-        isDomestic: w.isDomestic,
-      }));
-
       let data: MarketSummaryData;
       let actualModel: "gemini" | "gpt" = selectedModel;
       try {
@@ -174,7 +165,7 @@ export function SearchPage() {
           articles: articlePayload,
           isInternational,
           model: selectedModel,
-          watchlist: watchlistForMode,
+          interestMemory: interestMemory || undefined,
           moversSeed,
         });
       } catch {
@@ -184,12 +175,13 @@ export function SearchPage() {
             articles: articlePayload,
             isInternational,
             model: otherModel,
-            watchlist: watchlistForMode,
+            interestMemory: interestMemory || undefined,
             moversSeed,
           });
           actualModel = otherModel;
         } catch {
           data = isInternational ? mockMarketSummaryInternational : mockMarketSummaryDomestic;
+          data = { ...data, totalAssessmentError: true };
           actualModel = selectedModel;
         }
       }
@@ -249,7 +241,6 @@ export function SearchPage() {
       domesticSourceList,
       selectedSources,
       selectedModel,
-      watchlistItems,
       addSession,
     ]
   );

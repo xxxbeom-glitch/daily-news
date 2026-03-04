@@ -8,7 +8,7 @@ export interface IndexData {
 
 export interface IssueItem {
   title: string;   // 1줄 제목
-  body: string;    // 2줄 서술 (문체: "~했음", "~임")
+  body: string;    // 개조식·명사형 종결 (-음, -기, -함, -됨, 명사)
   changeRate?: string; // 종가 기준 등락률 "+8.4%" (빅테크 이슈용)
 }
 
@@ -40,8 +40,11 @@ export interface MarketMoversBlock {
 }
 
 export interface MarketSummaryData {
-  date: string;               // "2026-03-04 수요일"
+  date: string;               // "2026. 03. 04 (수)"
   regionLabel: string;        // "해외 시황 요약" | "국내 시황 요약"
+  /** 오늘의 시황 총평 (Gemini 전용). 없으면 totalAssessmentError일 수 있음 */
+  totalAssessment?: string;
+  totalAssessmentError?: boolean;
   indices: IndexData[];
   indicesSources: SourceRef[];
   keyIssues: IssueItem[];         // 최대 10개
@@ -69,7 +72,7 @@ export interface MarketSummaryData {
 
 // Mock 시황 데이터 - 해외
 export const mockMarketSummaryInternational: MarketSummaryData = {
-  date: "2026-03-04 수요일",
+  date: "2026. 03. 04 (수)",
   regionLabel: "해외 시황 요약",
   indices: [
     { name: "S&P500", value: "5,432.18", change: "+0.31%", changeAbs: "▲16.82", isUp: true },
@@ -143,7 +146,7 @@ export const mockMarketSummaryInternational: MarketSummaryData = {
 
 // Mock 시황 데이터 - 국내 (코스닥·코스피 양식)
 export const mockMarketSummaryDomestic: MarketSummaryData = {
-  date: "2026-03-04 수요일",
+  date: "2026. 03. 04 (수)",
   regionLabel: "국내 시황 요약",
   indices: [
     { name: "코스피", value: "2,734.52", change: "-0.24%", changeAbs: "▼6.58", isUp: false },

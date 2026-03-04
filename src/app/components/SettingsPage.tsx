@@ -1,22 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, Search, X, ChevronDown } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, ChevronDown } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
-import { useWatchlist } from "../context/WatchlistContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
-import { getSelectedSources, setSelectedSources } from "../utils/persistState";
+import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational } from "../utils/persistState";
 import { saveToLocalStorage, uploadToGoogleDrive } from "../utils/exportArchives";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
-const BackLink = () => (
-  <Link
-    to="/"
-    className="inline-flex items-center gap-2 text-white/70 hover:text-white/90 mb-6"
-    style={{ fontSize: 14 }}
-  >
-    ← 돌아가기
-  </Link>
-);
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
@@ -235,9 +225,10 @@ async function checkConnectionStatus(
 
 export function SettingsPage() {
   const { sessions, clearAllSessions } = useArchive();
-  const { items: watchlistItems, removeItem: removeWatchlist } = useWatchlist();
   const [rangeExpanded, setRangeExpanded] = useState(false);
-  const [watchlistExpanded, setWatchlistExpanded] = useState(false);
+  const [memoryExpanded, setMemoryExpanded] = useState(false);
+  const [interestMemoryDomestic, setInterestMemoryDomesticState] = useState(() => getInterestMemoryDomestic());
+  const [interestMemoryInternational, setInterestMemoryInternationalState] = useState(() => getInterestMemoryInternational());
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [apiExpanded, setApiExpanded] = useState(false);
   const [archiveExpanded, setArchiveExpanded] = useState(false);
@@ -421,7 +412,25 @@ export function SettingsPage() {
           </div>
         </>
       )}
-      <BackLink />
+
+      {/* AI 엔진 설정 */}
+      <section className="mb-4">
+        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
+          <div className="px-4 py-4 border-t-0">
+            <div className="text-white" style={{ fontSize: 14, fontWeight: 600 }}>AI 엔진</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-[8px] border border-[#618EFF]/40 bg-[#618EFF]/20 px-3 py-1.5 text-[#618EFF]" style={{ fontSize: 13 }}>
+                Gemini (기본)
+              </span>
+              <span className="text-white/40" style={{ fontSize: 13 }}>/</span>
+              <span className="text-white/50" style={{ fontSize: 13 }}>ChatGPT (연결 실패 시 자동 전환)</span>
+            </div>
+            <p className="text-white/40 mt-2" style={{ fontSize: 12 }}>
+              Gemini가 연결되지 않으면 ChatGPT로 자동 전환됩니다.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* 기사 검색 기간 */}
       <section className="mb-4">
@@ -465,54 +474,54 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 관심종목 */}
+      {/* 기억할 관심사 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
             type="button"
-            onClick={() => setWatchlistExpanded((v) => !v)}
+            onClick={() => setMemoryExpanded((v) => !v)}
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            관심종목
+            기억할 관심사
             <ChevronDown
               size={16}
-              className={`text-white/60 transition-transform shrink-0 ${watchlistExpanded ? "rotate-180" : ""}`}
+              className={`text-white/60 transition-transform shrink-0 ${memoryExpanded ? "rotate-180" : ""}`}
             />
           </button>
-          {watchlistExpanded && (
-          <div className="px-4 pb-4 pt-4 border-t border-white/6">
-          <Link
-            to="/settings/watchlist-search"
-            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-[10px] border border-[#618EFF]/50 bg-[#618EFF]/20 text-[#618EFF] hover:bg-[#618EFF]/30 transition-colors"
-            style={{ fontSize: 14, fontWeight: 500 }}
-          >
-            <Search size={18} />
-            종목 검색
-          </Link>
-          <div className="mt-4">
-        {watchlistItems.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {watchlistItems.map((item) => (
-              <button
-                key={item.symbol}
-                type="button"
-                onClick={() => removeWatchlist(item.symbol)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/90 hover:bg-white/8 hover:border-white/15 transition-colors"
-                style={{ fontSize: 13 }}
-              >
-                <span>{item.name}</span>
-                <X size={14} className="text-white/50 hover:text-red-400 shrink-0" />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p style={{ fontSize: 13 }} className="text-white/40">
-            종목 검색 버튼을 눌러 관심종목을 추가하세요. (국내·해외 지원)
-          </p>
-        )}
-          </div>
-          </div>
+          {memoryExpanded && (
+            <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-4">
+              <div>
+                <label className="block text-white/60 mb-1.5" style={{ fontSize: 12, fontWeight: 600 }}>국내 (한국 시황용)</label>
+                <textarea
+                  value={interestMemoryDomestic}
+                  onChange={(e) => {
+                    const v = e.target.value.slice(0, 1000);
+                    setInterestMemoryDomesticState(v);
+                    setInterestMemoryDomestic(v);
+                  }}
+                  placeholder="예: 삼성전자, SK하이닉스, 2차전지, 반도체"
+                  className="w-full min-h-[80px] rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 resize-y focus:outline-none focus:ring-2 focus:ring-[#618EFF]/50"
+                  style={{ fontSize: 14 }}
+                />
+                <p style={{ fontSize: 12 }} className="text-white/40 mt-1">{interestMemoryDomestic.length}/1000자</p>
+              </div>
+              <div>
+                <label className="block text-white/60 mb-1.5" style={{ fontSize: 12, fontWeight: 600 }}>해외 (미국·글로벌 시황용)</label>
+                <textarea
+                  value={interestMemoryInternational}
+                  onChange={(e) => {
+                    const v = e.target.value.slice(0, 1000);
+                    setInterestMemoryInternationalState(v);
+                    setInterestMemoryInternational(v);
+                  }}
+                  placeholder="예: 엔비디아, 테슬라, 반도체, AI"
+                  className="w-full min-h-[80px] rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 resize-y focus:outline-none focus:ring-2 focus:ring-[#618EFF]/50"
+                  style={{ fontSize: 14 }}
+                />
+                <p style={{ fontSize: 12 }} className="text-white/40 mt-1">{interestMemoryInternational.length}/1000자</p>
+              </div>
+            </div>
           )}
         </div>
       </section>
@@ -745,15 +754,15 @@ export function SettingsPage() {
             )}
           </div>
           <Link
-            to="/archive"
+            to="/"
             className="block mt-2 text-[#618EFF] hover:text-[#8BABFF]"
             style={{ fontSize: 13 }}
           >
-            아카이브에서 보기 →
+            오늘의 시황에서 보기 →
           </Link>
           {sessions.length > 0 && (
             <p style={{ fontSize: 12 }} className="text-white/35 mt-1">
-              저장된 아카이브 {sessions.length}건
+              저장된 시황 {sessions.length}건
             </p>
           )}
           </div>

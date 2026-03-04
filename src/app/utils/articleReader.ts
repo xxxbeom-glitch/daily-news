@@ -1,0 +1,77 @@
+/**
+ * 원문 URL에서 기사 본문 추출 (Reader View)
+ * DOM 파싱으로 article/main 등 본문 영역 추출
+ */
+
+import { fetchViaCorsProxy } from "./corsProxy";
+
+export interface ArticleReaderResult {
+  title: string | null;
+  textContent: string | null;
+  excerpt: string | null;
+  byline: string | null;
+}
+
+const CONTENT_SELECTORS = [
+  "article",
+  "[role='main']",
+  "main",
+  ".article__body",
+  ".article-body",
+  ".post-content",
+  ".entry-content",
+  ".content-body",
+  ".article-content",
+  ".story-body",
+  "#article-body",
+  ".articleBody",
+  ".post-body",
+  ".story-body-text",
+  "[itemprop='articleBody']",
+  ".pf-content",
+];
+
+function extractText(el: Element): string {
+  const clone = el.cloneNode(true) as Element;
+  clone.querySelectorAll("script, style, nav, aside, footer, .ad, .advertisement").forEach((n) => n.remove());
+  return clone.textContent?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+export async function fetchArticleContent(url: string): Promise<ArticleReaderResult> {
+  const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: 15000 });
+  if (!ok || !text) {
+    throw new Error("기사를 불러올 수 없습니다.");
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, "text/html");
+
+  const title = doc.querySelector("title")?.textContent?.trim() ?? null;
+  let textContent: string | null = null;
+
+  for (const sel of CONTENT_SELECTORS) {
+    const el = doc.querySelector(sel);
+    if (el) {
+      const extracted = extractText(el);
+      if (extracted.length > 200) {
+        textContent = extracted;
+        break;
+      }
+    }
+  }
+  if (!textContent) {
+    const body = doc.body?.cloneNode(true) as Element | null;
+    if (body) {
+      body.querySelectorAll("script, style, nav, header, footer, aside, iframe").forEach((n) => n.remove());
+      textContent = body.textContent?.replace(/\s+/g, " ").trim().slice(0, 5000) ?? null;
+    }
+  }
+  if (textContent) textContent = textContent.slice(0, 15000);
+
+  return {
+    title,
+    textContent,
+    excerpt: null,
+    byline: null,
+  };
+}
