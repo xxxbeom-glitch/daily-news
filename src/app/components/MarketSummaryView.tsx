@@ -6,6 +6,7 @@ import type {
   IssueItem,
   EarningsItem,
 } from "../data/marketSummary";
+import type { Article } from "../data/newsSources";
 
 function formatDisplayDate(dateStr: string): string {
   const match = dateStr.match(/^(\d{4})[-.]\s*(\d{1,2})[-.]\s*(\d{1,2})\s*(?:\(?([일월화수목금토])[요일]*\)?)?/);
@@ -28,12 +29,61 @@ function BlockTitle({ emoji, children }: { emoji?: string; children: React.React
   );
 }
 
+function UsedArticlesSection({ articles }: { articles?: Article[] }) {
+  if (!Array.isArray(articles) || articles.length === 0) return null;
+  const list = articles.filter((a) => a && typeof a.title === "string");
+  if (list.length === 0) return null;
+
+  const bySource = new Map<string, Article[]>();
+  for (const a of list) {
+    const src = a.source || "(출처 없음)";
+    if (!bySource.has(src)) bySource.set(src, []);
+    bySource.get(src)!.push(a);
+  }
+
+  return (
+    <div
+      style={{ fontSize: 11 }}
+      className="text-gray-400 mt-4 pt-4 pb-6 border-t border-dashed border-white/8"
+    >
+      <div style={{ fontWeight: 600 }} className="text-gray-400 mb-3">
+        사용된 기사 ({list.length})
+      </div>
+      <div className="space-y-4">
+        {Array.from(bySource.entries()).map(([source, items]) => (
+          <div key={source}>
+            <div style={{ fontWeight: 600 }} className="text-gray-400 mb-1.5">
+              {source}
+            </div>
+            <div className="space-y-1">
+              {items.map((a, i) => (
+                <a
+                  key={a.id || i}
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-gray-400 hover:text-white/80 hover:underline transition-colors"
+                  title={a.title}
+                >
+                  {a.title}
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MarketSummaryView({
   data,
   aiModel,
+  articles,
 }: {
   data: MarketSummaryData;
   aiModel: "gemini" | "gpt";
+  articles?: Article[];
 }) {
   const isInternational = data.regionLabel.includes("해외");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -224,7 +274,7 @@ export function MarketSummaryView({
                   <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white mt-[18px]">예정 발표 일정</div>
                   <div className="space-y-[4px] mt-[9px]" style={lineStyle}>
                     {data.earningsUpcoming.map((s, i) => (
-                      <div key={i} style={{ fontSize: 14 }} className="text-white/55">• {s}</div>
+                      <div key={i} style={{ fontSize: 14 }} className="text-white/55">{s}</div>
                     ))}
                   </div>
                 </>
@@ -238,6 +288,7 @@ export function MarketSummaryView({
               </div>
             )}
           </>
+          <UsedArticlesSection articles={articles} />
         </div>
       </div>
     );
@@ -246,7 +297,7 @@ export function MarketSummaryView({
   return (
     <div ref={containerRef} className={`bg-white/5 border border-white/8 rounded-[10px] overflow-hidden ${isFullscreen ? "!bg-[#0a0a0f] overflow-y-auto min-h-full pt-[52px]" : ""}`}>
       {header}
-      <div className="px-5 py-0">
+      <div className="px-5 py-0 pb-6">
         <div className="mt-[22px] pt-[22px] pb-0 first:mt-0 first:pt-[22px] first:pb-0 border-t border-dashed border-white/10 first:border-t-0">
           <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">📝 오늘의 시황 총평</span>
           <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[14px] min-h-[20px]">
@@ -340,7 +391,7 @@ export function MarketSummaryView({
                 <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white mt-[18px]">예정 발표 일정</div>
                 <div className="space-y-[4px] mt-[9px]" style={lineStyle}>
                   {data.earningsUpcoming.map((s, i) => (
-                    <div key={i} style={{ fontSize: 14 }} className="text-white/55">• {s}</div>
+                    <div key={i} style={{ fontSize: 14 }} className="text-white/55">{s}</div>
                   ))}
                 </div>
               </>
@@ -352,6 +403,7 @@ export function MarketSummaryView({
             )}
           </>
         )}
+        <UsedArticlesSection articles={articles} />
       </div>
     </div>
   );

@@ -12,6 +12,9 @@ export interface ArticleReaderResult {
   byline: string | null;
 }
 
+const ARTICLE_CACHE_MAX = 30;
+const articleCache = new Map<string, ArticleReaderResult>();
+
 const CONTENT_SELECTORS = [
   "article",
   "[role='main']",
@@ -38,6 +41,9 @@ function extractText(el: Element): string {
 }
 
 export async function fetchArticleContent(url: string): Promise<ArticleReaderResult> {
+  const cached = articleCache.get(url);
+  if (cached) return cached;
+
   const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: 15000 });
   if (!ok || !text) {
     throw new Error("기사를 불러올 수 없습니다.");
@@ -68,10 +74,11 @@ export async function fetchArticleContent(url: string): Promise<ArticleReaderRes
   }
   if (textContent) textContent = textContent.slice(0, 15000);
 
-  return {
-    title,
-    textContent,
-    excerpt: null,
-    byline: null,
-  };
+  const result: ArticleReaderResult = { title, textContent, excerpt: null, byline: null };
+  if (articleCache.size >= ARTICLE_CACHE_MAX) {
+    const firstKey = articleCache.keys().next().value;
+    if (firstKey) articleCache.delete(firstKey);
+  }
+  articleCache.set(url, result);
+  return result;
 }

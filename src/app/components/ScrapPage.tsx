@@ -33,7 +33,7 @@ export function ScrapPage() {
         </div>
 
         <div className="space-y-3">
-          {articles.map((a, i) => (
+          {articles.map((a) => (
             <ArticleCard
               key={a.link}
               article={a}

@@ -73,33 +73,33 @@ ${articleList}
 ### 필수 규칙
 - 숫자·지수 값: 기사 내용 바탕 합리적 추정, 없으면 "—" 표시
 - 문체 [전체 적용]: 반드시 '개조식' 및 '명사형 종결'만 사용.
-  · 개조식: 줄글 금지. 글머리 기호(■ 상위, - 하위)로 항목별 분리. 핵심 정보 위주.
+  · 개조식: 줄글 금지. 항목별 줄바꿈으로만 분리. 불릿·문장 앞 기호 절대 금지(■, -, •, ◆ 등 어떤 기호도 문두에 넣지 말 것).
   · 명사형 종결: 문장 끝은 명사 또는 명사형 어미(-음, -기, -함, -됨)로만 맺음.
-  · 금지어: ~다, ~습니다, ~요, ~합니다 등 서술형·경어체 절대 사용 금지.
+  · 금지어(keyIssues 등에 한함): ~다, ~습니다, ~요, ~합니다 등 서술형·경어체 사용 금지. (totalAssessment는 예외, 존댓말 사용)
   · 간결성: 수식어·감정 표현 배제, 사실·핵심 데이터 위주 압축.
-  · 적용 대상: keyIssues, geopoliticalIssues, movers reason, totalAssessment, earnings result 전체.
-- 문체 예시: [입력] 장 초반에 국제유가가 9% 넘게 치솟으면서... → [출력] - 장 초반 국제유가 급등(9%↑)에 따른 투자심리 위축 및 주식·채권 전반 매도세 확산
+  · 적용 대상: keyIssues, geopoliticalIssues, movers reason, earnings result. (totalAssessment는 아래 별도 규칙)
+- 문체 예시: [입력] 장 초반에 국제유가가 9% 넘게 치솟으면서... → [출력] 장 초반 국제유가 급등(9%↑)에 따른 투자심리 위축 및 주식·채권 전반 매도세 확산
 - 모든 문자열: 한글로
 - 기업 표기: "기업명(티커)" 형태. 기업명은 한글로 표기 가능하면 한글로 (엔비디아, 애플, 테슬라 등).
 - keyIssues vs bigTechIssues: bigTechIssues는 사용하지 않음. 해외·국내 모두 keyIssues만 사용.
-- keyIssues: title 1줄, body 개조식(■/- 기호)·명사형 종결. 2줄 이상. 구체적 서술. 요약만 하지 말 것.
+- keyIssues: title 1줄, body 개조식·명사형 종결. 항목별 줄바꿈만. 문두 불릿·기호(■, -, • 등) 절대 금지. 2줄 이상 구체적 서술.
 ${isInternational ? "- keyIssues 비율: 미국 중심 뉴스 약 80%. 미국 시장·정책·경제 이슈 우선." : "- keyIssues: [국내 전용] 반드시 정확히 12개. 100% 한국 기반. 경제·정책·부동산·의료·사회 등 + 삼성·SK·현대차·네이버·카카오 등 국내 상위 기업 관련 중요한 뉴스가 있으면 함께 포함. 부족하면 기타 시장 이슈로 채워 12개 맞출 것."}
 ${isInternational ? "- geopoliticalIssues: 최소 5~8개. 각 body 개조식·명사형 종결. 2줄 이상." : ""}
 ${isInternational ? "- earningsPast: 뉴스에서 간밤 발표된 실적(기업명, result는 개조식·명사형 종결) 추출. 없으면 빈 배열. earningsUpcoming: 뉴스에서 예정 실적 일정 추출. 없으면 빈 배열. (실적 일정은 API로 별도 수집됨)" : ""}
 
-${includeTotalAssessment ? `- totalAssessment: [필수] 뉴스 종합 분석·추론 기반 총평. 개조식·명사형 종결 필수. 비워두지 말 것.` : ""}
+${includeTotalAssessment ? `- totalAssessment: [필수] [예외 문체] 아나운서가 브리핑하듯 서술형·존댓말로 작성. ~습니다, ~했습니다 등 사용. 뉴스 종합 분석·추론 기반 총평. 비워두지 말 것.` : ""}
 
 ### JSON 형식 (이 형식으로만 응답)
 ${isInternational ? `{
   "date": "YYYY-MM-DD 요요일",
   "regionLabel": "해외 시황 요약",${includeTotalAssessment ? `
-  "totalAssessment": "개조식(■/-)·명사형 종결로 총평. 뉴스 분석·추론 기반.",` : ""}
+  "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",` : ""}
   "indices": [
     { "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "- 항목1 (명사형 종결)\n- 항목2 (명사형 종결)" }
+    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\n항목2 (명사형 종결)" }
   ],
   "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "stockMoversLabel": "M7 및 반도체주 등락율",
@@ -107,7 +107,7 @@ ${isInternational ? `{
   "moversDown": [...],
   "moversSources": [...],
   "geopoliticalLabel": "국제 정세 이슈",
-  "geopoliticalIssues": [{ "title": "1줄", "body": "- 항목 (명사형 종결)" }],
+  "geopoliticalIssues": [{ "title": "1줄", "body": "항목 (명사형 종결)" }],
   "geopoliticalSources": [...],
   "earningsPast": [...],
   "earningsUpcoming": [...],
@@ -115,7 +115,7 @@ ${isInternational ? `{
 }` : `{
   "date": "YYYY-MM-DD 요요일",
   "regionLabel": "국내 시황 요약",${includeTotalAssessment ? `
-  "totalAssessment": "개조식(■/-)·명사형 종결로 총평. 뉴스 분석·추론 기반.",` : ""}
+  "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",` : ""}
   "indices": [
     { "name": "코스피", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true },
     { "name": "코스닥", "value": "수치", "change": "-0.2%", "changeAbs": "▼1.75", "isUp": false },
@@ -123,7 +123,7 @@ ${isInternational ? `{
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "- 항목1 (명사형 종결)\n- 항목2 (명사형 종결)" }
+    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\n항목2 (명사형 종결)" }
   ],
   "keyIssuesSources": [...],
   "stockMoversLabel": "",

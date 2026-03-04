@@ -1,16 +1,9 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, ExternalLink, X, Bookmark, BookmarkCheck, BookmarkX } from "lucide-react";
-import {
-  getInterestMemoryDomestic,
-  getInterestMemoryInternational,
-  parseInterestKeywords,
-  getSelectedSources,
-} from "../utils/persistState";
-import { domesticSources, internationalSources } from "../data/newsSources";
-import { fetchRssFeeds, filterArticlesByRange, getRecentRangeFromSettings } from "../utils/fetchRssFeeds";
-import { translateKeywordsToEnglish, isInternationalSource, translateTextToKorean } from "../utils/keywordTranslation";
+import { useKeywordNews } from "../context/KeywordNewsContext";
 import { fetchArticleContent } from "../utils/articleReader";
 import { addScrap, removeScrap, isScrapped } from "../utils/scrapStorage";
+import { translateTextToKorean, isInternationalSource } from "../utils/keywordTranslation";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
 export function formatPubDate(pubDate: string): string {
@@ -23,11 +16,6 @@ export function formatPubDate(pubDate: string): string {
   if (diffMins < 60) return `${diffMins}분 전`;
   if (diffHours < 24) return `${diffHours}시간 전`;
   return d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-function matchesKeyword(text: string, keywords: string[]): boolean {
-  const lower = text.toLowerCase();
-  return keywords.some((k) => k.length > 0 && lower.includes(k.toLowerCase()));
 }
 
 export function ArticleCard({
@@ -214,7 +202,7 @@ export function ReaderViewModal({
 
         {!loading && !error && displayContent && (
           <div className="reader-view">
-            <h1 className="text-white font-bold mb-4" style={{ fontSize: 20, lineHeight: 1.4 }}>
+            <h1 className="text-white font-semibold mb-4" style={{ fontSize: 18, lineHeight: 1.45, fontFamily: "Pretendard, system-ui, sans-serif" }}>
               {title || article.title}
             </h1>
             <div className="flex items-center gap-2 text-white/40 mb-6" style={{ fontSize: 13 }}>
@@ -247,8 +235,8 @@ export function ReaderViewModal({
             )}
 
             <div
-              className="text-white/85 whitespace-pre-wrap"
-              style={{ fontSize: 16, lineHeight: 1.75, fontFamily: "Georgia, serif" }}
+              className="text-white/90 whitespace-pre-wrap font-normal"
+              style={{ fontSize: 17, lineHeight: 1.8, fontFamily: "Pretendard, system-ui, sans-serif" }}
             >
               {displayContent}
             </div>
@@ -260,100 +248,18 @@ export function ReaderViewModal({
 }
 
 export function KeywordNewsPage() {
-  const [articles, setArticles] = useState<RawRssArticle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [loadStep, setLoadStep] = useState("준비 중…");
+  const { articles, loading, error, loadProgress, loadStep, hasLoadedOnce, load } = useKeywordNews();
   const [readerArticle, setReaderArticle] = useState<RawRssArticle | null>(null);
   const [readerTranslate, setReaderTranslate] = useState(false);
   const [scrapVersion, setScrapVersion] = useState(0);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    setLoadProgress(0);
-    setLoadStep("준비 중…");
-
-    try {
-      setLoadStep("키워드 로딩…");
-      setLoadProgress(5);
-
-      const memDom = getInterestMemoryDomestic();
-      const memIntl = getInterestMemoryInternational();
-      const combined = `${memDom}\n${memIntl}`;
-      const keywords = parseInterestKeywords(combined);
-
-      let translated: string[] = [];
-      const hasHangul = keywords.some((k) => /[\uAC00-\uD7A3]/.test(k));
-      if (hasHangul) {
-        setLoadStep("키워드 번역 중…");
-        setLoadProgress(10);
-        try {
-          translated = await translateKeywordsToEnglish(keywords);
-        } catch {
-          translated = [];
-        }
-      }
-      setLoadProgress(15);
-      const allKeywords = [...new Set([...keywords, ...translated])];
-
-      if (allKeywords.length === 0) {
-        setArticles([]);
-        setError("설정 > 기억할 관심사(국내/해외)에 키워드를 입력해주세요.");
-        setLoading(false);
-        return;
-      }
-
-      setLoadStep("RSS 뉴스 수집 중…");
-      const selected = getSelectedSources();
-      const domesticList = domesticSources.filter((s) => selected.domestic.includes(s.id));
-      const intlList = internationalSources.filter((s) => selected.international.includes(s.id));
-      const allSources = [
-        ...domesticList.map((s) => ({ id: s.id, name: s.name, rssUrl: s.rssUrl })),
-        ...intlList.map((s) => ({ id: s.id, name: s.name, rssUrl: s.rssUrl })),
-      ];
-
-      const { articles: raw, error: fetchErr } = await fetchRssFeeds({
-        sources: allSources,
-        onProgress: (fetched, tot) => {
-          const pct = 15 + Math.round((fetched / tot) * 80);
-          setLoadProgress(pct);
-          setLoadStep(`RSS 수집 중… (${fetched}/${tot})`);
-        },
-      });
-      if (fetchErr) {
-        setError(fetchErr);
-        setArticles([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoadStep("키워드 필터링 중…");
-      setLoadProgress(97);
-
-      const rangeKey = getRecentRangeFromSettings();
-      const filtered = filterArticlesByRange(raw, rangeKey);
-      const matched = filtered.filter((a) => matchesKeyword(a.title, allKeywords) || (a.body && matchesKeyword(a.body, allKeywords)));
-      matched.sort((a, b) => {
-        const da = new Date(a.pubDate).getTime();
-        const db = new Date(b.pubDate).getTime();
-        return db - da;
-      });
-      setLoadProgress(100);
-      setArticles(matched);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.");
-      setArticles([]);
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
-    load();
-  }, []);
+    if (!hasLoadedOnce && articles.length === 0 && !loading && !error) {
+      load();
+    }
+  }, [hasLoadedOnce, articles.length, loading, error, load]);
 
-  if (loading) {
+  if (loading || (!hasLoadedOnce && !error && articles.length === 0)) {
     return (
       <div className="px-4 py-6">
         <div className="bg-white/5 border border-white/8 rounded-[10px] px-5 py-8">
@@ -392,12 +298,12 @@ export function KeywordNewsPage() {
     );
   }
 
-  if (articles.length === 0) {
+  if (hasLoadedOnce && articles.length === 0) {
     return (
       <div className="px-4 py-6">
         <div className="bg-white/5 border border-white/8 rounded-[10px] px-5 py-6">
           <p className="text-white/60" style={{ fontSize: 14 }}>키워드에 맞는 기사가 없습니다.</p>
-          <p className="text-white/40 mt-2" style={{ fontSize: 12 }}>설정에서 기억할 관심사 키워드를 추가하거나, 검색 기간을 넓혀보세요.</p>
+          <p className="text-white/40 mt-2" style={{ fontSize: 12 }}>설정에서 기억할 관심사 키워드를 추가해보세요.</p>
           <button
             type="button"
             onClick={load}
@@ -430,7 +336,7 @@ export function KeywordNewsPage() {
         <div className="space-y-3">
           {articles.map((a, i) => (
             <ArticleCard
-              key={`${a.link}-${i}`}
+              key={`${a.link}-${scrapVersion}-${i}`}
               article={a}
               onOpenReader={(art, translate) => {
                 setReaderArticle(art);

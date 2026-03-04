@@ -1,0 +1,145 @@
+/**
+ * 시황 요약 파이프라인 실행
+ * 자동 스케줄러 및 (필요 시) 수동 호출용
+ */
+
+import type { ArchiveSession } from "../data/newsSources";
+import type { MarketSummaryData } from "../data/marketSummary";
+import { domesticSources, internationalSources } from "../data/newsSources";
+import { mockMarketSummaryInternational, mockMarketSummaryDomestic } from "../data/marketSummary";
+import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, getSelectedModel, parseInterestKeywords } from "../utils/persistState";
+import { fetchRssFeeds, filterArticlesByRangeTiered } from "../utils/fetchRssFeeds";
+import { filterHighQualityNews } from "../utils/filterHighQualityNews";
+import { generateMarketSummary } from "../utils/aiSummary";
+import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
+import type { RawRssArticle } from "../utils/fetchRssFeeds";
+import type { Article } from "../data/newsSources";
+
+export async function runMarketSummaryPipeline(
+  isInternational: boolean,
+  options: { addSession: (s: ArchiveSession) => void }
+): Promise<MarketSummaryData | null> {
+  const { addSession } = options;
+  const selectedSources = getSelectedSources();
+  const sourceList = isInternational
+    ? internationalSources.filter((s) => selectedSources.international.includes(s.id))
+    : domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
+  const sourceIds = isInternational ? selectedSources.international : selectedSources.domestic;
+  if (sourceList.length === 0) return null;
+
+  const { articles: rawArticles, error: rssError } = await fetchRssFeeds({
+    sources: sourceList.map((s) => ({ id: s.id, name: s.name, rssUrl: s.rssUrl })),
+    onProgress: () => {},
+  });
+  if (rssError) throw new Error(rssError);
+
+  const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
+  const interestKeywords = parseInterestKeywords(interestMemory);
+  const { articles: filtered } = filterArticlesByRangeTiered(rawArticles, (byRange) =>
+    filterHighQualityNews(byRange, {
+      watchlist: [],
+      interestKeywords,
+      isInternational,
+    })
+  );
+  if (filtered.length === 0) return null;
+
+  let moversSeed: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] } | undefined;
+  if (isInternational) {
+    const movers = await fetchTopMovers(true);
+    if (movers && "up" in movers) {
+      moversSeed = {
+        up: movers.up.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate })),
+        down: movers.down.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate })),
+      };
+    }
+  }
+
+  const articlePayload = filtered.slice(0, 30).map((a: RawRssArticle) => ({
+    title: a.title,
+    link: a.link,
+    pubDate: a.pubDate,
+    sourceId: a.sourceId,
+    sourceName: a.sourceName,
+    body: a.body,
+  }));
+
+  const selectedModel = getSelectedModel();
+  let data: MarketSummaryData;
+  let actualModel: "gemini" | "gpt" = selectedModel;
+  try {
+    data = await generateMarketSummary({
+      articles: articlePayload,
+      isInternational,
+      model: selectedModel,
+      interestMemory: interestMemory || undefined,
+      moversSeed,
+    });
+  } catch {
+    const otherModel = selectedModel === "gemini" ? "gpt" : "gemini";
+    try {
+      data = await generateMarketSummary({
+        articles: articlePayload,
+        isInternational,
+        model: otherModel,
+        interestMemory: interestMemory || undefined,
+        moversSeed,
+      });
+      actualModel = otherModel;
+    } catch {
+      data = isInternational ? mockMarketSummaryInternational : mockMarketSummaryDomestic;
+      data = { ...data, totalAssessmentError: true };
+      actualModel = selectedModel;
+    }
+  }
+
+  await enrichMarketData(data, isInternational, { preserveMovers: !!moversSeed });
+
+  const now = new Date();
+  const title =
+    `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
+    (now.getHours() < 12 ? "오전" : "오후") +
+    ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · ${data.regionLabel}`;
+
+  const articlesForSession: Article[] =
+    filtered.length > 0
+      ? filtered.slice(0, 20).map((a, i) => ({
+          id: `rss-${Date.now()}-${i}`,
+          title: a.title,
+          source: a.sourceName,
+          sourceId: a.sourceId,
+          publishedAt: new Date(a.pubDate).toISOString(),
+          url: a.link,
+          summary: "",
+          aiModel: actualModel,
+          category: "Economy",
+          isInternational,
+        }))
+      : [
+          {
+            id: "m1",
+            title: "시황 요약 (검색 기간 내 기사 없음)",
+            source: sourceList[0]?.name ?? "Unknown",
+            sourceId: sourceList[0]?.id ?? "unknown",
+            publishedAt: now.toISOString(),
+            url: "https://example.com",
+            summary: data.keyIssues[0]?.body ?? "",
+            aiModel: actualModel,
+            category: "Economy",
+            isInternational,
+          },
+        ];
+
+  addSession({
+    id: `session-${Date.now()}-${isInternational ? "intl" : "dom"}`,
+    title,
+    createdAt: now.toISOString(),
+    isInternational,
+    sources: sourceIds,
+    articles: articlesForSession,
+    marketSummary: data,
+    aiModel: actualModel,
+  });
+
+  return data;
+}

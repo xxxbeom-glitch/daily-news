@@ -12,50 +12,50 @@ const PROXIES: ProxyBuilder[] = [
 ];
 
 const DEFAULT_TIMEOUT_MS = 12000;
+const PER_PROXY_TIMEOUT_MS = 8000;
+
+async function tryOneProxy(
+  targetUrl: string,
+  buildProxyUrl: (u: string) => string,
+  timeoutMs: number
+): Promise<{ ok: boolean; text: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const proxyUrl = buildProxyUrl(targetUrl);
+    const res = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return { ok: false, text: "" };
+    let text = await res.text();
+    if (text.startsWith("{") && text.includes("contents")) {
+      try {
+        const json = JSON.parse(text) as { contents?: string };
+        if (typeof json?.contents === "string") text = json.contents;
+      } catch {
+        /* ignore */
+      }
+    }
+    return { ok: true, text };
+  } catch {
+    clearTimeout(timeout);
+    return { ok: false, text: "" };
+  }
+}
 
 /**
- * CORS 프록시를 통해 URL에서 텍스트 fetch (여러 프록시 순차 시도)
+ * CORS 프록시를 통해 URL에서 텍스트 fetch (병렬 시도 → 가장 빠른 응답 사용)
  */
 export async function fetchViaCorsProxy(
   targetUrl: string,
   options?: { timeoutMs?: number }
 ): Promise<{ ok: boolean; text: string; error?: string }> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  let lastError: string | undefined;
+  const perProxy = Math.min(PER_PROXY_TIMEOUT_MS, Math.ceil(timeoutMs / 2));
 
-  for (const buildProxyUrl of PROXIES) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const proxyUrl = buildProxyUrl(targetUrl);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        lastError = `HTTP ${res.status}`;
-        continue;
-      }
-
-      const text = await res.text();
-
-      // allorigins.win은 JSON 래핑할 수 있음 - contents 필드 확인
-      if (text.startsWith("{") && text.includes("contents")) {
-        try {
-          const json = JSON.parse(text) as { contents?: string };
-          const contents = json?.contents;
-          if (typeof contents === "string") return { ok: true, text: contents };
-        } catch {
-          // JSON 파싱 실패 시 원본 텍스트 사용
-        }
-      }
-
-      return { ok: true, text };
-    } catch (e) {
-      clearTimeout(timeout);
-      lastError = e instanceof Error ? e.message : "네트워크 오류";
-    }
-  }
-
-  return { ok: false, text: "", error: lastError };
+  const results = await Promise.all(
+    PROXIES.map((build) => tryOneProxy(targetUrl, build, perProxy))
+  );
+  const firstOk = results.find((r) => r.ok && r.text);
+  if (firstOk) return { ok: true, text: firstOk.text };
+  return { ok: false, text: "", error: "네트워크 오류" };
 }

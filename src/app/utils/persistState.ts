@@ -8,6 +8,7 @@ const ARCHIVE_STATE_KEY = "dailynews_archive_state";
 const SELECTED_SOURCES_KEY = "newsbrief_selected_sources";
 const INTEREST_MEMORY_DOMESTIC_KEY = "newsbrief_interest_memory_domestic";
 const INTEREST_MEMORY_INTERNATIONAL_KEY = "newsbrief_interest_memory_international";
+const SELECTED_MODEL_KEY = "newsbrief_selected_model";
 
 export const DEFAULT_DOMESTIC_SOURCES = ["hankyung_all", "hankyung_finance", "mk", "sbs"];
 export const DEFAULT_INTERNATIONAL_SOURCES = ["finnhub", "yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"];
@@ -66,6 +67,21 @@ export function getInterestMemoryInternational(): string {
 export function setInterestMemoryInternational(text: string): void {
   try {
     localStorage.setItem(INTEREST_MEMORY_INTERNATIONAL_KEY, text.slice(0, INTEREST_MEMORY_MAX_LEN));
+  } catch {}
+}
+
+export function getSelectedModel(): "gemini" | "gpt" {
+  try {
+    const v = localStorage.getItem(SELECTED_MODEL_KEY);
+    return v === "gpt" ? "gpt" : "gemini";
+  } catch {
+    return "gemini";
+  }
+}
+
+export function setSelectedModel(model: "gemini" | "gpt"): void {
+  try {
+    localStorage.setItem(SELECTED_MODEL_KEY, model);
   } catch {}
 }
 

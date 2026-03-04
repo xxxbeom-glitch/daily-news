@@ -3,14 +3,13 @@ import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, HardDrive, Cloud, RefreshCw, ChevronDown } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
-import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational } from "../utils/persistState";
+import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational, getSelectedModel, setSelectedModel } from "../utils/persistState";
 import { saveToLocalStorage, uploadToGoogleDrive } from "../utils/exportArchives";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
-const RECENT_RANGE_KEY = "newsbrief_recent_range";
 
 const RSS_CHECK_TIMEOUT_MS = 10000;
 
@@ -225,7 +224,7 @@ async function checkConnectionStatus(
 
 export function SettingsPage() {
   const { sessions, clearAllSessions } = useArchive();
-  const [rangeExpanded, setRangeExpanded] = useState(false);
+  const [aiEngineExpanded, setAiEngineExpanded] = useState(false);
   const [memoryExpanded, setMemoryExpanded] = useState(false);
   const [interestMemoryDomestic, setInterestMemoryDomesticState] = useState(() => getInterestMemoryDomestic());
   const [interestMemoryInternational, setInterestMemoryInternationalState] = useState(() => getInterestMemoryInternational());
@@ -255,19 +254,11 @@ export function SettingsPage() {
   const [selectedSourceIds, setSelectedSourceIds] = useState<{ domestic: string[]; international: string[] }>(() =>
     getSelectedSources()
   );
-  const [recentRange, setRecentRange] = useState(() => {
-    try {
-      return localStorage.getItem(RECENT_RANGE_KEY) || "6h";
-    } catch {
-      return "6h";
-    }
-  });
+  const [selectedModel, setSelectedModelState] = useState<"gemini" | "gpt">(() => getSelectedModel());
 
-  const handleSetRecentRange = (value: string) => {
-    setRecentRange(value);
-    try {
-      localStorage.setItem(RECENT_RANGE_KEY, value);
-    } catch {}
+  const handleSetSelectedModel = (model: "gemini" | "gpt") => {
+    setSelectedModelState(model);
+    setSelectedModel(model);
   };
 
   const allSources = useMemo(
@@ -416,60 +407,45 @@ export function SettingsPage() {
       {/* AI 엔진 설정 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <div className="px-4 py-4 border-t-0">
-            <div className="text-white" style={{ fontSize: 14, fontWeight: 600 }}>AI 엔진</div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-[8px] border border-[#618EFF]/40 bg-[#618EFF]/20 px-3 py-1.5 text-[#618EFF]" style={{ fontSize: 13 }}>
-                Gemini (기본)
-              </span>
-              <span className="text-white/40" style={{ fontSize: 13 }}>/</span>
-              <span className="text-white/50" style={{ fontSize: 13 }}>ChatGPT (연결 실패 시 자동 전환)</span>
-            </div>
-            <p className="text-white/40 mt-2" style={{ fontSize: 12 }}>
-              Gemini가 연결되지 않으면 ChatGPT로 자동 전환됩니다.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 기사 검색 기간 */}
-      <section className="mb-4">
-        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
             type="button"
-            onClick={() => setRangeExpanded((v) => !v)}
+            onClick={() => setAiEngineExpanded((v) => !v)}
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            기사 검색 기간
-            <ChevronDown
-              size={16}
-              className={`text-white/60 transition-transform shrink-0 ${rangeExpanded ? "rotate-180" : ""}`}
-            />
+            <span>AI 엔진</span>
+            <span className="flex items-center gap-2 text-white/60 font-normal">
+              {selectedModel === "gemini" ? "Gemini" : "Chat GPT"}
+              <ChevronDown
+                size={16}
+                className={`transition-transform shrink-0 ${aiEngineExpanded ? "rotate-180" : ""}`}
+              />
+            </span>
           </button>
-          {rangeExpanded && (
-          <div className="px-4 pb-4 pt-4 flex flex-wrap gap-2 border-t border-white/6">
-          {[
-            { value: "24h", label: "24시간 이내" },
-            { value: "6h", label: "6시간 이내" },
-            { value: "3h", label: "3시간 이내" },
-            { value: "1h", label: "1시간 이내" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => handleSetRecentRange(opt.value)}
-              className={`rounded-[8px] border px-3 py-2 transition-colors ${
-                recentRange === opt.value
-                  ? "bg-[#618EFF]/30 border-[#618EFF]/50 text-[#618EFF]"
-                  : "bg-white/5 border-white/10 text-white/60 hover:bg-white/8"
-              }`}
-              style={{ fontSize: 14 }}
-            >
-              {opt.label}
-            </button>
-          ))}
-          </div>
+          {aiEngineExpanded && (
+            <div className="px-4 pb-4 pt-4 border-t border-white/6 divide-y divide-white/6">
+              <label className="flex items-center gap-3 py-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="ai-engine"
+                  checked={selectedModel === "gemini"}
+                  onChange={() => handleSetSelectedModel("gemini")}
+                  className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                />
+                <span style={{ fontSize: 14 }} className="text-white/90">Gemini</span>
+                <span style={{ fontSize: 12 }} className="text-white/40">기본값</span>
+              </label>
+              <label className="flex items-center gap-3 py-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="ai-engine"
+                  checked={selectedModel === "gpt"}
+                  onChange={() => handleSetSelectedModel("gpt")}
+                  className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                />
+                <span style={{ fontSize: 14 }} className="text-white/90">Chat GPT</span>
+              </label>
+            </div>
           )}
         </div>
       </section>

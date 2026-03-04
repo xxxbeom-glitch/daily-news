@@ -1,0 +1,95 @@
+/**
+ * 시황 자동 생성 스케줄러
+ * 미국 8:30 / 한국 16:30 (KST) - 휴장일 제외
+ */
+
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { useArchive } from "./ArchiveContext";
+import { runMarketSummaryPipeline } from "../utils/runMarketSummaryPipeline";
+import { getSelectedSources } from "../utils/persistState";
+import { domesticSources, internationalSources } from "../data/newsSources";
+import { shouldSkipUsSummary, isKrMarketHoliday } from "../utils/marketHolidays";
+
+const RAN_US_KEY = "newsbrief_ran_us";
+const RAN_KR_KEY = "newsbrief_ran_kr";
+
+function toDateKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getRanKey(kind: "us" | "kr"): string {
+  try {
+    return localStorage.getItem(kind === "us" ? RAN_US_KEY : RAN_KR_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function setRanKey(kind: "us" | "kr"): void {
+  try {
+    localStorage.setItem(kind === "us" ? RAN_US_KEY : RAN_KR_KEY, toDateKey());
+  } catch {}
+}
+
+function isInWindow(hour: number, minute: number, windowMin = 7): boolean {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const targetMin = hour * 60 + minute;
+  return nowMin >= targetMin - windowMin && nowMin <= targetMin + windowMin;
+}
+
+const MarketScheduleContext = createContext<{ isRunning: boolean } | null>(null);
+
+export function MarketScheduleProvider({ children }: { children: ReactNode }) {
+  const { addSession } = useArchive();
+  const runningRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    function checkAndRun() {
+      if (runningRef.current) return;
+      const today = toDateKey();
+      const selectedSources = getSelectedSources();
+      const hasIntl = internationalSources.filter((s) => selectedSources.international.includes(s.id)).length > 0;
+      const hasDomestic = domesticSources.filter((s) => selectedSources.domestic.includes(s.id)).length > 0;
+
+      if (hasIntl && isInWindow(8, 30) && getRanKey("us") !== today && !shouldSkipUsSummary()) {
+        runningRef.current = true;
+        setRanKey("us");
+        runMarketSummaryPipeline(true, { addSession })
+          .catch(() => {})
+          .finally(() => {
+            runningRef.current = false;
+          });
+        return;
+      }
+      if (hasDomestic && isInWindow(16, 30) && getRanKey("kr") !== today && !isKrMarketHoliday()) {
+        runningRef.current = true;
+        setRanKey("kr");
+        runMarketSummaryPipeline(false, { addSession })
+          .catch(() => {})
+          .finally(() => {
+            runningRef.current = false;
+          });
+      }
+    }
+
+    checkAndRun();
+    intervalRef.current = setInterval(checkAndRun, 60000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [addSession]);
+
+  return (
+    <MarketScheduleContext.Provider value={{ isRunning: false }}>
+      {children}
+    </MarketScheduleContext.Provider>
+  );
+}
+
+export function useMarketSchedule() {
+  const ctx = useContext(MarketScheduleContext);
+  return ctx ?? { isRunning: false };
+}

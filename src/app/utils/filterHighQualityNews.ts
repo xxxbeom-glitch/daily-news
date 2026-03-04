@@ -160,7 +160,8 @@ function similarity(a: string, b: string): number {
   return inter / (ta.size + tb.size - inter);
 }
 
-const SIMILARITY_THRESHOLD = 0.35;
+/** 0.55 = 유사도 55% 이상일 때만 중복으로 간주. 과도한 통폐합 방지 (기사 다수 유지) */
+const SIMILARITY_THRESHOLD = 0.55;
 
 /**
  * 규칙 5: 클러스터링 후 대표 기사 1개 선별
@@ -202,6 +203,35 @@ function deduplicate(
     for (const idx of cluster) used.add(idx);
   }
 
+  return result;
+}
+
+/** 유사도 기반 중복 제거만 수행. 정렬된 순서 유지, 클러스터 내 첫 번째 유지. 최대 12건 제한용 */
+export function deduplicateBySimilarity<T extends { title: string; body?: string }>(
+  articles: T[],
+  threshold = SIMILARITY_THRESHOLD
+): T[] {
+  const result: T[] = [];
+  const used = new Set<number>();
+
+  for (let i = 0; i < articles.length; i++) {
+    if (used.has(i)) continue;
+    const a = articles[i];
+    const cluster = [i];
+    const aText = `${a.title} ${a.body ?? ""}`;
+
+    for (let j = i + 1; j < articles.length; j++) {
+      if (used.has(j)) continue;
+      const b = articles[j];
+      const bText = `${b.title} ${b.body ?? ""}`;
+      if (similarity(aText, bText) >= threshold) {
+        cluster.push(j);
+        used.add(j);
+      }
+    }
+    result.push(articles[cluster[0]]);
+    for (const idx of cluster) used.add(idx);
+  }
   return result;
 }
 

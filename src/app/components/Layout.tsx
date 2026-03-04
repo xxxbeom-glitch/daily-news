@@ -1,6 +1,8 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { SearchStateProvider } from "../context/SearchStateContext";
+import { KeywordNewsProvider } from "../context/KeywordNewsContext";
+import { MarketScheduleProvider } from "../context/MarketScheduleContext";
 import { fetchHeaderTickerIndices } from "../utils/fetchMarketData";
 import type { IndexData } from "../data/marketSummary";
 
@@ -106,27 +108,7 @@ function HeaderContent() {
                   : "text-white/50 hover:text-white/70"
               }`}
             >
-              뉴스검색
-            </Link>
-            <Link
-              to="/keyword"
-              className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/keyword" || location.pathname.startsWith("/keyword/")
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
-                  : "text-white/50 hover:text-white/70"
-              }`}
-            >
-              키워드 뉴스
-            </Link>
-            <Link
-              to="/scrap"
-              className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/scrap"
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
-                  : "text-white/50 hover:text-white/70"
-              }`}
-            >
-              스크랩
+              오늘의 뉴스
             </Link>
             <Link
               to="/settings"
@@ -147,10 +129,14 @@ export function Layout() {
   return (
     <div className="h-screen flex flex-col max-w-[430px] mx-auto bg-[#0a0a0f] text-white overflow-hidden">
       <SearchStateProvider>
-        <HeaderContent />
-        <main className="flex-1 min-h-0 overflow-y-auto">
-          <Outlet />
-        </main>
+        <MarketScheduleProvider>
+          <KeywordNewsProvider>
+            <HeaderContent />
+          <main className="flex-1 min-h-0 overflow-y-auto">
+            <Outlet />
+          </main>
+          </KeywordNewsProvider>
+        </MarketScheduleProvider>
       </SearchStateProvider>
     </div>
   );

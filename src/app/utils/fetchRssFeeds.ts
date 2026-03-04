@@ -56,11 +56,18 @@ async function fetchFinnhubNews(sourceId: string, sourceName: string): Promise<R
 
 /** 기사 검색 기간 - 설정값 → 밀리초 */
 export const RECENT_RANGE_MS: Record<string, number> = {
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "48h": 48 * 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
+  "4h": 4 * 60 * 60 * 1000,
   "3h": 3 * 60 * 60 * 1000,
+  "2h": 2 * 60 * 60 * 1000,
   "1h": 60 * 60 * 1000,
 };
+
+/** 계층형 검색: 2h → 4h → 6h 순으로 넓혀가며 첫 비어있지 않은 결과 반환 */
+export const TIERED_RANGE_KEYS = ["2h", "4h", "6h"] as const;
 
 const RECENT_RANGE_KEY = "newsbrief_recent_range";
 const RSS_TIMEOUT_MS = 15000;
@@ -150,6 +157,24 @@ export function filterArticlesByRange<T extends { pubDate: string }>(
   });
 }
 
+/**
+ * 2h → 4h → 6h 순으로 범위를 넓혀가며, process 결과가 비어있지 않을 때까지 시도
+ * @param process 범위 필터 적용된 기사에 대한 추가 처리 (키워드 매칭, 품질 필터 등)
+ */
+export function filterArticlesByRangeTiered<T extends { pubDate: string }>(
+  articles: T[],
+  process: (rangeFiltered: T[]) => T[]
+): { articles: T[]; rangeKey: string } {
+  for (const key of TIERED_RANGE_KEYS) {
+    const byRange = filterArticlesByRange(articles, key);
+    const result = process(byRange);
+    if (result.length > 0) return { articles: result, rangeKey: key };
+  }
+  const lastKey = TIERED_RANGE_KEYS[TIERED_RANGE_KEYS.length - 1];
+  const byRange = filterArticlesByRange(articles, lastKey);
+  return { articles: process(byRange), rangeKey: lastKey };
+}
+
 export interface FetchRssOptions {
   sources: { id: string; name: string; rssUrl: string }[];
   onProgress?: (fetched: number, total: number) => void;
@@ -161,35 +186,33 @@ export interface FetchRssResult {
 }
 
 /**
- * 여러 RSS 피드에서 기사 수집
+ * 여러 RSS 피드에서 기사 수집 (병렬)
  * @returns 수집된 기사 및 오류 정보 (모든 피드 실패 시 error 설정)
  */
 export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssResult> {
   const { sources, onProgress } = options;
   if (sources.length === 0) return { articles: [] };
 
+  const results = await Promise.all(
+    sources.map(async (s, idx) => {
+      if (s.id === "finnhub") {
+        const items = await fetchFinnhubNews(s.id, s.name);
+        onProgress?.(idx + 1, sources.length);
+        return { sourceName: s.name, articles: items, ok: items.length > 0 };
+      }
+      const { ok, text } = await fetchViaCorsProxy(s.rssUrl, { timeoutMs: RSS_TIMEOUT_MS });
+      onProgress?.(idx + 1, sources.length);
+      if (!ok) return { sourceName: s.name, articles: [], ok: false };
+      const items = parseRssXml(text, s.id, s.name);
+      return { sourceName: s.name, articles: items, ok: true };
+    })
+  );
+
   const allArticles: RawRssArticle[] = [];
   const failedSources: string[] = [];
-  const total = sources.length;
-
-  for (let i = 0; i < sources.length; i++) {
-    onProgress?.(i + 1, total);
-    const s = sources[i];
-
-    if (s.id === "finnhub") {
-      const items = await fetchFinnhubNews(s.id, s.name);
-      if (items.length === 0) failedSources.push(s.name);
-      else allArticles.push(...items);
-      continue;
-    }
-
-    const { ok, text } = await fetchViaCorsProxy(s.rssUrl, { timeoutMs: RSS_TIMEOUT_MS });
-    if (!ok) {
-      failedSources.push(s.name);
-      continue;
-    }
-    const items = parseRssXml(text, s.id, s.name);
-    allArticles.push(...items);
+  for (const r of results) {
+    if (r.ok) allArticles.push(...r.articles);
+    else failedSources.push(r.sourceName);
   }
 
   if (allArticles.length === 0 && failedSources.length > 0) {

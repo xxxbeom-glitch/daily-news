@@ -84,8 +84,9 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
+      <p className="text-white/40 mb-3" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
       {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
-      <div className="flex items-stretch gap-[36px] mb-4">
+      <div className="flex items-stretch gap-4 mb-4">
         <div ref={dropdownRef} className="relative flex-1 min-w-0">
           <button
           type="button"
@@ -182,6 +183,7 @@ export function ArchivePage() {
             key={selectedSession.id}
             data={selectedSession.marketSummary}
             aiModel={selectedSession.aiModel ?? "gemini"}
+            articles={selectedSession.articles}
           />
         </div>
       ) : selectedSession ? (
@@ -196,7 +198,7 @@ export function ArchivePage() {
           <p style={{ fontSize: 14 }} className="text-white/40 text-center">
             {isInternational ? "저장된 해외 시황이 없습니다." : "저장된 국내 시황이 없습니다."}
             <br />
-            뉴스 검색에서 시황을 생성해 주세요.
+            미국 8:30 / 한국 16:30에 자동 생성됩니다. (휴장일 제외)
           </p>
         </div>
       ) : null}
