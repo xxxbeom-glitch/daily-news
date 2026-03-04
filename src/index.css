@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #618EFF;
+  --color-secondary: #2C3D6B;
+  --font-sans: "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  font-family: "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+}
