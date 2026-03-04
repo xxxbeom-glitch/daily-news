@@ -31,9 +31,15 @@ export interface ArchiveSession {
   aiModel?: "gemini" | "gpt";
 }
 
-/** 구글뉴스 RSS URL 생성 - 국내 (site:로 언론사 지정, 키워드 없이 전체 수집) */
+/** 구글뉴스 RSS URL 생성 - 국내 (site:로 언론사 지정) */
 export function toGoogleNewsRssUrl(site: string): string {
   const q = encodeURIComponent(`site:${site}`);
+  return `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`;
+}
+
+/** 구글뉴스 RSS URL 생성 - 국내 경제/금융 검색 (일반 언론사용) */
+export function toGoogleNewsRssUrlEconomy(site: string): string {
+  const q = encodeURIComponent(`site:${site} 경제 OR 금융`);
   return `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`;
 }
 
@@ -43,11 +49,11 @@ export function toGoogleNewsRssUrlIntl(site: string): string {
   return `https://news.google.com/rss/search?q=${q}&hl=en&gl=US&ceid=US:en`;
 }
 
-// 국내 언론사 (구글뉴스 RSS + 직접 RSS)
+// 국내 언론사 (경제 섹션 전용 RSS 우선 - 연예/사회 기사 원천 차단)
 export const domesticSources: NewsSource[] = [
   { id: "gn_hankyung", name: "한국경제", rssUrl: toGoogleNewsRssUrl("hankyung.com") },
   { id: "gn_mk", name: "매일경제", rssUrl: toGoogleNewsRssUrl("mk.co.kr") },
-  { id: "gn_sbs", name: "SBS", rssUrl: toGoogleNewsRssUrl("sbs.co.kr") },
+  { id: "sbs_economy", name: "SBS 경제", rssUrl: "https://api.sbs.co.kr/xml/news/rss.jsp?pmDiv=economy" },
   { id: "yna_economy", name: "연합뉴스 경제", rssUrl: "https://www.yna.co.kr/rss/economy.xml" },
 ];
 

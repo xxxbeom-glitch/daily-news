@@ -29,6 +29,18 @@ const CLICKBAIT_BLACKLIST = [
   "뇌동매매", "손절", "물타기", "갈매기", "찌라시", "사기",
 ];
 
+// 규칙 2 확장: 브라켓 기반 비경제 카테고리 (즉시 제외)
+const BRACKET_BLACKLIST = [
+  "[MK포토]", "[포토]", "[페이스캠]", "[날씨]", "[영상]", "[인사]", "[부고]", "[운세]",
+  "[날씨/XR]", "[포토뉴스]",
+];
+
+// 규칙 2 확장: 연예·스포츠·사회 콘텐츠 유형 (즉시 제외)
+const CONTENT_TYPE_BLACKLIST = [
+  "출연", "개봉", "데뷔", "우승", "득점", "아이돌", "드라마",
+  "살인", "혐의", "구속", "날씨", "기온", "습도",
+];
+
 // 규칙 3: 공식 가이던스/월가 키워드 (가중치용)
 const OFFICIAL_GUIDANCE_KEYWORDS = [
   "실적", "가이던스", "어닝", "earnings", "guidance", "잠정실적",
@@ -62,24 +74,33 @@ function hasClickbait(title: string, body: string = ""): boolean {
   return CLICKBAIT_BLACKLIST.some((kw) => text.includes(kw.toLowerCase()));
 }
 
+/** 규칙 2 확장: 브라켓 패턴·콘텐츠 유형 블랙리스트 (즉시 제외) */
+function hasExcludedBracketOrContent(title: string, body: string = ""): boolean {
+  const text = `${title} ${body}`;
+  if (BRACKET_BLACKLIST.some((kw) => text.includes(kw))) return true;
+  if (CONTENT_TYPE_BLACKLIST.some((kw) => text.includes(kw))) return true;
+  return false;
+}
+
 /** 규칙 2: 추측성 표현 체크 (업계 관계자 등) - 가중치 감소용 */
 function hasSpeculativePhrase(title: string, body: string = ""): boolean {
   const text = `${title} ${body}`;
   return /업계\s*관계자|관계자에\s*따르면|추정되|전망되|설\s*정치/i.test(text);
 }
 
-/** 규칙 1: 수치/팩트 존재 여부 */
+/** 규칙 1: 경제적 맥락의 수치/팩트 존재 여부 (연예 나이·날씨 수치 등 제외) */
 function hasFactAndFigure(title: string, body: string = ""): boolean {
   const text = `${title} ${body}`;
-  // 재무/경제 수치 패턴: %, 원, 달러, 배수, 퍼센트, EPS, 매출, CPI 등
-  const patterns = [
-    /\d+%|\d+\s*퍼센트|%\s*(상승|하락|증가|감소)/i,
-    /[\d,]+원|[\d,.]+\s*달러|\$[\d,.]+/,
+  // 경제 단위와 결합된 수치만 가점: %, 포인트, 억원, 달러, bp, PER/PBR 등
+  const economicPatterns = [
+    /\d+%\s*(상승|하락|인상|인하|급등|급락)?|\d+\s*퍼센트|%\s*(상승|하락|증가|감소)/i,
+    /[\d,.]+\s*포인트\s*(p|bp)?|기준금리|금리\s*[\d.]+/i,
+    /[\d,]+억\s*원|[\d,.]+\s*달러|\$[\d,.]+|조\s*원/i,
     /EPS|PER|PBR|ROE|매출|영업이익|순이익|마진율/i,
-    /CPI|GDP|금리|실업률|기준금리/i,
-    /[\d,.]+\s*%|목표가\s*[\d,]+/,
+    /CPI|GDP|실업률|기준금리/i,
+    /목표가\s*[\d,]+|[\d.]+\s*배\s*(수)?/i,
   ];
-  return patterns.some((p) => p.test(text));
+  return economicPatterns.some((p) => p.test(text));
 }
 
 /** 규칙 3: 공식 가이던스/월가 키워드 점수 */
@@ -241,7 +262,7 @@ export function deduplicateBySimilarity<T extends { title: string; body?: string
   return result;
 }
 
-/** 경제·금융 분야 지표 (이 중 하나라도 없으면 국내 시황에서 제외) */
+/** 경제·금융 분야 지표 (넓은 풀 - 감점용) */
 const ECONOMY_SECTOR_KEYWORDS = [
   "주가", "주식", "증시", "코스피", "코스닥", "KOSPI", "KOSDAQ", "종목", "테마주",
   "금리", "연준", "Fed", "기준금리", "CPI", "물가", "인플레이션", "GDP",
@@ -257,10 +278,23 @@ const ECONOMY_SECTOR_KEYWORDS = [
   "원화", "달러", "정책", "세금", "예산", "재정", "금융시장", "증권시장", "주식시장",
 ];
 
+/** 국내 전용: 경제 핵심 키워드 (최소 1개 이상 필수 포함) - 연예/사회 기사 차단 */
+const CORE_ECONOMY_KEYWORDS = [
+  "금리", "증시", "상장", "실적", "공시", "국채", "코스피", "코스닥",
+  "매출", "영업이익", "주가", "주식", "연준", "CPI", "GDP", "환율",
+  "원달러", "배당", "M&A", "IPO", "증권", "은행", "금융", "경제",
+];
+
 /** 기사가 경제 분야인지 (제목+본문에 경제 지표 키워드 1개 이상) */
 function isEconomySectorArticle(title: string, body: string): boolean {
   const text = `${title} ${body}`;
   return ECONOMY_SECTOR_KEYWORDS.some((kw) => text.includes(kw));
+}
+
+/** 국내 전용: 경제 핵심 키워드 1개 이상 포함 필수 (연예/사회 기사 제외) */
+function hasCoreEconomyKeyword(title: string, body: string): boolean {
+  const text = `${title} ${body}`;
+  return CORE_ECONOMY_KEYWORDS.some((kw) => text.includes(kw));
 }
 
 /** 한국 언론사 기사에서 순수 해외소식(한국 기업 무관) 제외용 키워드 */
@@ -300,15 +334,17 @@ export function filterHighQualityNews(
 ): NewsArticle[] {
   const { watchlist, interestKeywords = [], isInternational = true } = options;
 
-  // 규칙 2: 클릭베이트 즉시 폐기 (유일한 제외 항목)
-  const afterClickbait = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
+  // 규칙 2: 클릭베이트 + 브라켓 패턴 + 콘텐츠 유형 즉시 폐기
+  let afterRule2 = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
+  afterRule2 = afterRule2.filter((a) => !hasExcludedBracketOrContent(a.title, a.body ?? ""));
 
-  // 국내 시: 경제/해외 제외 → 감점 방식 전환 (모수 확보)
-  // - 경제 분야 외: -40점 (시장 영향 사회/정치 기사 보존)
-  // - 순수 해외소식: -30점 (글로벌 거시 지표 보존, 하단 배치)
+  // 국내 시: 경제 핵심 키워드 1개 이상 필수 (연예/사회 기사 제외)
+  const afterDomesticFilter = !isInternational
+    ? afterRule2.filter((a) => hasCoreEconomyKeyword(a.title, a.body ?? ""))
+    : afterRule2;
 
-  // 규칙 1, 3, 4 점수 산출 + 국내 감점
-  const scored = afterClickbait.map((a) => {
+  // 규칙 1, 3, 4 점수 산출 + 국내 감점 (경제분야 외 -40, 순수 해외 -30)
+  const scored = afterDomesticFilter.map((a) => {
     const body = a.body ?? "";
     let score = 0;
 
@@ -321,7 +357,7 @@ export function filterHighQualityNews(
     score += getThemeScore(a.title, body) * 2;
     score += getBigTechM7Score(a.title, body); // 빅테크 M7·AI 기업 기사 우선
 
-    // 국내 전용: 제외 → 감점 (기사 수 확보)
+    // 국내 전용: 넓은 경제 키워드 미포함 시 감점, 순수 해외 -30
     if (!isInternational) {
       if (!isEconomySectorArticle(a.title, body)) score -= 40;
       if (isOverseasOnlyArticle(a.title, body)) score -= 30;
