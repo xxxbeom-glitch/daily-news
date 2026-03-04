@@ -89,6 +89,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       setIsReady(true);
       return;
     }
+    setIsReady(true);
     const unsub = onAuthStateChanged(fb.auth, async (authUser: User | null) => {
       setUser(authUser);
       if (!authUser) {
@@ -97,7 +98,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
           const cred = await signInAnonymously(fb.auth);
           setUid(cred.user.uid);
         } catch {
-          setIsReady(true);
+          /* auth 실패해도 앱은 이미 표시됨 */
         }
         return;
       }
@@ -107,10 +108,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled || !uid) {
-      if (!enabled) setIsReady(true);
-      return;
-    }
+    if (!enabled || !uid) return;
     let cancelled = false;
     (async () => {
       try {
@@ -139,16 +137,14 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
           if (meta.archiveState) saveArchiveState(meta.archiveState);
           if (meta.searchState) saveSearchState(meta.searchState as unknown as PersistedSearchState);
         }
-        if (sessions && sessions.length > 0) {
+        if (sessions) {
           try {
             localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
+            window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
           } catch {}
         }
       } finally {
-        if (!cancelled) {
-          loadCompleteRef.current = true;
-          setIsReady(true);
-        }
+        if (!cancelled) loadCompleteRef.current = true;
       }
     })();
     return () => { cancelled = true; };

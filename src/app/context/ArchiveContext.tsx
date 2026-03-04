@@ -39,6 +39,17 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
   }, [sessions]);
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<ArchiveSession[]>;
+      if (ev.detail !== undefined && Array.isArray(ev.detail)) {
+        setSessions(ev.detail);
+      }
+    };
+    window.addEventListener("newsbrief_sessions_loaded", handler);
+    return () => window.removeEventListener("newsbrief_sessions_loaded", handler);
+  }, []);
+
   const addSession = useCallback(
     (session: ArchiveSession) => {
       setSessions((prev) => [session, ...prev]);
