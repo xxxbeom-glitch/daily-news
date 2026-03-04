@@ -5,8 +5,6 @@ import { SettingsPageWrapper } from "./components/SettingsPageWrapper";
 import { SearchPageWrapper } from "./components/SearchPageWrapper";
 import { AdminPage } from "./components/AdminPage";
 
-const isAdminEnabled = import.meta.env.VITE_ENABLE_ADMIN === "true";
-
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -22,10 +20,7 @@ export const router = createBrowserRouter([
         element: <Outlet />,
         children: [
           { index: true, element: <SettingsPageWrapper /> },
-          {
-            path: "admin",
-            element: isAdminEnabled ? <AdminPage /> : <Navigate to="/settings" replace />,
-          },
+          { path: "admin", element: <AdminPage /> },
         ],
       },
     ],

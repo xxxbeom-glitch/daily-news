@@ -1,5 +1,5 @@
 /**
- * 관리자 페이지 (VITE_ENABLE_ADMIN=true 일 때만 접근 가능)
+ * 관리자 설정 (설정 > 관리자)
  */
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
