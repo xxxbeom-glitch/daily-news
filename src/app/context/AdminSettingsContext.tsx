@@ -3,6 +3,7 @@ import {
   getAdminHideMarket,
   getAdminShowNewsTab,
   getAdminTestRunAt,
+  getAdminTestExpectedReadyAt,
   type AdminSchedule,
   getAdminSchedule,
   getAdminMovers,
@@ -18,6 +19,7 @@ interface AdminSettingsState {
   movers: Record<string, string>;
   modelId: string | null;
   testRunAt: number | null;
+  testExpectedReadyAt: number | null;
 }
 
 const AdminSettingsContext = createContext<{
@@ -27,6 +29,7 @@ const AdminSettingsContext = createContext<{
   movers: Record<string, string>;
   modelId: string | null;
   testRunAt: number | null;
+  testExpectedReadyAt: number | null;
   refresh: () => void;
 } | null>(null);
 
@@ -38,6 +41,7 @@ function readState(): AdminSettingsState {
     movers: getAdminMovers(),
     modelId: getAdminModelId(),
     testRunAt: getAdminTestRunAt(),
+    testExpectedReadyAt: getAdminTestExpectedReadyAt(),
   };
 }
 
@@ -64,6 +68,7 @@ export function AdminSettingsProvider({ children }: { children: React.ReactNode 
         movers: state.movers,
         modelId: state.modelId,
         testRunAt: state.testRunAt,
+        testExpectedReadyAt: state.testExpectedReadyAt,
         refresh,
       }}
     >

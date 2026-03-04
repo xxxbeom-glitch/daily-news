@@ -260,7 +260,7 @@ export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssR
         onProgress?.(idx + 1, sources.length);
         return { sourceName: s.name, articles: items, ok: items.length > 0 };
       }
-      const useRss2Json = s.id.startsWith("gn_") || s.id === "sbs_economy" || s.id === "yna_economy";
+      const useRss2Json = s.id.startsWith("gn_") || s.id === "yna_economy";
       let items: RawRssArticle[] = [];
       if (useRss2Json) {
         const urlsToTry = s.id === "hankyung_finance"

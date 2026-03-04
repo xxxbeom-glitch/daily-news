@@ -7,7 +7,8 @@ const ADMIN_SHOW_NEWS_TAB_KEY = "newsbrief_admin_show_news_tab";
 const ADMIN_MODEL_ID_KEY = "newsbrief_admin_model_id";
 const ADMIN_MOVERS_KEY = "newsbrief_admin_movers";
 const ADMIN_SCHEDULE_KEY = "newsbrief_admin_schedule";
-const ADMIN_TEST_RUN_KEY = "newsbrief_admin_test_run"; // "1" | "3" | "" (분)
+const ADMIN_TEST_RUN_KEY = "newsbrief_admin_test_run";
+const ADMIN_TEST_EXPECTED_READY_KEY = "newsbrief_admin_test_expected_ready";
 
 /** 오늘의 시황 데이터 전부 숨김 */
 export function getAdminHideMarket(): boolean {
@@ -112,7 +113,7 @@ export function setAdminSchedule(s: AdminSchedule): void {
   } catch {}
 }
 
-/** 테스트 실행 예약 (timestamp. 이 시간 이후 체크 시 실행) */
+/** 테스트 실행 트리거 (timestamp. 이 시간 이후 체크 시 즉시 실행. Date.now()로 설정하면 바로 실행) */
 export function getAdminTestRunAt(): number | null {
   try {
     const v = localStorage.getItem(ADMIN_TEST_RUN_KEY);
@@ -127,5 +128,23 @@ export function setAdminTestRunAt(timestamp: number | null): void {
   try {
     if (timestamp) localStorage.setItem(ADMIN_TEST_RUN_KEY, String(timestamp));
     else localStorage.removeItem(ADMIN_TEST_RUN_KEY);
+  } catch {}
+}
+
+/** 테스트 결과 예상 시각 (타이머 표시용. 이 시각까지 카운트다운) */
+export function getAdminTestExpectedReadyAt(): number | null {
+  try {
+    const v = localStorage.getItem(ADMIN_TEST_EXPECTED_READY_KEY);
+    const ts = v ? parseInt(v, 10) : NaN;
+    return !isNaN(ts) ? ts : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setAdminTestExpectedReadyAt(timestamp: number | null): void {
+  try {
+    if (timestamp) localStorage.setItem(ADMIN_TEST_EXPECTED_READY_KEY, String(timestamp));
+    else localStorage.removeItem(ADMIN_TEST_EXPECTED_READY_KEY);
   } catch {}
 }

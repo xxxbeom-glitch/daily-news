@@ -97,8 +97,11 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
     }
 
     checkAndRun();
+    const onSettingsChange = () => checkAndRun();
+    window.addEventListener("admin_settings_changed", onSettingsChange);
     intervalRef.current = setInterval(checkAndRun, 10000);
     return () => {
+      window.removeEventListener("admin_settings_changed", onSettingsChange);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [addSession]);

@@ -11,6 +11,7 @@ import {
   setAdminMovers,
   setAdminSchedule,
   setAdminTestRunAt,
+  setAdminTestExpectedReadyAt,
   type AdminSchedule,
 } from "../utils/adminSettings";
 import { getAppLog, clearAppLog } from "../utils/appLogger";
@@ -23,7 +24,7 @@ const inputClass =
 export function AdminPage() {
   const location = useLocation();
   const isUnderSettings = location.pathname.startsWith("/settings/");
-  const { refresh, hideMarket, showNewsTab, schedule, movers, testRunAt } = useAdminSettings();
+  const { refresh, hideMarket, showNewsTab, schedule, movers, testRunAt, testExpectedReadyAt } = useAdminSettings();
   const [countdownSec, setCountdownSec] = useState<number>(0);
   const [moversEdit, setMoversEdit] = useState<string>("");
   const [scheduleEdit, setScheduleEdit] = useState<AdminSchedule>({ usHour: 8, usMinute: 30, krHour: 16, krMinute: 30 });
@@ -34,18 +35,27 @@ export function AdminPage() {
   }, [schedule]);
 
   useEffect(() => {
-    if (testRunAt == null || testRunAt <= Date.now()) {
+    const target = testExpectedReadyAt ?? testRunAt;
+    if (target == null || target <= Date.now()) {
       setCountdownSec(0);
+      if (testExpectedReadyAt != null && testExpectedReadyAt <= Date.now()) {
+        setAdminTestExpectedReadyAt(null);
+        refresh();
+      }
       return;
     }
     const tick = () => {
-      const remain = Math.max(0, Math.ceil((testRunAt - Date.now()) / 1000));
+      const remain = Math.max(0, Math.ceil((target - Date.now()) / 1000));
       setCountdownSec(remain);
+      if (remain <= 0 && testExpectedReadyAt != null) {
+        setAdminTestExpectedReadyAt(null);
+        refresh();
+      }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [testRunAt]);
+  }, [testRunAt, testExpectedReadyAt, refresh]);
 
   useEffect(() => {
     setMoversEdit(
@@ -70,7 +80,8 @@ export function AdminPage() {
   };
 
   const handleTestRun = (minutes: number) => {
-    setAdminTestRunAt(Date.now() + minutes * 60 * 1000);
+    setAdminTestRunAt(Date.now()); // 즉시 실행 트리거
+    setAdminTestExpectedReadyAt(Date.now() + minutes * 60 * 1000); // 결과 예상 시각 (타이머용)
     applyRefresh();
   };
 
@@ -150,33 +161,33 @@ export function AdminPage() {
       {/* 2. 자동생성 테스트 */}
       <section className={sectionClass}>
         <h3 className={labelClass}>오늘의 시황 자동생성 테스트</h3>
-        <p className="text-white/50 text-xs mb-3">1분/3분 후 미국·한국 시황 파이프라인을 실행합니다.</p>
+        <p className="text-white/50 text-xs mb-3">누르는 즉시 생성 시작. 1분/3분 후 결과 확인 가능.</p>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => handleTestRun(1)}
-            disabled={testRunAt != null}
+            disabled={testRunAt != null || testExpectedReadyAt != null}
             className={`px-4 py-2 rounded-[8px] text-sm font-medium transition-colors ${
-              testRunAt != null
+              testRunAt != null || testExpectedReadyAt != null
                 ? "bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/50 cursor-default"
                 : "bg-white/10 hover:bg-white/15 text-white border border-white/15"
             }`}
           >
-            1분 후
+            1분
           </button>
           <button
             type="button"
             onClick={() => handleTestRun(3)}
-            disabled={testRunAt != null}
+            disabled={testRunAt != null || testExpectedReadyAt != null}
             className={`px-4 py-2 rounded-[8px] text-sm font-medium transition-colors ${
-              testRunAt != null
+              testRunAt != null || testExpectedReadyAt != null
                 ? "bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/50 cursor-default"
                 : "bg-white/10 hover:bg-white/15 text-white border border-white/15"
             }`}
           >
-            3분 후
+            3분
           </button>
-          {testRunAt != null && countdownSec > 0 && (
+          {(testRunAt != null || testExpectedReadyAt != null) && countdownSec > 0 && (
             <span className="text-[#618EFF] text-sm font-medium tabular-nums">
               {Math.floor(countdownSec / 60)}:{String(countdownSec % 60).padStart(2, "0")}
             </span>

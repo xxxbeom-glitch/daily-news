@@ -53,7 +53,7 @@ export function toGoogleNewsRssUrlIntl(site: string): string {
 export const domesticSources: NewsSource[] = [
   { id: "gn_hankyung", name: "한국경제", rssUrl: toGoogleNewsRssUrl("hankyung.com") },
   { id: "gn_mk", name: "매일경제", rssUrl: toGoogleNewsRssUrl("mk.co.kr") },
-  { id: "sbs_economy", name: "SBS 경제", rssUrl: "https://api.sbs.co.kr/xml/news/rss.jsp?pmDiv=economy" },
+  { id: "gn_sbs", name: "SBS 경제", rssUrl: toGoogleNewsRssUrlEconomy("sbs.co.kr") },
   { id: "yna_economy", name: "연합뉴스 경제", rssUrl: "https://www.yna.co.kr/rss/economy.xml" },
 ];
 

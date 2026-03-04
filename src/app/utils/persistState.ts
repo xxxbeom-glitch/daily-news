@@ -13,7 +13,7 @@ const SELECTED_MODEL_KEY = "newsbrief_selected_model";
 /** 설정에서 모델 저장 시 디스패치되는 이벤트 (SearchStateContext 동기화용) */
 export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
 
-export const DEFAULT_DOMESTIC_SOURCES = ["gn_hankyung", "gn_mk", "sbs_economy", "yna_economy"];
+export const DEFAULT_DOMESTIC_SOURCES = ["gn_hankyung", "gn_mk", "gn_sbs", "yna_economy"];
 export const DEFAULT_INTERNATIONAL_SOURCES = [
   "finnhub", "gn_cnbc", "gn_wsj", "gn_bloomberg", "gn_reuters", "gn_yahoo",
   "gn_investing", "gn_marketwatch",
@@ -24,7 +24,7 @@ export interface SelectedSourcesState {
   international: string[];
 }
 
-const LEGACY_DOMESTIC_IDS = new Set(["hankyung_all", "hankyung_finance", "mk", "sbs", "gn_sbs"]);
+const LEGACY_DOMESTIC_IDS = new Set(["hankyung_all", "hankyung_finance", "mk", "sbs", "sbs_economy"]);
 const LEGACY_INTERNATIONAL_IDS = new Set(["yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"]);
 
 export function getSelectedSources(): SelectedSourcesState {

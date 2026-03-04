@@ -13,14 +13,14 @@ alwaysApply: false
 ## 1. RSS 수집 (fetchRssFeeds.ts)
 
 - **기간**: 기본 24h. 계층형 검색 `3h → 6h → 12h → 24h`, 최소 10편 도달 시 해당 범위 사용
-- **rss2json 우선**: `gn_*`, `sbs_economy`, `yna_economy`는 rss2json 우선 시도 후 CORS 직접 fetch
+- **rss2json 우선**: `gn_*`, `yna_economy`는 rss2json 우선 시도 후 CORS 직접 fetch
 - **TIERED_RANGE_KEYS**: `["3h", "6h", "12h", "24h"]`
 - **MIN_ARTICLES_FOR_TIERED**: 10
 
 ## 2. 뉴스 소스 (newsSources.ts)
 
-**국내**: gn_hankyung, gn_mk, sbs_economy, yna_economy
-- sbs_economy: `https://api.sbs.co.kr/xml/news/rss.jsp?pmDiv=economy`
+**국내**: gn_hankyung, gn_mk, gn_sbs, yna_economy
+- gn_sbs: `site:sbs.co.kr 경제 OR 금융` (Google News)
 - yna_economy: `https://www.yna.co.kr/rss/economy.xml`
 
 **해외**: finnhub, gn_cnbc, gn_wsj, gn_bloomberg, gn_reuters, gn_yahoo, gn_investing, gn_marketwatch
