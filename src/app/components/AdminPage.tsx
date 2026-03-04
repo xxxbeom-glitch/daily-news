@@ -13,6 +13,7 @@ import {
   setAdminTestRunAt,
   type AdminSchedule,
 } from "../utils/adminSettings";
+import { getAppLog, clearAppLog } from "../utils/appLogger";
 
 const sectionClass = "bg-white/5 border border-white/10 rounded-[10px] p-4 mb-4";
 const labelClass = "text-white/80 text-sm mb-2 block";
@@ -26,6 +27,7 @@ export function AdminPage() {
   const [countdownSec, setCountdownSec] = useState<number>(0);
   const [moversEdit, setMoversEdit] = useState<string>("");
   const [scheduleEdit, setScheduleEdit] = useState<AdminSchedule>({ usHour: 8, usMinute: 30, krHour: 16, krMinute: 30 });
+  const [logPreview, setLogPreview] = useState<string>(() => getAppLog());
 
   useEffect(() => {
     setScheduleEdit(schedule);
@@ -74,6 +76,28 @@ export function AdminPage() {
 
   const handleScheduleSave = () => {
     setAdminSchedule(scheduleEdit);
+    applyRefresh();
+  };
+
+  const refreshLogPreview = () => {
+    setLogPreview(getAppLog());
+  };
+
+  const handleExportLog = () => {
+    const raw = getAppLog();
+    if (!raw.trim()) return;
+    const blob = new Blob([raw], { type: "application/jsonl" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `newsbrief-log-${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.jsonl`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleClearLog = () => {
+    clearAppLog();
+    refreshLogPreview();
     applyRefresh();
   };
 
@@ -197,7 +221,44 @@ export function AdminPage() {
         </button>
       </section>
 
-      {/* 5. 자동생성 시간 */}
+      {/* 5. 앱 로그 저장소 */}
+      <section className={sectionClass}>
+        <h3 className={labelClass}>앱 로그 데이터 저장소</h3>
+        <p className="text-white/50 text-xs mb-2">앱 내 이벤트 기록 (AI 파싱용 JSONL)</p>
+        <textarea
+          readOnly
+          value={logPreview}
+          className={`${inputClass} min-h-[80px] resize-y font-mono text-xs`}
+          rows={6}
+          style={{ fontSize: 11 }}
+        />
+        <div className="flex gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => { refreshLogPreview(); applyRefresh(); }}
+            className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white text-sm"
+          >
+            새로고침
+          </button>
+          <button
+            type="button"
+            onClick={handleExportLog}
+            disabled={!logPreview.trim()}
+            className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white text-sm disabled:opacity-50"
+          >
+            내보내기 (.jsonl)
+          </button>
+          <button
+            type="button"
+            onClick={handleClearLog}
+            className="px-4 py-2 rounded-[8px] bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm"
+          >
+            초기화
+          </button>
+        </div>
+      </section>
+
+      {/* 6. 자동생성 시간 */}
       <section className={sectionClass}>
         <h3 className={labelClass}>자동 생성 시간 (KST)</h3>
         <div className="grid grid-cols-2 gap-3 mb-3">

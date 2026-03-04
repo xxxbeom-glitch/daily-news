@@ -9,7 +9,7 @@ import type { RawRssArticle } from "../utils/fetchRssFeeds";
 import { getInterestMemoryDomestic, parseInterestKeywords } from "../utils/persistState";
 import { isScrapped } from "../utils/scrapStorage";
 import { domesticSources } from "../data/newsSources";
-import { fetchRssFeeds, filterArticlesByRangeTiered } from "../utils/fetchRssFeeds";
+import { fetchRssFeeds, filterArticlesByRange } from "../utils/fetchRssFeeds";
 import { deduplicateBySimilarity } from "../utils/filterHighQualityNews";
 
 function matchesKeyword(text: string, keywords: string[]): boolean {
@@ -94,17 +94,16 @@ export function KeywordNewsProvider({ children }: { children: ReactNode }) {
       setLoadStep("키워드 필터링 중…");
       setLoadProgress(97);
 
-      const { articles: matched } = filterArticlesByRangeTiered(raw, (filtered) => {
-        const m = filtered
-          .filter((a) => matchesKeyword(a.title, allKeywords) || (a.body && matchesKeyword(a.body, allKeywords)))
-          .filter((a) => !isScrapped(a.link));
-        m.sort((a, b) => {
-          const da = new Date(a.pubDate).getTime();
-          const db = new Date(b.pubDate).getTime();
-          return db - da;
-        });
-        return deduplicateBySimilarity(m).slice(0, 8);
+      const byRange = filterArticlesByRange(raw, "6h");
+      const m = byRange
+        .filter((a) => matchesKeyword(a.title, allKeywords) || (a.body && matchesKeyword(a.body, allKeywords)))
+        .filter((a) => !isScrapped(a.link));
+      m.sort((a, b) => {
+        const da = new Date(a.pubDate).getTime();
+        const db = new Date(b.pubDate).getTime();
+        return db - da;
       });
+      const matched = deduplicateBySimilarity(m).slice(0, 8);
       setLoadProgress(100);
       setArticles(matched);
     } catch (e) {

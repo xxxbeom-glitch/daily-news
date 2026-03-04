@@ -69,7 +69,6 @@ export const RECENT_RANGE_MS: Record<string, number> = {
 /** 계층형 검색: 2h → 4h → 6h 순으로 넓혀가며 첫 비어있지 않은 결과 반환 */
 export const TIERED_RANGE_KEYS = ["2h", "4h", "6h"] as const;
 
-const RECENT_RANGE_KEY = "newsbrief_recent_range";
 const RSS_TIMEOUT_MS = 15000;
 
 export interface RawRssArticle {
@@ -174,13 +173,9 @@ function parseRssXml(xmlText: string, sourceId: string, sourceName: string): Raw
   return articles;
 }
 
-/** 설정에서 저장된 기사 검색 기간 값 읽기 */
+/** 기사 검색 기간 (6시간 고정) */
 export function getRecentRangeFromSettings(): string {
-  try {
-    return localStorage.getItem(RECENT_RANGE_KEY) || "24h";
-  } catch {
-    return "24h";
-  }
+  return "6h";
 }
 
 /** 기간 범위 내 기사만 필터링 */

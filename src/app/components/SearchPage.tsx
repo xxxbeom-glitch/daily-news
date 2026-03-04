@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { saveSearchState, loadSearchState, getSelectedSources, getSelectedModel, getInterestMemoryDomestic, getInterestMemoryInternational, parseInterestKeywords } from "../utils/persistState";
 import { useSearchState } from "../context/SearchStateContext";
 import { RefreshCw } from "lucide-react";
@@ -19,6 +19,7 @@ import {
 } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
+import { appLog } from "../utils/appLogger";
 
 const LOAD_STEPS: Record<number, string> = {
   0: "RSS 피드 수집 중…",
@@ -98,6 +99,8 @@ export function SearchPage() {
   }, [selectedModel, summaryInternational, summaryDomestic, summaryModel]);
 
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const elapsedStartRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isLoading || loadStep !== 3) {
@@ -114,6 +117,20 @@ export function SearchPage() {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
   }, [isLoading, loadStep]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setElapsedSec(0);
+      return;
+    }
+    elapsedStartRef.current = Date.now();
+    const tick = () => {
+      const sec = Math.floor((Date.now() - elapsedStartRef.current) / 1000);
+      setElapsedSec(sec);
+    };
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isLoading]);
 
   const runPipeline = useCallback(
     async (isInternational: boolean): Promise<MarketSummaryData | null> => {
@@ -254,6 +271,9 @@ export function SearchPage() {
     setFetchInfo(null);
     setLoadStep(0);
     setLoadProgress(0);
+    setElapsedSec(0);
+    const startMs = Date.now();
+    appLog("pipeline_start", { intl: hasIntlSources, dom: hasDomesticSources });
 
     const errors: string[] = [];
     let fallbackMsg: string | null = null;
@@ -283,14 +303,21 @@ export function SearchPage() {
       setLoadStep(3);
       setLoadProgress(52);
 
+      let intlOk = false;
+      let domOk = false;
       if (tasks.length === 1) {
         const { isInternational } = tasks[0];
         try {
           const data = await runPipeline(isInternational);
           setLoadProgress(100);
           if (data) {
-            if (isInternational) setSummaryInternational(data);
-            else setSummaryDomestic(data);
+            if (isInternational) {
+              setSummaryInternational(data);
+              intlOk = true;
+            } else {
+              setSummaryDomestic(data);
+              domOk = true;
+            }
           } else {
             errors.push(isInternational ? "해외" : "국내" + " 기사가 없어 시황을 생성하지 못했습니다.");
           }
@@ -303,19 +330,30 @@ export function SearchPage() {
           runPipeline(false),
         ]);
         setLoadProgress(100);
-        if (intlData) setSummaryInternational(intlData);
-        else if (hasIntlSources) errors.push("해외 기사가 없어 해외 시황을 생성하지 못했습니다.");
-        if (domData) setSummaryDomestic(domData);
-        else if (hasDomesticSources) errors.push("국내 기사가 없어 국내 시황을 생성하지 못했습니다.");
+        if (intlData) {
+          setSummaryInternational(intlData);
+          intlOk = true;
+        } else if (hasIntlSources) errors.push("해외 기사가 없어 해외 시황을 생성하지 못했습니다.");
+        if (domData) {
+          setSummaryDomestic(domData);
+          domOk = true;
+        } else if (hasDomesticSources) errors.push("국내 기사가 없어 국내 시황을 생성하지 못했습니다.");
       }
 
       setSummaryModel(selectedModel);
       if (fallbackMsg) setFetchInfo(fallbackMsg);
       if (errors.length > 0) setFetchError(errors.join("\n"));
+      appLog("pipeline_done", {
+        ms: Date.now() - startMs,
+        intl: intlOk,
+        dom: domOk,
+        errors: errors.length,
+      });
       setIsLoading(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.";
       setFetchError(`API 오류: ${msg}`);
+      appLog("pipeline_error", { msg, ms: Date.now() - startMs });
       setSummaryInternational(null);
       setSummaryDomestic(null);
       setIsLoading(false);
@@ -343,7 +381,7 @@ export function SearchPage() {
               {getLoadStepLabel(loadStep, selectedModel)}
             </div>
             <div style={{ fontSize: 18, fontWeight: 600 }} className="text-white/90 mt-1">
-              {loadProgress}%
+              {loadProgress}% · {elapsedSec}초
             </div>
             <div style={{ fontSize: 12 }} className="text-white/40 mt-2">
               RSS 수집 → 기사 선별 → AI 분석 순으로 진행 중입니다
@@ -396,6 +434,9 @@ export function SearchPage() {
             <>
               <RefreshCw size={18} className="animate-spin" />
               {getLoadStepLabel(loadStep, selectedModel)}
+              <span className="tabular-nums" style={{ opacity: 0.9 }}>
+                ({elapsedSec}초)
+              </span>
             </>
           ) : (
             "AI요약하기"

@@ -9,12 +9,13 @@ import { domesticSources, internationalSources } from "../data/newsSources";
 import { mockMarketSummaryInternational, mockMarketSummaryDomestic } from "../data/marketSummary";
 import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, getSelectedModel, parseInterestKeywords } from "../utils/persistState";
 import { getAdminModelId } from "../utils/adminSettings";
-import { fetchRssFeeds, filterArticlesByRangeTiered } from "../utils/fetchRssFeeds";
+import { fetchRssFeeds, filterArticlesByRange } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { generateMarketSummary } from "../utils/aiSummary";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 import type { Article } from "../data/newsSources";
+import { appLog } from "../utils/appLogger";
 
 export async function runMarketSummaryPipeline(
   isInternational: boolean,
@@ -28,6 +29,9 @@ export async function runMarketSummaryPipeline(
   const sourceIds = isInternational ? selectedSources.international : selectedSources.domestic;
   if (sourceList.length === 0) return null;
 
+  const startMs = Date.now();
+  appLog("scheduler_pipeline_start", { intl: isInternational });
+
   const { articles: rawArticles, error: rssError } = await fetchRssFeeds({
     sources: sourceList.map((s) => ({ id: s.id, name: s.name, rssUrl: s.rssUrl })),
     onProgress: () => {},
@@ -36,13 +40,12 @@ export async function runMarketSummaryPipeline(
 
   const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
   const interestKeywords = parseInterestKeywords(interestMemory);
-  const { articles: filtered } = filterArticlesByRangeTiered(rawArticles, (byRange) =>
-    filterHighQualityNews(byRange, {
-      watchlist: [],
-      interestKeywords,
-      isInternational,
-    })
-  );
+  const byRange = filterArticlesByRange(rawArticles, "6h");
+  const filtered = filterHighQualityNews(byRange, {
+    watchlist: [],
+    interestKeywords,
+    isInternational,
+  });
   if (filtered.length === 0) return null;
 
   let moversSeed: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] } | undefined;
@@ -133,6 +136,8 @@ export async function runMarketSummaryPipeline(
             isInternational,
           },
         ];
+
+  appLog("scheduler_pipeline_done", { intl: isInternational, ms: Date.now() - startMs });
 
   addSession({
     id: `session-${Date.now()}-${isInternational ? "intl" : "dom"}`,

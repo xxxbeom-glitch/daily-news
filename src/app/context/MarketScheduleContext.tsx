@@ -6,6 +6,7 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { useArchive } from "./ArchiveContext";
 import { runMarketSummaryPipeline } from "../utils/runMarketSummaryPipeline";
+import { appLog } from "../utils/appLogger";
 import { getSelectedSources } from "../utils/persistState";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { shouldSkipUsSummary, isKrMarketHoliday } from "../utils/marketHolidays";
@@ -63,7 +64,9 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
         Promise.all([
           runMarketSummaryPipeline(true, { addSession }),
           runMarketSummaryPipeline(false, { addSession }),
-        ]).catch(() => {}).finally(() => { runningRef.current = false; });
+        ]).catch((e) => {
+          appLog("scheduler_error", { msg: String(e) });
+        }).finally(() => { runningRef.current = false; });
         return;
       }
       const today = toDateKey();
@@ -76,7 +79,7 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
         runningRef.current = true;
         setRanKey("us");
         runMarketSummaryPipeline(true, { addSession })
-          .catch(() => {})
+          .catch((e) => { appLog("scheduler_error", { msg: String(e), intl: true }); })
           .finally(() => {
             runningRef.current = false;
           });
@@ -86,7 +89,7 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
         runningRef.current = true;
         setRanKey("kr");
         runMarketSummaryPipeline(false, { addSession })
-          .catch(() => {})
+          .catch((e) => { appLog("scheduler_error", { msg: String(e), intl: false }); })
           .finally(() => {
             runningRef.current = false;
           });
