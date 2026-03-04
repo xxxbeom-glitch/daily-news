@@ -204,7 +204,10 @@ async function checkConnectionStatus(
   const [sourceResults, geminiResult, gptResult, finnhubResult, dataGoKrIndexResult, dataGoKrStockResult] = await Promise.all([
     Promise.all(
       sources.map(async (s) => {
-        const ok = await checkRssFeed(s.rssUrl, s.id);
+        const ok =
+          s.id === "finnhub"
+            ? await checkFinnhubNews()
+            : await checkRssFeed(s.rssUrl, s.id);
         return [s.id, ok ? "ok" as const : "error" as const] as const;
       })
     ),

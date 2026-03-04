@@ -14,7 +14,7 @@ const SELECTED_MODEL_KEY = "newsbrief_selected_model";
 export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
 
 export const DEFAULT_DOMESTIC_SOURCES = ["gn_hankyung", "gn_mk", "gn_sbs"];
-export const DEFAULT_INTERNATIONAL_SOURCES = ["gn_cnbc", "gn_wsj", "gn_bloomberg", "gn_reuters", "gn_yahoo"];
+export const DEFAULT_INTERNATIONAL_SOURCES = ["finnhub", "gn_cnbc", "gn_wsj", "gn_bloomberg", "gn_reuters", "gn_yahoo"];
 
 export interface SelectedSourcesState {
   domestic: string[];
@@ -22,7 +22,7 @@ export interface SelectedSourcesState {
 }
 
 const LEGACY_DOMESTIC_IDS = new Set(["hankyung_all", "hankyung_finance", "mk", "sbs"]);
-const LEGACY_INTERNATIONAL_IDS = new Set(["finnhub", "yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"]);
+const LEGACY_INTERNATIONAL_IDS = new Set(["yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"]);
 
 export function getSelectedSources(): SelectedSourcesState {
   try {

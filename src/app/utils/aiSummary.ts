@@ -82,8 +82,8 @@ ${articleList}
 - 모든 문자열: 한글로
 - 기업 표기: "기업명(티커)" 형태. 기업명은 한글로 표기 가능하면 한글로 (엔비디아, 애플, 테슬라 등).
 - keyIssues vs bigTechIssues: bigTechIssues는 사용하지 않음. 해외·국내 모두 keyIssues만 사용.
-- keyIssues: title 1줄, body 개조식·명사형 종결. 항목별 줄바꿈만. 문두 불릿·기호(■, -, • 등) 절대 금지. 2줄 이상 구체적 서술.
-${isInternational ? "- keyIssues 비율: 미국 중심 뉴스 약 80%. 미국 시장·정책·경제 이슈 우선." : "- keyIssues: [국내 전용] 반드시 정확히 12개. 100% 한국 기반. 경제·정책·부동산·의료·사회 등 + 삼성·SK·현대차·네이버·카카오 등 국내 상위 기업 관련 중요한 뉴스가 있으면 함께 포함. 부족하면 기타 시장 이슈로 채워 12개 맞출 것."}
+- keyIssues: title 1줄, body 개조식·명사형 종결. 항목별 줄바꿈만. 문두 불릿·기호(■, -, • 등) 절대 금지. body는 반드시 3줄 이상 구체적 서술.
+${isInternational ? "- keyIssues 비율: 미국 중심 뉴스 약 80%. 미국 시장·정책·경제 이슈 우선." : "- keyIssues: [국내 전용] 반드시 정확히 12개. 각 항목 body는 3줄 이상. 100% 한국 기반. 경제·정책·부동산·의료·사회 등 + 삼성·SK·현대차·네이버·카카오 등 국내 상위 기업 관련 중요한 뉴스가 있으면 함께 포함. 부족하면 기타 시장 이슈로 채워 12개 맞출 것."}
 ${isInternational ? "- geopoliticalIssues: 최소 5~8개. 각 body 개조식·명사형 종결. 2줄 이상." : ""}
 ${isInternational ? "- earningsPast: 뉴스에서 간밤 발표된 실적(기업명, result는 개조식·명사형 종결) 추출. 없으면 빈 배열. earningsUpcoming: 뉴스에서 예정 실적 일정 추출. 없으면 빈 배열. (실적 일정은 API로 별도 수집됨)" : ""}
 
@@ -99,7 +99,7 @@ ${isInternational ? `{
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\n항목2 (명사형 종결)" }
+    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\n항목2 (명사형 종결)\n항목3 이상 (명사형 종결)" }
   ],
   "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "stockMoversLabel": "M7 및 반도체주 등락율",
@@ -123,7 +123,7 @@ ${isInternational ? `{
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "keyIssues": [
-    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\n항목2 (명사형 종결)" }
+    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\n항목2 (명사형 종결)\n항목3 이상 (명사형 종결)" }
   ],
   "keyIssuesSources": [...],
   "stockMoversLabel": "",

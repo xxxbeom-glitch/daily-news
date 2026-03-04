@@ -65,7 +65,7 @@ export async function translateKeywordsToEnglish(keywords: string[]): Promise<st
 }
 
 const INTNL_SOURCE_IDS = new Set([
-  "gn_cnbc", "gn_wsj", "gn_bloomberg", "gn_reuters", "gn_yahoo",
+  "finnhub", "gn_cnbc", "gn_wsj", "gn_bloomberg", "gn_reuters", "gn_yahoo",
 ]);
 
 export function isInternationalSource(sourceId: string): boolean {

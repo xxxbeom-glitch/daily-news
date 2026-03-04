@@ -50,8 +50,9 @@ export const domesticSources: NewsSource[] = [
   { id: "gn_sbs", name: "SBS", rssUrl: toGoogleNewsRssUrl("sbs.co.kr") },
 ];
 
-// 해외 언론사 (구글뉴스 RSS)
+// 해외 언론사
 export const internationalSources: NewsSource[] = [
+  { id: "finnhub", name: "Finnhub 뉴스", rssUrl: "https://finnhub.io/api/v1/news" },
   { id: "gn_cnbc", name: "CNBC", rssUrl: toGoogleNewsRssUrlIntl("cnbc.com") },
   { id: "gn_wsj", name: "WSJ", rssUrl: toGoogleNewsRssUrlIntl("wsj.com") },
   { id: "gn_bloomberg", name: "Bloomberg", rssUrl: toGoogleNewsRssUrlIntl("bloomberg.com") },

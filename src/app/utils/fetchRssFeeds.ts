@@ -1,5 +1,59 @@
 import { fetchViaCorsProxy } from "./corsProxy";
 
+const FINNHUB_NEWS = "https://finnhub.io/api/v1/news";
+const FINNHUB_TIMEOUT_MS = 15000;
+
+function getFinnhubKey(): string {
+  let key = (import.meta.env.VITE_FINNHUB_API_KEY as string) ?? "";
+  key = key.trim().replace(/^["']|["']$/g, "");
+  return key;
+}
+
+interface FinnhubNewsItem {
+  headline?: string;
+  summary?: string;
+  url?: string;
+  source?: string;
+  datetime?: number;
+}
+
+async function fetchFinnhubNews(sourceId: string, sourceName: string): Promise<RawRssArticle[]> {
+  const key = getFinnhubKey();
+  if (!key) return [];
+
+  const url = `${FINNHUB_NEWS}?category=general&token=${key}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FINNHUB_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as FinnhubNewsItem[];
+    if (!Array.isArray(data) || data.length === 0) return [];
+
+    return data
+      .filter((item) => item?.headline && item?.url)
+      .map((item) => {
+        const pubDate = item.datetime
+          ? new Date(item.datetime * 1000).toISOString()
+          : new Date().toISOString();
+        return {
+          title: item.headline ?? "",
+          link: item.url ?? "",
+          pubDate,
+          sourceId,
+          sourceName,
+          body: item.summary ?? undefined,
+        };
+      });
+  } catch {
+    clearTimeout(timeout);
+    return [];
+  }
+}
+
 /** 기사 검색 기간 - 설정값 → 밀리초 */
 export const RECENT_RANGE_MS: Record<string, number> = {
   "7d": 7 * 24 * 60 * 60 * 1000,
@@ -180,6 +234,11 @@ export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssR
 
   const results = await Promise.all(
     sources.map(async (s, idx) => {
+      if (s.id === "finnhub") {
+        const items = await fetchFinnhubNews(s.id, s.name);
+        onProgress?.(idx + 1, sources.length);
+        return { sourceName: s.name, articles: items, ok: items.length > 0 };
+      }
       const useRss2Json = s.id.startsWith("gn_");
       let items: RawRssArticle[] = [];
       if (useRss2Json) {
