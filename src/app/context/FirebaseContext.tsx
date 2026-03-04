@@ -58,6 +58,7 @@ interface FirebaseContextValue {
   user: User | null;
   isReady: boolean;
   isEnabled: boolean;
+  refreshSessionsFromCloud: () => Promise<void>;
   syncSettings: (state: {
     selectedSources?: SelectedSourcesState;
     interestMemoryDomestic?: string;
@@ -202,6 +203,19 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     [uid]
   );
 
+  const refreshSessionsFromCloud = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const sessions = await loadSessions(uid);
+      try {
+        localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
+        window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+      } catch {}
+    } catch (e) {
+      console.warn("[Firebase] refreshSessions failed", e);
+    }
+  }, [uid]);
+
   const syncAddSession = useCallback(
     async (session: ArchiveSession) => {
       if (!uid) return;
@@ -273,6 +287,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     user,
     isReady,
     isEnabled: enabled,
+    refreshSessionsFromCloud,
     syncSettings,
     syncAdmin,
     syncMeta,
@@ -294,5 +309,5 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
 export function useFirebase() {
   const ctx = useContext(FirebaseContext);
-  return ctx ?? { uid: null, user: null, isReady: true, isEnabled: false, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {} };
+  return ctx ?? { uid: null, user: null, isReady: true, isEnabled: false, refreshSessionsFromCloud: async () => {}, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {} };
 }
