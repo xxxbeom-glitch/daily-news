@@ -79,6 +79,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const enabled = isFirebaseEnabled();
   const loadCompleteRef = useRef(false);
+  const pendingSessionsRef = useRef<ArchiveSession[]>([]);
 
   useEffect(() => {
     if (!enabled) {
@@ -138,7 +139,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
           if (meta.archiveState) saveArchiveState(meta.archiveState);
           if (meta.searchState) saveSearchState(meta.searchState as unknown as PersistedSearchState);
         }
-        if (sessions) {
+        if (sessions && sessions.length > 0) {
           try {
             localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
             window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
@@ -207,10 +208,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     if (!uid) return;
     try {
       const sessions = await loadSessions(uid);
-      try {
-        localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
-        window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
-      } catch {}
+      if (sessions.length > 0) {
+        try {
+          localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
+          window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+        } catch {}
+      }
     } catch (e) {
       console.warn("[Firebase] refreshSessions failed", e);
     }
@@ -218,7 +221,10 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
   const syncAddSession = useCallback(
     async (session: ArchiveSession) => {
-      if (!uid) return;
+      if (!uid) {
+        pendingSessionsRef.current.push(session);
+        return;
+      }
       try {
         await addSessionToFirestore(uid, session);
       } catch (e) {
@@ -227,6 +233,20 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     },
     [uid]
   );
+
+  useEffect(() => {
+    if (!enabled || !uid || pendingSessionsRef.current.length === 0) return;
+    const pending = pendingSessionsRef.current.splice(0);
+    (async () => {
+      for (const session of pending) {
+        try {
+          await addSessionToFirestore(uid, session);
+        } catch (e) {
+          console.warn("[Firebase] addSession (pending) failed", e);
+        }
+      }
+    })();
+  }, [uid, enabled]);
 
   const syncDeleteSession = useCallback(
     async (sessionId: string) => {

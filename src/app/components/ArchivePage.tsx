@@ -12,7 +12,7 @@ const CONFIRM_MS = 2500;
 export function ArchivePage() {
   const { sessions, deleteSession } = useArchive();
   const { hideMarket } = useAdminSettings();
-  const { refreshSessionsFromCloud, isEnabled: firebaseEnabled } = useFirebase();
+  const { refreshSessionsFromCloud, isEnabled: firebaseEnabled, user } = useFirebase();
   const [syncing, setSyncing] = useState(false);
   const [isInternational, setIsInternational] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -111,15 +111,20 @@ export function ArchivePage() {
       <div className="flex items-center justify-between gap-2 mb-3">
         <p className="text-white/40" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
         {firebaseEnabled && (
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            className="text-white/40 hover:text-white/70 disabled:opacity-50"
-            style={{ fontSize: 12 }}
-          >
-            {syncing ? "동기화 중…" : "동기화"}
-          </button>
+          <span className="flex items-center gap-2">
+            {user?.isAnonymous && (
+              <span className="text-white/30" style={{ fontSize: 11 }}>이메일 로그인 시 다른 기기와 동기화</span>
+            )}
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncing}
+              className="text-white/40 hover:text-white/70 disabled:opacity-50"
+              style={{ fontSize: 12 }}
+            >
+              {syncing ? "동기화 중…" : "동기화"}
+            </button>
+          </span>
         )}
       </div>
       {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
