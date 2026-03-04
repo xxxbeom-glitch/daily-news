@@ -55,6 +55,7 @@ const ARCHIVES_KEY = "newsbrief_archives";
 
 interface FirebaseContextValue {
   uid: string | null;
+  user: User | null;
   isReady: boolean;
   isEnabled: boolean;
   syncSettings: (state: {
@@ -73,6 +74,7 @@ const FirebaseContext = createContext<FirebaseContextValue | null>(null);
 
 export function FirebaseProvider({ children }: { children: ReactNode }) {
   const [uid, setUid] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isReady, setIsReady] = useState(false);
   const enabled = isFirebaseEnabled();
   const loadCompleteRef = useRef(false);
@@ -87,8 +89,9 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       setIsReady(true);
       return;
     }
-    const unsub = onAuthStateChanged(fb.auth, async (user: User | null) => {
-      if (!user) {
+    const unsub = onAuthStateChanged(fb.auth, async (authUser: User | null) => {
+      setUser(authUser);
+      if (!authUser) {
         const { signInAnonymously } = await import("firebase/auth");
         try {
           const cred = await signInAnonymously(fb.auth);
@@ -98,7 +101,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      setUid(user.uid);
+      setUid(authUser.uid);
     });
     return () => unsub();
   }, [enabled]);
@@ -294,5 +297,5 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
 export function useFirebase() {
   const ctx = useContext(FirebaseContext);
-  return ctx ?? { uid: null, isReady: true, isEnabled: false, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {} };
+  return ctx ?? { uid: null, user: null, isReady: true, isEnabled: false, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {} };
 }

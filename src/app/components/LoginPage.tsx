@@ -5,20 +5,35 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { getFirebaseAuth } from "../../lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { useFirebase } from "../context/FirebaseContext";
 
 const sectionClass = "bg-white/5 border border-white/10 rounded-[10px] p-4 mb-4";
 const labelClass = "text-white/80 text-sm mb-2 block";
 const inputClass =
   "w-full px-4 py-3 rounded-[10px] border border-white/15 bg-white/5 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#618EFF]/50";
 
+function getDisplayName(email: string | null | undefined, displayName: string | null | undefined): string {
+  if (displayName?.trim()) return displayName.trim();
+  if (email) {
+    const local = email.split("@")[0]?.trim();
+    if (local) return local;
+  }
+  return "박성범";
+}
+
 export function LoginPage() {
   const location = useLocation();
+  const { user } = useFirebase();
   const isUnderSettings = location.pathname.startsWith("/settings/");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isLoggedIn = user && !user.isAnonymous;
+  const displayName = getDisplayName(user?.email ?? null, user?.displayName ?? null);
 
   const handleLogin = async () => {
     const auth = getFirebaseAuth();
@@ -69,6 +84,20 @@ export function LoginPage() {
         로그인
       </h1>
 
+      {isLoggedIn ? (
+        <section className={sectionClass}>
+          <p className="text-white text-base mb-4">{displayName}님 안녕하세요.</p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={logoutLoading}
+            className="w-full py-3 rounded-[10px] border border-white/20 bg-white/5 text-white/90 hover:bg-white/10 font-medium disabled:opacity-60 transition-colors"
+            style={{ fontSize: 15 }}
+          >
+            {logoutLoading ? "로그아웃 중…" : "로그아웃"}
+          </button>
+        </section>
+      ) : (
       <section className={sectionClass}>
         <label className={labelClass}>이메일</label>
         <input
@@ -103,6 +132,7 @@ export function LoginPage() {
           {loading ? "로그인 중…" : "로그인"}
         </button>
       </section>
+      )}
     </div>
   );
 }
