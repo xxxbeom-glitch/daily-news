@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useAdminSettings } from "../context/AdminSettingsContext";
+import { getSelectedModel } from "../utils/persistState";
 import {
   setAdminHideMarket,
   setAdminShowNewsTab,
@@ -25,9 +26,11 @@ const inputClass =
 export function AdminPage() {
   const location = useLocation();
   const isUnderSettings = location.pathname.startsWith("/settings/");
-  const { refresh, hideMarket, showNewsTab, modelId, schedule, movers } = useAdminSettings();
+  const { refresh, hideMarket, showNewsTab, modelId, schedule, movers, testRunAt } = useAdminSettings();
+  const selectedEngine = getSelectedModel();
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
-  const [modelSelect, setModelSelect] = useState<string | null>(() => modelId);
+  const [modelSelect, setModelSelect] = useState<string | null>(() => modelId ?? null);
+  const [countdownSec, setCountdownSec] = useState<number>(0);
   const [moversEdit, setMoversEdit] = useState<string>("");
   const [scheduleEdit, setScheduleEdit] = useState<AdminSchedule>({ usHour: 8, usMinute: 30, krHour: 16, krMinute: 30 });
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,6 +42,20 @@ export function AdminPage() {
   useEffect(() => {
     setModelSelect(modelId);
   }, [modelId]);
+
+  useEffect(() => {
+    if (testRunAt == null || testRunAt <= Date.now()) {
+      setCountdownSec(0);
+      return;
+    }
+    const tick = () => {
+      const remain = Math.max(0, Math.ceil((testRunAt - Date.now()) / 1000));
+      setCountdownSec(remain);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [testRunAt]);
 
   useEffect(() => {
     setMoversEdit(
@@ -142,21 +159,36 @@ export function AdminPage() {
       <section className={sectionClass}>
         <h3 className={labelClass}>오늘의 시황 자동생성 테스트</h3>
         <p className="text-white/50 text-xs mb-3">1분/3분 후 미국·한국 시황 파이프라인을 실행합니다.</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => handleTestRun(1)}
-            className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white text-sm"
+            disabled={testRunAt != null}
+            className={`px-4 py-2 rounded-[8px] text-sm font-medium transition-colors ${
+              testRunAt != null
+                ? "bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/50 cursor-default"
+                : "bg-white/10 hover:bg-white/15 text-white border border-white/15"
+            }`}
           >
             1분 후
           </button>
           <button
             type="button"
             onClick={() => handleTestRun(3)}
-            className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white text-sm"
+            disabled={testRunAt != null}
+            className={`px-4 py-2 rounded-[8px] text-sm font-medium transition-colors ${
+              testRunAt != null
+                ? "bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/50 cursor-default"
+                : "bg-white/10 hover:bg-white/15 text-white border border-white/15"
+            }`}
           >
             3분 후
           </button>
+          {testRunAt != null && countdownSec > 0 && (
+            <span className="text-[#618EFF] text-sm font-medium tabular-nums">
+              {Math.floor(countdownSec / 60)}:{String(countdownSec % 60).padStart(2, "0")}
+            </span>
+          )}
         </div>
       </section>
 
@@ -180,6 +212,7 @@ export function AdminPage() {
       {/* 4. 모델 선택 */}
       <section className={sectionClass}>
         <h3 className={labelClass}>AI 엔진 모델</h3>
+        <p className="text-white/50 text-xs mb-2">설정 기준: {selectedEngine === "gemini" ? "Gemini" : "Chat GPT"}</p>
         <div className="flex gap-2">
           <div className="relative flex-1 min-w-0">
             <button
@@ -187,7 +220,9 @@ export function AdminPage() {
               onClick={() => setDropdownOpen((o) => (o === "model" ? null : "model"))}
               className="w-full flex items-center justify-between px-3 py-2 rounded-[8px] border border-white/15 bg-white/5 text-white text-sm"
             >
-              <span>{modelSelect ?? "기본 설정 사용"}</span>
+              <span>
+                {modelSelect ?? `기본 설정 사용 (${selectedEngine === "gemini" ? "Gemini" : "GPT"})`}
+              </span>
               <ChevronDown size={16} className={`transition-transform shrink-0 ${dropdownOpen === "model" ? "rotate-180" : ""}`} />
             </button>
             {dropdownOpen === "model" && (
@@ -195,36 +230,39 @@ export function AdminPage() {
                 <button
                   type="button"
                   onClick={() => handleModelSelect(null)}
-                  className="w-full px-3 py-2 text-left text-sm text-white/90 hover:bg-white/10"
+                  className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === null ? "text-white font-medium" : "text-white/90"}`}
                 >
-                  기본 설정 사용
+                  기본 설정 사용 ({selectedEngine === "gemini" ? "Gemini" : "GPT"})
                 </button>
-                <div className="border-t border-white/10 py-1">
-                  <div className="px-3 py-1 text-white/50 text-xs">Gemini</div>
-                  {GEMINI_MODELS.map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => handleModelSelect(id)}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === id ? "text-white font-medium" : "text-white/90"}`}
-                    >
-                      {id}
-                    </button>
-                  ))}
-                </div>
-                <div className="border-t border-white/10 py-1">
-                  <div className="px-3 py-1 text-white/50 text-xs">OpenAI</div>
-                  {OPENAI_MODELS.map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => handleModelSelect(id)}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === id ? "text-white font-medium" : "text-white/90"}`}
-                    >
-                      {id}
-                    </button>
-                  ))}
-                </div>
+                {selectedEngine === "gemini" ? (
+                  <div className="border-t border-white/10 py-1">
+                    <div className="px-3 py-1 text-white/50 text-xs">Gemini</div>
+                    {GEMINI_MODELS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => handleModelSelect(id)}
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === id ? "text-white font-medium" : "text-white/90"}`}
+                      >
+                        {id}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border-t border-white/10 py-1">
+                    <div className="px-3 py-1 text-white/50 text-xs">OpenAI</div>
+                    {OPENAI_MODELS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => handleModelSelect(id)}
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${modelSelect === id ? "text-white font-medium" : "text-white/90"}`}
+                      >
+                        {id}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

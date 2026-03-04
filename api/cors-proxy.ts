@@ -14,6 +14,7 @@ const ALLOWED_HOSTS = new Set([
   "feeds.a.dj.com",
   "feeds.bloomberg.com",
   "query1.finance.yahoo.com",
+  "api.rss2json.com",
   "api.allorigins.win",
   "corsproxy.io",
   "cors.x2u.in",
@@ -61,16 +62,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
 
+    const text = await proxyRes.text();
     if (!proxyRes.ok) {
+      const host = (() => { try { return new URL(url).hostname; } catch { return "?"; } })();
+      console.error(`[cors-proxy] ${proxyRes.status} ${url} | host=${host} | body=${text.slice(0, 200)}`);
       return res.status(proxyRes.status).end();
     }
-
-    const text = await proxyRes.text();
     res.setHeader("Content-Type", proxyRes.headers.get("content-type") || "text/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=300");
     return res.send(text);
   } catch (err) {
-    console.error("[cors-proxy]", err);
-    return res.status(502).json({ error: "프록시 요청 실패" });
+    const e = err as NodeJS.ErrnoException;
+    const code = e?.code ?? (e?.name ?? "unknown");
+    console.error(`[cors-proxy] ${code} ${url}`, e?.message ?? String(err));
+    return res.status(502).json({ error: "프록시 요청 실패", code: String(code) });
   }
 }

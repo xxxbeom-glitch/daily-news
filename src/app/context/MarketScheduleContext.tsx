@@ -58,6 +58,7 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
       const testRunAt = getAdminTestRunAt();
       if (testRunAt != null && now >= testRunAt) {
         setAdminTestRunAt(null);
+        window.dispatchEvent(new CustomEvent("admin_settings_changed"));
         runningRef.current = true;
         Promise.all([
           runMarketSummaryPipeline(true, { addSession }),
@@ -93,7 +94,7 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
     }
 
     checkAndRun();
-    intervalRef.current = setInterval(checkAndRun, 30000);
+    intervalRef.current = setInterval(checkAndRun, 10000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect } from "rea
 import {
   getAdminHideMarket,
   getAdminShowNewsTab,
+  getAdminTestRunAt,
   type AdminSchedule,
   getAdminSchedule,
   getAdminMovers,
@@ -16,6 +17,7 @@ interface AdminSettingsState {
   schedule: AdminSchedule;
   movers: Record<string, string>;
   modelId: string | null;
+  testRunAt: number | null;
 }
 
 const AdminSettingsContext = createContext<{
@@ -24,6 +26,7 @@ const AdminSettingsContext = createContext<{
   schedule: AdminSchedule;
   movers: Record<string, string>;
   modelId: string | null;
+  testRunAt: number | null;
   refresh: () => void;
 } | null>(null);
 
@@ -34,6 +37,7 @@ function readState(): AdminSettingsState {
     schedule: getAdminSchedule(),
     movers: getAdminMovers(),
     modelId: getAdminModelId(),
+    testRunAt: getAdminTestRunAt(),
   };
 }
 
@@ -59,6 +63,7 @@ export function AdminSettingsProvider({ children }: { children: React.ReactNode 
         schedule: state.schedule,
         movers: state.movers,
         modelId: state.modelId,
+        testRunAt: state.testRunAt,
         refresh,
       }}
     >

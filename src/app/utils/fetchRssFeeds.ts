@@ -82,6 +82,45 @@ export interface RawRssArticle {
   body?: string;
 }
 
+/** rss2json API - IP 차단 우회 (한국경제 등) */
+interface Rss2JsonItem {
+  title?: string;
+  link?: string;
+  pubDate?: string;
+  description?: string;
+  content?: string;
+}
+
+async function fetchViaRss2Json(
+  rssUrl: string,
+  sourceId: string,
+  sourceName: string
+): Promise<RawRssArticle[] | null> {
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
+  try {
+    const { ok, text } = await fetchViaCorsProxy(apiUrl, { timeoutMs: RSS_TIMEOUT_MS });
+    clearTimeout(timeout);
+    if (!ok || !text) return null;
+    const json = JSON.parse(text) as { status?: string; items?: Rss2JsonItem[] };
+    if (json?.status !== "ok" || !Array.isArray(json.items)) return null;
+    return json.items
+      .filter((item) => item?.title && item?.link)
+      .map((item) => ({
+        title: item.title ?? "",
+        link: item.link ?? "",
+        pubDate: item.pubDate ?? new Date().toISOString(),
+        sourceId,
+        sourceName,
+        body: (item.description ?? item.content ?? "").trim() || undefined,
+      }));
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
+}
+
 function parsePubDate(str: string | undefined): Date | null {
   if (!str || typeof str !== "string") return null;
   const d = new Date(str);
@@ -200,23 +239,42 @@ export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssR
         onProgress?.(idx + 1, sources.length);
         return { sourceName: s.name, articles: items, ok: items.length > 0 };
       }
-      const urlsToTry = s.id === "hankyung_finance"
-        ? ["https://www.hankyung.com/feed/finance", "https://www.hankyung.com/feed/economy"]
-        : [s.rssUrl];
-      let ok = false;
-      let text = "";
-      for (const u of urlsToTry) {
-        const r = await fetchViaCorsProxy(u, { timeoutMs: RSS_TIMEOUT_MS });
-        if (r.ok && r.text) {
-          ok = true;
-          text = r.text;
-          break;
+      const useRss2Json = s.id === "hankyung_finance" || s.id === "hankyung_all";
+      let items: RawRssArticle[] = [];
+      if (useRss2Json) {
+        const urlsToTry = s.id === "hankyung_finance"
+          ? ["https://www.hankyung.com/feed/finance", "https://www.hankyung.com/feed/economy"]
+          : [s.rssUrl];
+        for (const u of urlsToTry) {
+          const parsed = await fetchViaRss2Json(u, s.id, s.name);
+          if (parsed && parsed.length > 0) {
+            items = parsed;
+            break;
+          }
         }
       }
+      if (items.length === 0) {
+        const urlsToTry = s.id === "hankyung_finance"
+          ? ["https://www.hankyung.com/feed/finance", "https://www.hankyung.com/feed/economy"]
+          : [s.rssUrl];
+        let ok = false;
+        let text = "";
+        for (const u of urlsToTry) {
+          const r = await fetchViaCorsProxy(u, { timeoutMs: RSS_TIMEOUT_MS });
+          if (r.ok && r.text) {
+            ok = true;
+            text = r.text;
+            break;
+          }
+        }
+        if (!ok) {
+          onProgress?.(idx + 1, sources.length);
+          return { sourceName: s.name, articles: [], ok: false };
+        }
+        items = parseRssXml(text, s.id, s.name);
+      }
       onProgress?.(idx + 1, sources.length);
-      if (!ok) return { sourceName: s.name, articles: [], ok: false };
-      const items = parseRssXml(text, s.id, s.name);
-      return { sourceName: s.name, articles: items, ok: true };
+      return { sourceName: s.name, articles: items, ok: items.length > 0 };
     })
   );
 

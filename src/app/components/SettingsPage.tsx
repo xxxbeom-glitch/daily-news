@@ -43,9 +43,20 @@ async function checkFinnhubNews(): Promise<boolean> {
 }
 
 async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
-  const urls = sourceId === "hankyung_finance"
-    ? [url, "https://www.hankyung.com/feed/economy"]
-    : [url];
+  if (sourceId === "hankyung_finance" || sourceId === "hankyung_all") {
+    const rss2JsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+    const { ok, text } = await fetchViaCorsProxy(rss2JsonUrl, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+    if (ok && /"status"\s*:\s*"ok"/.test(text)) return true;
+    if (sourceId === "hankyung_finance") {
+      const economyUrl = "https://www.hankyung.com/feed/economy";
+      const r2 = await fetchViaCorsProxy(
+        `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(economyUrl)}`,
+        { timeoutMs: RSS_CHECK_TIMEOUT_MS }
+      );
+      if (r2.ok && /"status"\s*:\s*"ok"/.test(r2.text)) return true;
+    }
+  }
+  const urls = sourceId === "hankyung_finance" ? [url, "https://www.hankyung.com/feed/economy"] : [url];
   for (const u of urls) {
     const { ok, text } = await fetchViaCorsProxy(u, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
     if (ok && (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml"))) return true;
