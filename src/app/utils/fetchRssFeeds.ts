@@ -200,7 +200,19 @@ export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssR
         onProgress?.(idx + 1, sources.length);
         return { sourceName: s.name, articles: items, ok: items.length > 0 };
       }
-      const { ok, text } = await fetchViaCorsProxy(s.rssUrl, { timeoutMs: RSS_TIMEOUT_MS });
+      const urlsToTry = s.id === "hankyung_finance"
+        ? ["https://www.hankyung.com/feed/finance", "https://www.hankyung.com/feed/economy"]
+        : [s.rssUrl];
+      let ok = false;
+      let text = "";
+      for (const u of urlsToTry) {
+        const r = await fetchViaCorsProxy(u, { timeoutMs: RSS_TIMEOUT_MS });
+        if (r.ok && r.text) {
+          ok = true;
+          text = r.text;
+          break;
+        }
+      }
       onProgress?.(idx + 1, sources.length);
       if (!ok) return { sourceName: s.name, articles: [], ok: false };
       const items = parseRssXml(text, s.id, s.name);

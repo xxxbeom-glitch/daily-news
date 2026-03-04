@@ -42,10 +42,15 @@ async function checkFinnhubNews(): Promise<boolean> {
   }
 }
 
-async function checkRssFeed(url: string): Promise<boolean> {
-  const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
-  if (!ok) return false;
-  return text.includes("<rss") || text.includes("<feed") || text.includes("<?xml");
+async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
+  const urls = sourceId === "hankyung_finance"
+    ? [url, "https://www.hankyung.com/feed/economy"]
+    : [url];
+  for (const u of urls) {
+    const { ok, text } = await fetchViaCorsProxy(u, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+    if (ok && (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml"))) return true;
+  }
+  return false;
 }
 
 function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY"): string {
@@ -197,7 +202,7 @@ async function checkConnectionStatus(
         const ok =
           s.id === "finnhub"
             ? await checkFinnhubNews()
-            : await checkRssFeed(s.rssUrl);
+            : await checkRssFeed(s.rssUrl, s.id);
         return [s.id, ok ? "ok" as const : "error" as const] as const;
       })
     ),
