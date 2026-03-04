@@ -8,6 +8,7 @@ const ALLOWED_HOSTS = new Set([
   "www.hankyung.com",
   "www.mk.co.kr",
   "news.sbs.co.kr",
+  "news.google.com",
   "finnhub.io",
   "finance.yahoo.com",
   "www.cnbc.com",

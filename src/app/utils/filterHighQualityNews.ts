@@ -235,6 +235,26 @@ export function deduplicateBySimilarity<T extends { title: string; body?: string
   return result;
 }
 
+/** 경제·금융 분야 지표 (이 중 하나라도 없으면 국내 시황에서 제외) */
+const ECONOMY_SECTOR_KEYWORDS = [
+  "주가", "주식", "증시", "코스피", "코스닥", "KOSPI", "KOSDAQ", "종목", "테마주",
+  "금리", "연준", "Fed", "기준금리", "CPI", "물가", "인플레이션", "GDP",
+  "실적", "매출", "영업이익", "순이익", "가이던스", "어닝", "EPS", "실적발표",
+  "경제", "금융", "증권", "증권사", "은행", "환율", "원달러", "수출", "무역",
+  "M&A", "인수", "인수합병", "IPO", "상장", "배당", "합병", "공모",
+  "반도체", "AI", "전기차", "EV", "배터리", "2차전지", "바이오", "헬스케어",
+  "부동산", "건설", "금융지주", "보험", "산업", "기업", "재벌", "대기업",
+  "석유", "유가", "원유", "금값", "원자재", "원료", "전력", "인프라",
+  "증권가", "시장", "투자", "펀드", "연기금", "금감원", "증선", "금융위",
+  "삼성", "SK", "하이닉스", "현대", "기아", "네이버", "카카오", "쿠팡", "LG", "포스코",
+];
+
+/** 기사가 경제 분야인지 (제목+본문에 경제 지표 키워드 1개 이상) */
+function isEconomySectorArticle(title: string, body: string): boolean {
+  const text = `${title} ${body}`;
+  return ECONOMY_SECTOR_KEYWORDS.some((kw) => text.includes(kw));
+}
+
 /** 한국 언론사 기사에서 순수 해외소식(한국 기업 무관) 제외용 키워드 */
 const KOREAN_COMPANY_INDICATORS = [
   "삼성", "SK", "하이닉스", "현대", "기아", "네이버", "카카오", "쿠팡", "LG", "POSCO", "포스코",
@@ -275,11 +295,13 @@ export function filterHighQualityNews(
   // 규칙 2: 클릭베이트 즉시 폐기
   let afterClickbait = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
 
-  // 국내 시: 한국 언론사의 순수 해외소식 제외 (한국 기업 관련은 유지)
+  // 국내 시: 경제 분야 외 기사 제외 + 순수 해외소식 제외
   if (!isInternational) {
-    afterClickbait = afterClickbait.filter(
-      (a) => !isOverseasOnlyArticle(a.title, a.body ?? "")
-    );
+    afterClickbait = afterClickbait.filter((a) => {
+      if (!isEconomySectorArticle(a.title, a.body ?? "")) return false;
+      if (isOverseasOnlyArticle(a.title, a.body ?? "")) return false;
+      return true;
+    });
   }
 
   // 규칙 1, 3, 4 점수 산출 (관심종목·관심키워드 1순위)

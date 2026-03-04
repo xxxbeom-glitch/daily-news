@@ -13,13 +13,16 @@ const SELECTED_MODEL_KEY = "newsbrief_selected_model";
 /** 설정에서 모델 저장 시 디스패치되는 이벤트 (SearchStateContext 동기화용) */
 export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
 
-export const DEFAULT_DOMESTIC_SOURCES = ["hankyung_all", "hankyung_finance", "mk", "sbs"];
-export const DEFAULT_INTERNATIONAL_SOURCES = ["finnhub", "yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"];
+export const DEFAULT_DOMESTIC_SOURCES = ["gn_hankyung", "gn_mk", "gn_sbs"];
+export const DEFAULT_INTERNATIONAL_SOURCES = ["gn_cnbc", "gn_wsj", "gn_bloomberg", "gn_reuters", "gn_yahoo"];
 
 export interface SelectedSourcesState {
   domestic: string[];
   international: string[];
 }
+
+const LEGACY_DOMESTIC_IDS = new Set(["hankyung_all", "hankyung_finance", "mk", "sbs"]);
+const LEGACY_INTERNATIONAL_IDS = new Set(["finnhub", "yahoofinance", "cnbc_investing", "cnbc_tech", "wsj", "bloomberg"]);
 
 export function getSelectedSources(): SelectedSourcesState {
   try {
@@ -27,6 +30,11 @@ export function getSelectedSources(): SelectedSourcesState {
     if (!raw) return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
     const parsed = JSON.parse(raw) as SelectedSourcesState;
     if (!parsed || !Array.isArray(parsed.domestic) || !Array.isArray(parsed.international)) {
+      return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
+    }
+    const hasLegacyDomestic = parsed.domestic.some((id) => LEGACY_DOMESTIC_IDS.has(id));
+    const hasLegacyInternational = parsed.international.some((id) => LEGACY_INTERNATIONAL_IDS.has(id));
+    if (hasLegacyDomestic || hasLegacyInternational) {
       return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
     }
     return parsed;

@@ -50,7 +50,7 @@ export function KeywordNewsProvider({ children }: { children: ReactNode }) {
       const memDom = getInterestMemoryDomestic();
       const keywords = parseInterestKeywords(memDom);
 
-      const keywordNewsSourceIds = ["hankyung_all", "hankyung_finance", "mk"];
+      const keywordNewsSourceIds = ["gn_hankyung", "gn_mk"];
       const domesticList = domesticSources.filter((s) => keywordNewsSourceIds.includes(s.id));
       const allSources = domesticList.map((s) => ({ id: s.id, name: s.name, rssUrl: s.rssUrl }));
 
