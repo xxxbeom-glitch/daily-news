@@ -59,6 +59,7 @@ export const RECENT_RANGE_MS: Record<string, number> = {
   "7d": 7 * 24 * 60 * 60 * 1000,
   "48h": 48 * 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
+  "12h": 12 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
   "4h": 4 * 60 * 60 * 1000,
   "3h": 3 * 60 * 60 * 1000,
@@ -66,8 +67,11 @@ export const RECENT_RANGE_MS: Record<string, number> = {
   "1h": 60 * 60 * 1000,
 };
 
-/** 계층형 검색: 2h → 4h → 6h 순으로 넓혀가며 첫 비어있지 않은 결과 반환 */
-export const TIERED_RANGE_KEYS = ["2h", "4h", "6h"] as const;
+/** 계층형 검색: 3h → 6h → 12h → 24h 순으로 넓혀가며 최소 기사수 도달 시까지 시도 */
+export const TIERED_RANGE_KEYS = ["3h", "6h", "12h", "24h"] as const;
+
+/** 계층형 검색 시 최소 유효 기사 수 (이 수 이상이면 해당 범위 사용) */
+export const MIN_ARTICLES_FOR_TIERED = 10;
 
 const RSS_TIMEOUT_MS = 15000;
 
@@ -173,9 +177,9 @@ function parseRssXml(xmlText: string, sourceId: string, sourceName: string): Raw
   return articles;
 }
 
-/** 기사 검색 기간 (6시간 고정) */
+/** 기사 검색 기간 기본값 (24시간 - 수집량 확보 우선) */
 export function getRecentRangeFromSettings(): string {
-  return "6h";
+  return "24h";
 }
 
 /** 기간 범위 내 기사만 필터링 */
@@ -192,7 +196,7 @@ export function filterArticlesByRange<T extends { pubDate: string }>(
 }
 
 /**
- * 2h → 4h → 6h 순으로 범위를 넓혀가며, process 결과가 비어있지 않을 때까지 시도
+ * 3h → 6h → 12h → 24h 순으로 범위를 넓혀가며, process 결과가 비어있지 않을 때까지 시도
  * @param process 범위 필터 적용된 기사에 대한 추가 처리 (키워드 매칭, 품질 필터 등)
  */
 export function filterArticlesByRangeTiered<T extends { pubDate: string }>(
@@ -204,6 +208,28 @@ export function filterArticlesByRangeTiered<T extends { pubDate: string }>(
     const result = process(byRange);
     if (result.length > 0) return { articles: result, rangeKey: key };
   }
+  const lastKey = TIERED_RANGE_KEYS[TIERED_RANGE_KEYS.length - 1];
+  const byRange = filterArticlesByRange(articles, lastKey);
+  return { articles: process(byRange), rangeKey: lastKey };
+}
+
+/**
+ * 계층형 검색: 최소 기사 수(MIN_ARTICLES_FOR_TIERED)에 도달할 때까지 범위를 넓힘
+ * @param articles 원본 기사 목록
+ * @param process 범위 필터 적용된 기사에 대한 추가 처리 (품질 필터 등)
+ * @param minArticles 최소 목표 기사 수 (기본: MIN_ARTICLES_FOR_TIERED)
+ */
+export function filterArticlesByRangeTieredWithMin<T extends { pubDate: string }>(
+  articles: T[],
+  process: (rangeFiltered: T[]) => T[],
+  minArticles = MIN_ARTICLES_FOR_TIERED
+): { articles: T[]; rangeKey: string } {
+  for (const key of TIERED_RANGE_KEYS) {
+    const byRange = filterArticlesByRange(articles, key);
+    const result = process(byRange);
+    if (result.length >= minArticles) return { articles: result, rangeKey: key };
+  }
+  // 모든 범위 시도 후에도 최소 미달 시, 가장 넓은 범위(24h) 결과 반환
   const lastKey = TIERED_RANGE_KEYS[TIERED_RANGE_KEYS.length - 1];
   const byRange = filterArticlesByRange(articles, lastKey);
   return { articles: process(byRange), rangeKey: lastKey };

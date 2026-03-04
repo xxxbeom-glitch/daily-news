@@ -9,7 +9,7 @@ import { domesticSources, internationalSources } from "../data/newsSources";
 import { mockMarketSummaryInternational, mockMarketSummaryDomestic } from "../data/marketSummary";
 import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, getSelectedModel, parseInterestKeywords } from "../utils/persistState";
 import { getAdminModelId } from "../utils/adminSettings";
-import { fetchRssFeeds, filterArticlesByRange } from "../utils/fetchRssFeeds";
+import { fetchRssFeeds, filterArticlesByRangeTieredWithMin } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { generateMarketSummary } from "../utils/aiSummary";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
@@ -40,12 +40,15 @@ export async function runMarketSummaryPipeline(
 
   const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
   const interestKeywords = parseInterestKeywords(interestMemory);
-  const byRange = filterArticlesByRange(rawArticles, "6h");
-  const filtered = filterHighQualityNews(byRange, {
-    watchlist: [],
-    interestKeywords,
-    isInternational,
-  });
+  const { articles: filtered } = filterArticlesByRangeTieredWithMin(
+    rawArticles,
+    (byRange) =>
+      filterHighQualityNews(byRange, {
+        watchlist: [],
+        interestKeywords,
+        isInternational,
+      })
+  );
   if (filtered.length === 0) return null;
 
   let moversSeed: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] } | undefined;

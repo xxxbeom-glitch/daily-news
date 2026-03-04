@@ -14,8 +14,7 @@ import { useArchive } from "../context/ArchiveContext";
 import { MarketSummaryView } from "./MarketSummaryView";
 import {
   fetchRssFeeds,
-  filterArticlesByRange,
-  getRecentRangeFromSettings,
+  filterArticlesByRangeTieredWithMin,
 } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
@@ -144,15 +143,17 @@ export function SearchPage() {
       });
       if (rssError) throw new Error(rssError);
 
-      const recentRange = getRecentRangeFromSettings();
-      const byRange = filterArticlesByRange(rawArticles, recentRange);
       const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
       const interestKeywords = parseInterestKeywords(interestMemory);
-      const filtered = filterHighQualityNews(byRange, {
-        watchlist: [],
-        interestKeywords,
-        isInternational,
-      });
+      const { articles: filtered } = filterArticlesByRangeTieredWithMin(
+        rawArticles,
+        (byRange) =>
+          filterHighQualityNews(byRange, {
+            watchlist: [],
+            interestKeywords,
+            isInternational,
+          })
+      );
       if (filtered.length === 0) return null;
 
       let moversSeed: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] } | undefined;

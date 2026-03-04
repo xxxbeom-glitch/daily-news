@@ -31,7 +31,7 @@ export interface ArchiveSession {
   aiModel?: "gemini" | "gpt";
 }
 
-/** 구글뉴스 RSS URL 생성 - 국내 (site:로 언론사 지정) */
+/** 구글뉴스 RSS URL 생성 - 국내 (site:로 언론사 지정, 키워드 없이 전체 수집) */
 export function toGoogleNewsRssUrl(site: string): string {
   const q = encodeURIComponent(`site:${site}`);
   return `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`;
@@ -43,11 +43,12 @@ export function toGoogleNewsRssUrlIntl(site: string): string {
   return `https://news.google.com/rss/search?q=${q}&hl=en&gl=US&ceid=US:en`;
 }
 
-// 국내 언론사 (구글뉴스 RSS)
+// 국내 언론사 (구글뉴스 RSS + 직접 RSS)
 export const domesticSources: NewsSource[] = [
   { id: "gn_hankyung", name: "한국경제", rssUrl: toGoogleNewsRssUrl("hankyung.com") },
   { id: "gn_mk", name: "매일경제", rssUrl: toGoogleNewsRssUrl("mk.co.kr") },
   { id: "gn_sbs", name: "SBS", rssUrl: toGoogleNewsRssUrl("sbs.co.kr") },
+  { id: "yna_economy", name: "연합뉴스 경제", rssUrl: "https://www.yna.co.kr/rss/economy.xml" },
 ];
 
 // 해외 언론사
@@ -58,6 +59,8 @@ export const internationalSources: NewsSource[] = [
   { id: "gn_bloomberg", name: "Bloomberg", rssUrl: toGoogleNewsRssUrlIntl("bloomberg.com") },
   { id: "gn_reuters", name: "Reuters", rssUrl: toGoogleNewsRssUrlIntl("reuters.com") },
   { id: "gn_yahoo", name: "Yahoo Finance", rssUrl: toGoogleNewsRssUrlIntl("finance.yahoo.com") },
+  { id: "gn_investing", name: "Investing.com", rssUrl: toGoogleNewsRssUrlIntl("investing.com") },
+  { id: "gn_marketwatch", name: "MarketWatch", rssUrl: toGoogleNewsRssUrlIntl("marketwatch.com") },
 ];
 
 // Mock articles (개발용)

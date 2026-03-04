@@ -27,6 +27,9 @@ function isDomesticSymbol(sym: string): boolean {
   return sym.endsWith(".KS") || sym.endsWith(".KQ");
 }
 
+/** 기사 수가 이 값 미만이면 sparse(희소) 모드 - moversSeed·시장 데이터 비중 확대 */
+const SPARSE_ARTICLE_THRESHOLD = 5;
+
 function buildPrompt(
   articles: RawRssArticle[],
   isInternational: boolean,
@@ -41,8 +44,9 @@ function buildPrompt(
   const moversSeed = opts?.moversSeed;
   const interestMemory = opts?.interestMemory;
   const includeTotalAssessment = opts?.includeTotalAssessment ?? false;
+  const isSparseArticles = articles.length < SPARSE_ARTICLE_THRESHOLD;
   const region = isInternational ? "해외(미국·글로벌)" : "국내(한국)";
-  const articleList = buildArticleContext(articles);
+  const articleList = buildArticleContext(articles, isSparseArticles ? 50 : 25);
 
   const relevantWatchlist = (watchlist ?? []).filter((w) => {
     const domestic = w.isDomestic ?? isDomesticSymbol(w.symbol);
@@ -62,13 +66,22 @@ function buildPrompt(
     ? `\n## M7 및 반도체주 등락 (각 기업별 reason 필수)\nmoversUp/moversDown에 아래 종목 그대로 사용. 각 reason: 명사형 종결(~함/~됨/~임) 필수. 2줄 이상 구체적으로. 요약만 하지 말 것.\n상승: ${moversSeed.up.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n하락: ${moversSeed.down.map((m) => `${m.name}(${m.ticker}) ${m.changeRate}`).join(", ")}\n`
     : "";
 
-  return `아래는 ${region} 금융·경제 뉴스 헤드라인입니다. 이 기사들을 분석하여 시황 요약 JSON을 생성해주세요.${watchlistSection}${memorySection}${moversSection}
+  const sparseSection = isSparseArticles
+    ? `\n## [기사 부족 시 주의] 기사 수가 매우 적습니다(${articles.length}편). moversSeed(등락 종목)·시장 지수 데이터를 우선 활용하고, 각 기사를 심층 분석하여 핵심을 최대한 추출하세요. 기사와 시장 데이터를 결합하여 요약하세요.\n`
+    : "";
+
+  const analysisStyle =
+    isSparseArticles
+      ? "각 기사를 심층 분석하여 핵심을 최대한 추출하고, 기사와 시장 데이터를 결합하여 요약하세요."
+      : "기사들을 종합하여 시장 추세를 분석하세요.";
+
+  return `아래는 ${region} 금융·경제 뉴스 헤드라인입니다. 이 기사들을 분석하여 시황 요약 JSON을 생성해주세요.${watchlistSection}${memorySection}${moversSection}${sparseSection}
 
 ## 뉴스 헤드라인
 ${articleList}
 
 ## 요청
-위 기사들을 바탕으로 시황 요약을 작성해주세요. 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
+위 기사들을 바탕으로 시황 요약을 작성해주세요. ${analysisStyle} 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
 
 ### 필수 규칙
 - 숫자·지수 값: 기사 내용 바탕 합리적 추정, 없으면 "—" 표시

@@ -9,7 +9,7 @@ import type { RawRssArticle } from "../utils/fetchRssFeeds";
 import { getInterestMemoryDomestic, parseInterestKeywords } from "../utils/persistState";
 import { isScrapped } from "../utils/scrapStorage";
 import { domesticSources } from "../data/newsSources";
-import { fetchRssFeeds, filterArticlesByRange } from "../utils/fetchRssFeeds";
+import { fetchRssFeeds, filterArticlesByRange, getRecentRangeFromSettings } from "../utils/fetchRssFeeds";
 import { deduplicateBySimilarity } from "../utils/filterHighQualityNews";
 
 function matchesKeyword(text: string, keywords: string[]): boolean {
@@ -94,7 +94,7 @@ export function KeywordNewsProvider({ children }: { children: ReactNode }) {
       setLoadStep("키워드 필터링 중…");
       setLoadProgress(97);
 
-      const byRange = filterArticlesByRange(raw, "6h");
+      const byRange = filterArticlesByRange(raw, getRecentRangeFromSettings());
       const m = byRange
         .filter((a) => matchesKeyword(a.title, allKeywords) || (a.body && matchesKeyword(a.body, allKeywords)))
         .filter((a) => !isScrapped(a.link));

@@ -160,8 +160,14 @@ function similarity(a: string, b: string): number {
   return inter / (ta.size + tb.size - inter);
 }
 
-/** 0.55 = 유사도 55% 이상일 때만 중복으로 간주. 과도한 통폐합 방지 (기사 다수 유지) */
-const SIMILARITY_THRESHOLD = 0.55;
+/** 0.75 = 유사도 75% 이상일 때만 중복으로 간주. 관점이 다른 유사 기사 보존 (기사 수 확보) */
+const SIMILARITY_THRESHOLD = 0.75;
+
+/** 수집 부족 시 완화된 중복 제거용 임계치 (0.9 = 거의 동일한 기사만 통합) */
+const RELAXED_SIMILARITY_THRESHOLD = 0.9;
+
+/** 최소 유지 목표 기사 수 - 이 수 미만이면 완화된 dedup 적용 */
+const MIN_ARTICLES_TO_RETAIN = 10;
 
 /**
  * 규칙 5: 클러스터링 후 대표 기사 1개 선별
@@ -247,6 +253,8 @@ const ECONOMY_SECTOR_KEYWORDS = [
   "석유", "유가", "원유", "금값", "원자재", "원료", "전력", "인프라",
   "증권가", "시장", "투자", "펀드", "연기금", "금감원", "증선", "금융위",
   "삼성", "SK", "하이닉스", "현대", "기아", "네이버", "카카오", "쿠팡", "LG", "포스코",
+  "정부", "발표", "회의", "조정", "상승", "하락", "공시", "수익", "전망", "성장",
+  "원화", "달러", "정책", "세금", "예산", "재정", "금융시장", "증권시장", "주식시장",
 ];
 
 /** 기사가 경제 분야인지 (제목+본문에 경제 지표 키워드 1개 이상) */
@@ -292,19 +300,14 @@ export function filterHighQualityNews(
 ): NewsArticle[] {
   const { watchlist, interestKeywords = [], isInternational = true } = options;
 
-  // 규칙 2: 클릭베이트 즉시 폐기
-  let afterClickbait = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
+  // 규칙 2: 클릭베이트 즉시 폐기 (유일한 제외 항목)
+  const afterClickbait = articles.filter((a) => !hasClickbait(a.title, a.body ?? ""));
 
-  // 국내 시: 경제 분야 외 기사 제외 + 순수 해외소식 제외
-  if (!isInternational) {
-    afterClickbait = afterClickbait.filter((a) => {
-      if (!isEconomySectorArticle(a.title, a.body ?? "")) return false;
-      if (isOverseasOnlyArticle(a.title, a.body ?? "")) return false;
-      return true;
-    });
-  }
+  // 국내 시: 경제/해외 제외 → 감점 방식 전환 (모수 확보)
+  // - 경제 분야 외: -40점 (시장 영향 사회/정치 기사 보존)
+  // - 순수 해외소식: -30점 (글로벌 거시 지표 보존, 하단 배치)
 
-  // 규칙 1, 3, 4 점수 산출 (관심종목·관심키워드 1순위)
+  // 규칙 1, 3, 4 점수 산출 + 국내 감점
   const scored = afterClickbait.map((a) => {
     const body = a.body ?? "";
     let score = 0;
@@ -318,14 +321,22 @@ export function filterHighQualityNews(
     score += getThemeScore(a.title, body) * 2;
     score += getBigTechM7Score(a.title, body); // 빅테크 M7·AI 기업 기사 우선
 
+    // 국내 전용: 제외 → 감점 (기사 수 확보)
+    if (!isInternational) {
+      if (!isEconomySectorArticle(a.title, body)) score -= 40;
+      if (isOverseasOnlyArticle(a.title, body)) score -= 30;
+    }
+
     return { ...a, _score: Math.max(0, score) };
   });
 
   // 점수 기준 정렬 (높은 순)
   const sorted = [...scored].sort((a, b) => b._score - a._score);
 
-  // 규칙 5: 중복 제거
-  const deduped = deduplicate(sorted);
+  // 규칙 5: 중복 제거 (수집 부족 시 완화된 임계치 사용)
+  const threshold =
+    sorted.length < MIN_ARTICLES_TO_RETAIN ? RELAXED_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
+  const deduped = deduplicate(sorted, threshold);
 
   return deduped.map(({ _score, ...a }) => a);
 }
