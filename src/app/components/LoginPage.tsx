@@ -68,6 +68,17 @@ export function LoginPage() {
     }
   };
 
+  const handleLogout = async () => {
+    const auth = getFirebaseAuth();
+    if (!auth) return;
+    setLogoutLoading(true);
+    try {
+      await signOut(auth);
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
+
   return (
     <div className="px-4 py-6">
       {isUnderSettings && (

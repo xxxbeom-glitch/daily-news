@@ -274,6 +274,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
   const value: FirebaseContextValue = {
     uid,
+    user,
     isReady,
     isEnabled: enabled,
     syncSettings,
