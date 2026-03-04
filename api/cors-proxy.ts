@@ -8,6 +8,8 @@ const ALLOWED_HOSTS = new Set([
   "www.hankyung.com",
   "www.mk.co.kr",
   "news.sbs.co.kr",
+  "api.sbs.co.kr",
+  "www.yna.co.kr",
   "news.google.com",
   "finnhub.io",
   "finance.yahoo.com",
@@ -25,7 +27,7 @@ function isAllowedUrl(urlStr: string): boolean {
   try {
     const u = new URL(urlStr);
     if (u.protocol !== "https:") return false;
-    return ALLOWED_HOSTS.has(u.hostname) || u.hostname.endsWith(".hankyung.com") || u.hostname.endsWith(".mk.co.kr");
+    return ALLOWED_HOSTS.has(u.hostname) || u.hostname.endsWith(".hankyung.com") || u.hostname.endsWith(".mk.co.kr") || u.hostname.endsWith(".yna.co.kr");
   } catch {
     return false;
   }
