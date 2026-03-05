@@ -33,7 +33,6 @@ export function TestPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryData, setSummaryData] = useState<FlexibleVideoSummary | null>(null);
-  const [selectedModel, setSelectedModel] = useState<"gemini" | "gpt">("gemini");
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +69,6 @@ export function TestPage() {
     setSummaryData(null);
     try {
       const model = getSelectedModel();
-      setSelectedModel(model);
       const data = await generateFlexibleVideoSummaryFromVideos(
         selected.map((v) => ({ title: v.title, description: v.description })),
         { model }
