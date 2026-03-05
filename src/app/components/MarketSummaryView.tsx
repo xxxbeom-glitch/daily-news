@@ -284,7 +284,7 @@ export function MarketSummaryView({
     const headlineContent = (
       <>
         {header}
-        <div className="px-5 pt-5 pb-6">
+        <div className="px-5 pt-6 pb-6">
           {isGlobalMarket && (
             <>
               {renderTable("시장지표", data.indices ?? [])}
@@ -292,11 +292,11 @@ export function MarketSummaryView({
               <div className="my-5 border-t border-dashed border-white/15" />
             </>
           )}
-          <div className="mt-[26px]">
-            <div className="rounded-[10px] border border-white/8 bg-white/5 p-[26px]">
-              <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white mb-3">AI 요약</div>
+          <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
+            <div className="rounded-[10px] border border-white/8 bg-white/5 px-4 py-6">
+              <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5 }} className="text-white mb-3">AI 요약</div>
               {aiSummaryText !== null ? (
-                <div style={{ fontSize: 14, lineHeight: 1.75, fontWeight: 500 }} className="text-white/80">
+                <div style={{ fontSize: 13, lineHeight: 1.75, fontWeight: 500 }} className="text-white/80">
                   {(aiSummaryTypingIndex < aiSummaryText.length ? aiSummaryText.slice(0, aiSummaryTypingIndex) : aiSummaryText)
                     .split(/\n\n+/)
                     .map((para, j) => (
@@ -306,7 +306,7 @@ export function MarketSummaryView({
                     ))}
                 </div>
               ) : aiSummaryLoading ? (
-                <div style={{ fontSize: 14 }} className="text-white/50">요약 중...</div>
+                <div style={{ fontSize: 13 }} className="text-white/50">요약 중...</div>
               ) : (
                 <button
                   type="button"
@@ -350,7 +350,7 @@ export function MarketSummaryView({
             children={headlineContent}
           />
         )}
-        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden my-6 mx-0 bg-white/5 border border-white/8 rounded-[10px]">
+        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden mt-0 mb-6 mx-0 bg-white/5 border border-white/8 rounded-[10px]">
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             {headlineContent}
           </div>
@@ -512,7 +512,7 @@ export function MarketSummaryView({
     return (
       <>
         <FullscreenOverlay>{intlContent}</FullscreenOverlay>
-        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] my-6 mx-0">
+        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] mt-0 mb-6 mx-0">
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             {intlContent}
           </div>
@@ -595,7 +595,7 @@ export function MarketSummaryView({
   return (
     <>
       <FullscreenOverlay>{domesticContent}</FullscreenOverlay>
-      <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] my-6 mx-0">
+      <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] mt-0 mb-6 mx-0">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {domesticContent}
         </div>
