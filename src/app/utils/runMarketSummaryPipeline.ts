@@ -37,17 +37,21 @@ export async function runMarketSummaryPipeline(
   });
   if (rssError) throw new Error(rssError);
 
+  console.log(`[Pipeline] Current View Mode: ${isInternational ? "International" : "Domestic"}`);
+  console.log(`[Pipeline] Total RSS articles fetched: ${rawArticles.length}`);
+
   let articlesForFilter = rawArticles;
   if (isInternational && domList.length > 0 && intlList.length > 0) {
     articlesForFilter = rawArticles.filter((a) => {
       if (!isDomesticSourceId(a.sourceId)) return true;
       return matchesDomesticForOverseasSummary(a.title, a.body);
     });
+    console.log(`[Pipeline] After domestic keyword filter: ${articlesForFilter.length}`);
   }
 
   const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
   const interestKeywords = parseInterestKeywords(interestMemory);
-  const { articles: filtered } = filterArticlesByRangeTieredWithMin(
+  const { articles: filtered, rangeKey } = filterArticlesByRangeTieredWithMin(
     articlesForFilter,
     (byRange) =>
       filterHighQualityNews(byRange, {
@@ -56,7 +60,11 @@ export async function runMarketSummaryPipeline(
         isInternational,
       })
   );
-  if (filtered.length === 0) return null;
+  console.log(`[Pipeline] After quality filter (range: ${rangeKey}): ${filtered.length} articles`);
+  if (filtered.length === 0) {
+    console.warn(`[Pipeline] 0 articles after filter — pipeline aborted`);
+    return null;
+  }
 
   let moversSeed: { up: { name: string; ticker: string; changeRate: string }[]; down: { name: string; ticker: string; changeRate: string }[] } | undefined;
   if (isInternational) {

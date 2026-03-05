@@ -387,20 +387,76 @@ export function MarketSummaryView({
           </div>
         )}
 
-        <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
-        <div className="mt-[14px] space-y-3">
-          {data.keyIssues.slice(0, 12).map((item: IssueItem, i: number) => (
-            <div key={i}>
-              <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                {item.title}
-              </div>
-              <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">
-                {item.body}
-              </div>
+        {/* RSS 기사가 있으면 실시간 기사, 없으면 AI 요약 */}
+        {data.headlineArticles && data.headlineArticles.length > 0 ? (
+          <>
+            <BlockTitle emoji="📰">실시간 주요 언론사별 기사</BlockTitle>
+            <div className="mt-[14px] space-y-[18px]">
+              {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
+                <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
+                  <div className="flex items-center gap-2 mb-[5px]">
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em" }} className="text-[#618EFF]/90">
+                      {item.sourceName}
+                    </span>
+                    <span style={{ fontSize: 10 }} className="text-white/20">RSS</span>
+                  </div>
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 14, fontWeight: 500, ...lineStyle }}
+                      className="text-white/95 hover:text-white hover:underline transition-colors block"
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                      {item.title}
+                    </div>
+                  )}
+                  {item.summary && item.summary !== "(본문 미수집)" && (
+                    <div style={{ fontSize: 13, ...lineStyle }} className="text-white/50 mt-[6px]">
+                      {item.summary}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {data.keyIssuesSources.length > 0 && (
+          </>
+        ) : data.noHeadlineArticlesMessage ? (
+          <>
+            <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
+            <div className="mt-[14px] px-4 py-3 rounded-[8px] bg-white/5 border border-white/8">
+              {data.noHeadlineArticlesMessage.split("\n").map((line, i) => (
+                <div key={i} style={{ fontSize: i === 0 ? 14 : 12, ...lineStyle }} className={i === 0 ? "text-white/50" : "text-white/30 mt-1"}>
+                  {line}
+                </div>
+              ))}
+            </div>
+            <div className="mt-[14px] space-y-3">
+              {data.keyIssues.slice(0, 12).map((item: IssueItem, i: number) => (
+                <div key={i}>
+                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">{item.title}</div>
+                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
+            <div className="mt-[14px] space-y-3">
+              {data.keyIssues.slice(0, 12).map((item: IssueItem, i: number) => (
+                <div key={i}>
+                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">{item.title}</div>
+                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {data.keyIssuesSources.length > 0 && !(data.headlineArticles && data.headlineArticles.length > 0) && (
           <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
             출처: {data.keyIssuesSources.map((s) => s.outlet).join(", ")}
           </div>

@@ -35,6 +35,7 @@ export const HEADLINE_KEYWORDS = [
   "S&P500", "나스닥", "장을 마감", "뉴욕 증시", "NYSE",
   "뉴욕증시", "나스닥종합", "다우존스", "뉴욕증권거래소", "뉴욕상업거래소",
   "장을 마쳤다", "시황",
+  "미국 증시", "월가", "뉴욕", "증시",
 ];
 
 function buildPrompt(
@@ -465,12 +466,19 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
   }
 
   // 해외 시황: S&P500/나스닥 등 키워드 필터된 기사만 헤드라인 섹션에 사용
-  // ── 1단계: RSS 기사 키워드 필터 ──
+  // ── 1단계: RSS 기사 키워드 필터 (국내·해외 모두 적용) ──
+  // 해외: HEADLINE_KEYWORDS 포함 기사만 (키워드 없으면 전체 fallback)
+  // 국내: 전체 기사를 헤드라인으로 사용 (키워드 필터 없음)
+  const keywordFiltered = articles.filter((a) =>
+    HEADLINE_KEYWORDS.some((kw) => a.title.includes(kw) || (a.body ?? "").includes(kw))
+  );
   const headlineRssArticles = isInternational
-    ? articles.filter((a) =>
-        HEADLINE_KEYWORDS.some((kw) => a.title.includes(kw) || (a.body ?? "").includes(kw))
-      ).slice(0, 20)
+    ? (keywordFiltered.length > 0 ? keywordFiltered : articles).slice(0, 20)
     : articles.slice(0, 20);
+
+  console.log(`[Pipeline] Total RSS articles fetched: ${articles.length}`);
+  console.log(`[Pipeline] Filtered Headline articles: ${headlineRssArticles.length}`);
+  console.log(`[Pipeline] Current View Mode: ${isInternational ? "International" : "Domestic"}`);
 
   // ── 파이프라인 검증 ──
   const hasRssArticles = articles.length > 0;
@@ -501,20 +509,19 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
 
   const data = parseAndNormalize(rawResponse, isInternational);
 
-  // ── headlineArticles: RSS 원문 직결 (AI 개입 0%) ──
-  if (isInternational) {
-    if (headlineRssArticles.length === 0) {
-      data.headlineArticles = [];
-      data.noHeadlineArticlesMessage =
-        "현재 조건에 부합하는 실시간 기사가 없습니다.\n(S&P500, 나스닥, 뉴욕증시, NYSE 등 키워드 포함 기사 없음)";
-    } else {
-      data.headlineArticles = headlineRssArticles.map((a) => ({
-        sourceName: a.sourceName,
-        title: a.title,
-        summary: a.body ? a.body.slice(0, 350).trim() : "(본문 미수집)",
-        url: a.link,
-      }));
-    }
+  // ── headlineArticles: RSS 원문 직결 (AI 개입 0%, 국내·해외 모두 적용) ──
+  if (headlineRssArticles.length === 0) {
+    data.headlineArticles = [];
+    data.noHeadlineArticlesMessage = isInternational
+      ? "현재 조건에 부합하는 실시간 기사가 없습니다.\n(S&P500, 나스닥, 뉴욕증시, NYSE 등 키워드 포함 기사 없음)"
+      : "수집된 RSS 기사가 없습니다.";
+  } else {
+    data.headlineArticles = headlineRssArticles.map((a) => ({
+      sourceName: a.sourceName,
+      title: a.title,
+      summary: a.body ? a.body.slice(0, 350).trim() : "(본문 미수집)",
+      url: a.link,
+    }));
   }
 
   if (!useGemini && !useClaude) {
