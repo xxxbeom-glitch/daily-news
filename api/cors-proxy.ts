@@ -14,6 +14,8 @@ const ALLOWED_HOSTS = new Set([
   "finnhub.io",
   "finance.yahoo.com",
   "www.cnbc.com",
+  "feeds.marketwatch.com",
+  "seekingalpha.com",
   "feeds.a.dj.com",
   "feeds.bloomberg.com",
   "query1.finance.yahoo.com",

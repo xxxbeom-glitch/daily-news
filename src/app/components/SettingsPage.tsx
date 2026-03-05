@@ -44,7 +44,7 @@ async function checkFinnhubNews(): Promise<boolean> {
 }
 
 async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
-  const useRss2Json = (sourceId ?? "").startsWith("gn_");
+  const useRss2Json = (sourceId ?? "").startsWith("gn_") || (sourceId ?? "").startsWith("rss_") || sourceId === "yna_economy";
   if (useRss2Json) {
     const rss2JsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
     const { ok, text } = await fetchViaCorsProxy(rss2JsonUrl, { timeoutMs: RSS_CHECK_TIMEOUT_MS });

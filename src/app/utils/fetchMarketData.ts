@@ -517,7 +517,7 @@ export async function fetchTopMovers(
   const kospi = withChange.filter((x) => x.symbol.endsWith(".KS"));
   const ks = toStockMovers(kospi);
   return {
-    kospiMovers: { up: ks.up, down: ks.down, sources: [source] },
+    kospiMovers: { up: ks.up, down: ks.down, sources: [finnhubSource] },
   };
 }
 
