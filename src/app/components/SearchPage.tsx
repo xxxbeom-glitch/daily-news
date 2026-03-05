@@ -8,6 +8,7 @@ import { filterArticlesByRange } from "../utils/fetchRssFeeds";
 import { getRecentRangeFromSettings } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
 import { summarizeSingleArticle } from "../utils/aiSummary";
+import { stripHtmlToText } from "../utils/stripHtml";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
 /** 기사 발행일 포맷 */
@@ -99,7 +100,7 @@ function ArticleFullViewModal({
           setContent(txt);
           setTitle(res.title || article.title);
         } else if (article.body && article.body.trim().length > 50) {
-          setContent(article.body.trim());
+          setContent(stripHtmlToText(article.body));
           setTitle(article.title);
         } else {
           setContent("본문을 추출하지 못했습니다. 아래 '원문 보기'에서 직접 확인해주세요.");
@@ -109,7 +110,7 @@ function ArticleFullViewModal({
       .catch(() => {
         if (cancelled) return;
         if (article.body && article.body.trim().length > 50) {
-          setContent(article.body.trim());
+          setContent(stripHtmlToText(article.body));
           setTitle(article.title);
         } else {
           setError("본문 로드에 실패했습니다. CORS 또는 사이트 차단으로 인한 것으로, '원문 보기'에서 직접 확인해주세요.");

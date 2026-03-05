@@ -49,10 +49,12 @@ export function toGoogleNewsRssUrlIntl(site: string): string {
   return `https://news.google.com/rss/search?q=${q}&hl=en&gl=US&ceid=US:en`;
 }
 
-// 국내 언론사 (경제 섹션 전용 RSS 우선 - 연예/사회 기사 원천 차단)
+// 국내 언론사 (매일경제 직접 RSS 우선 - 구글뉴스 리다이렉트 대체)
 export const domesticSources: NewsSource[] = [
   { id: "gn_hankyung", name: "한국경제", rssUrl: toGoogleNewsRssUrl("hankyung.com") },
-  { id: "gn_mk", name: "매일경제", rssUrl: toGoogleNewsRssUrl("mk.co.kr") },
+  { id: "rss_mk_headline", name: "매일경제 헤드라인", rssUrl: "https://www.mk.co.kr/rss/30000001/" },
+  { id: "rss_mk_economy", name: "매일경제 경제", rssUrl: "https://www.mk.co.kr/rss/30100041/" },
+  { id: "rss_mk_stock", name: "매일경제 증권", rssUrl: "https://www.mk.co.kr/rss/50200011/" },
   { id: "gn_sbs", name: "SBS 경제", rssUrl: toGoogleNewsRssUrlEconomy("sbs.co.kr") },
   { id: "yna_economy", name: "연합뉴스 경제", rssUrl: "https://www.yna.co.kr/rss/economy.xml" },
 ];
