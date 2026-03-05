@@ -369,36 +369,36 @@ async function callGeminiWithOptions(
   throw lastError ?? new Error("Gemini API 호출 실패");
 }
 
-/** 테스트2(데이터 직접 입력)용 시스템 프롬프트: 외부 지식 차단, 수치 엄격성, 논리 검증 */
-const DATA_VERIFICATION_SYSTEM_PROMPT = `역할: 귀하는 금융 데이터 무결성 검증 전문가이자 전문 시황 분석가입니다.
+/** 테스트2(조간신문 헤드라인)용 시스템 프롬프트 */
+const MORNING_HEADLINE_SYSTEM_PROMPT = `역할: 귀하는 조간신문 헤드라인 정리 전문가입니다.
 
-분석 원칙:
-1. 외부 지식 차단: 귀하가 기존에 학습한 지식이나 외부 실시간 검색 결과는 무시하십시오. 오직 사용자가 '테스트2' 탭을 통해 업로드한 파일, 이미지, 텍스트의 내용만을 근거로 삼으십시오.
-2. 수치 엄격성: 자료에 명시된 지수(Point)와 등락률(%)을 0.1의 오차 없이 그대로 추출하십시오. 자료에 수치가 없다면 임의로 계산하지 말고 '데이터 미비'로 표기하십시오.
-3. 논리 검증: 기사 내용 중 '상승'과 '하락'에 대한 서술이 수치와 일치하는지 대조 분석하십시오. 모순이 발견될 경우 수치를 우선시하여 리포트를 작성하십시오.
-4. 요약 및 저장: 분석이 완료되면 지정된 '오늘의 시황' 템플릿에 맞춰 내용을 정리하고, 최종본을 '오늘의 시황' 탭으로 전송할 수 있도록 JSON 형식으로 출력하십시오.`;
+핵심 원칙:
+1. 외부 지식 차단: 업로드된 이미지·텍스트 내용만을 근거로 삼으십시오.
+2. 기사별 개별 처리: 업로드된 이미지가 여러 장이어도, 각 이미지 내 기사를 개별로 인식합니다. 절대로 전체를 압축·통합 요약하지 마세요. 기사 1개 = 출력 1개로 1:1 대응.
+3. 기사 제목: 원문에 있는 그대로 반드시 유지. 변경·요약 금지.
+4. 기사 내용: 이해하기 쉽도록 최소 3줄 이상으로 요약. 명사형 종결(-음, -기, -함, -됨). 개조식.`;
 
-/** 테스트2용 유저 프롬프트 템플릿 */
-const DATA_VERIFICATION_USER_PROMPT = `업로드된 파일 내의 개별 기사들을 분석하여 요약하십시오. 각 기사에서 언급된 지수, 주요 종목 등락, 핵심 이슈를 추출하여 기존 '오늘의 시황' 양식으로 작성하십시오. 분석이 끝나면 즉시 저장 가능한 상태로 출력하십시오.
+/** 테스트2용 유저 프롬프트: 조간신문 헤드라인 형식 */
+const MORNING_HEADLINE_USER_PROMPT = `업로드된 이미지·텍스트에서 기사를 개별적으로 추출하세요.
+
+규칙:
+- 이미지 1장에 기사 1개: 그대로 1개 항목으로 출력.
+- 이미지 1장에 기사 여러 개: 각각 개별 항목으로 출력.
+- 이미지 여러 장: 각 이미지의 각 기사를 모두 개별 항목으로 출력. 압축·통합 금지.
+
+출력 형식:
+- 기사제목: 원문 그대로 (예: "팔란티어 (PLTR) +14.16%")
+- 기사내용: 원문에서 이해되기 쉽게 최소 3줄 이상 요약
 
 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
 {
   "date": "YYYY. MM. DD (요)",
-  "regionLabel": "해외 시황 요약" 또는 "한국 시장 뉴스",
-  "totalAssessment": "서술형·존댓말로 총평",
-  "indices": [{ "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }],
-  "indicesSources": [],
-  "stockMoversLabel": "M7 및 반도체주 등락율",
-  "moversUp": [],
-  "moversDown": [],
-  "moversSources": [],
-  "bigTechLabel": "빅테크 & AI 기업 이슈",
-  "bigTechIssues": [],
-  "geopoliticalLabel": "국제 정세 이슈",
-  "geopoliticalIssues": [],
-  "geopoliticalSources": []
+  "regionLabel": "조간신문 헤드라인",
+  "keyIssues": [
+    { "title": "기사제목 (원문 그대로)", "body": "기사내용 (최소 3줄 이상 요약. 개조식·명사형 종결)" }
+  ]
 }
-자료에 없는 정보는 "—" 또는 빈 배열로 처리하세요. 반드시 유효한 JSON만 출력하세요.`;
+총평, 대표지수, 실시간뉴스, 출처는 출력하지 마세요. keyIssues만 채우세요. 반드시 유효한 JSON만 출력하세요.`;
 
 export interface UploadedDataInput {
   text: string;
@@ -431,7 +431,7 @@ export async function generateMarketSummaryFromUploadedData(
     throw new Error("이미지 분석은 Gemini 모델만 지원합니다. 설정에서 Gemini를 선택해주세요.");
   }
 
-  const fullUserPrompt = `${DATA_VERIFICATION_USER_PROMPT}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
+  const fullUserPrompt = `${MORNING_HEADLINE_USER_PROMPT}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
 
   let rawResponse: string;
   if (useGemini) {
@@ -444,18 +444,53 @@ export async function generateMarketSummaryFromUploadedData(
     parts.push({ text: fullUserPrompt });
     rawResponse = await callGeminiWithOptions("", {
       modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
-      systemInstruction: DATA_VERIFICATION_SYSTEM_PROMPT,
+      systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
       parts,
     });
   } else {
-    const prompt = `${DATA_VERIFICATION_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
+    const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
     rawResponse = await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
   }
 
-  const regionHint = text.includes("코스피") || text.includes("코스닥") || text.includes("KOSPI") || text.includes("KOSDAQ")
-    ? false
-    : true;
-  return parseAndNormalize(rawResponse, regionHint);
+  return parseMorningHeadline(rawResponse);
+}
+
+/** 조간신문 헤드라인 전용 파싱 - keyIssues만 사용, 나머지 제거 */
+function parseMorningHeadline(jsonStr: string): MarketSummaryData {
+  let raw = jsonStr.trim();
+  const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeMatch) raw = codeMatch[1].trim();
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) raw = jsonMatch[0];
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
+  }
+
+  const now = new Date();
+  const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+  const dateStr = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")} (${weekDays[now.getDay()]})`;
+
+  const keyIssues = ensureIssueItems((parsed.keyIssues as { title?: string; body?: string }[]) ?? []);
+
+  return {
+    date: (parsed.date as string) ?? dateStr,
+    regionLabel: (parsed.regionLabel as string) ?? "조간신문 헤드라인",
+    indices: [],
+    indicesSources: [],
+    keyIssues,
+    keyIssuesSources: [],
+    stockMoversLabel: "",
+    moversUp: [],
+    moversDown: [],
+    moversSources: [],
+    bigTechLabel: "",
+    bigTechIssues: [],
+    bigTechSources: [],
+  };
 }
 
 async function callClaude(prompt: string, modelId?: string): Promise<string> {
