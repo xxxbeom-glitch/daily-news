@@ -160,7 +160,8 @@ async function checkConnectionStatus(
     if (!msg) return "연결 실패";
     if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "할당량 초과";
     if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API 키 오류";
-    if (msg.includes("403") || msg.includes("region") || msg.includes("country")) return "지역 제한";
+    const lower = msg.toLowerCase();
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "지역 제한";
     if (msg.includes("not found") || msg.includes("model")) return "모델 오류";
     return msg.length > 50 ? msg.slice(0, 50) + "…" : msg;
   };
@@ -615,6 +616,11 @@ export function SettingsPage() {
               <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
                 {apiStatus.errorMessage}
               </span>
+              {apiStatus.errorMessage.includes("지역 제한") && (
+                <p style={{ fontSize: 11 }} className="text-white/45 mt-2">
+                  VPN 사용 또는 API 제공자 지원 국가 확인
+                </p>
+              )}
             </div>
           </div>
           </div>
