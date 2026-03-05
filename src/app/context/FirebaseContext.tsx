@@ -208,14 +208,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     if (!uid) return;
     try {
       const sessions = await loadSessions(uid);
-      if (sessions.length > 0) {
-        try {
-          localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
-          window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
-        } catch {}
-      }
+      try {
+        localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
+        window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+      } catch {}
     } catch (e) {
-      console.warn("[Firebase] refreshSessions failed", e);
+      console.error("[Firebase] refreshSessions 실패", e);
     }
   }, [uid]);
 
@@ -228,7 +226,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       try {
         await addSessionToFirestore(uid, session);
       } catch (e) {
-        console.warn("[Firebase] addSession failed", e);
+        console.error("[Firebase] addSession 실패 (Firestore 규칙·네트워크 확인)", e);
       }
     },
     [uid]
@@ -242,7 +240,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         try {
           await addSessionToFirestore(uid, session);
         } catch (e) {
-          console.warn("[Firebase] addSession (pending) failed", e);
+          console.error("[Firebase] addSession (pending) 실패", e);
         }
       }
     })();

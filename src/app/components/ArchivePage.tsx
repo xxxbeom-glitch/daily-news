@@ -103,7 +103,7 @@ export function ArchivePage() {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden px-4 pt-5 pb-6">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
       <div className="flex items-stretch gap-2 mb-4 shrink-0">
         {/* AI요약 아티클 드롭다운 */}
         <div ref={dropdownRef} className="relative flex-1 min-w-0 flex">

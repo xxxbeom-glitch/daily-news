@@ -94,13 +94,30 @@ export async function loadSessions(uid: string): Promise<ArchiveSession[]> {
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
+/** Firestore 저장용: undefined 제거 (Firestore는 undefined 미지원) */
+function sanitizeForFirestore(obj: unknown): unknown {
+  if (obj === null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    out[k] = sanitizeForFirestore(v);
+  }
+  return out;
+}
+
 /** 시황 세션 추가 (session.id를 문서 ID로 사용) */
 export async function addSessionToFirestore(uid: string, session: ArchiveSession): Promise<void> {
   const db = getFirebaseDb();
-  if (!db) return;
+  if (!db) throw new Error("Firestore가 초기화되지 않았습니다.");
   const ref = doc(db, "users", uid, "sessions", session.id);
-  const { id, ...data } = session;
-  await setDoc(ref, { ...data, createdAt: session.createdAt, addedAt: serverTimestamp() }, { merge: true });
+  const { id, ...rest } = session;
+  const sanitized = sanitizeForFirestore(rest) as Record<string, unknown>;
+  await setDoc(
+    ref,
+    { ...sanitized, createdAt: session.createdAt, addedAt: serverTimestamp() },
+    { merge: true }
+  );
 }
 
 /** 시황 세션 삭제 */
