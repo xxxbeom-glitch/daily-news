@@ -93,7 +93,7 @@ export function MarketSummaryView({
   displayDate?: string;
 }) {
   const data = initialData;
-  const isHeadlineMode = data.regionLabel.includes("조간신문");
+  const isHeadlineMode = data.regionLabel.includes("조간신문") || data.regionLabel.includes("글로벌 마켓");
   const isInternational = data.regionLabel.includes("해외") || data.regionLabel.includes("글로벌");
   const containerRef = useRef<HTMLDivElement>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
