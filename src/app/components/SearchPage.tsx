@@ -82,7 +82,7 @@ function ArticleFullViewModal({
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
-  // 1. 본문 로드
+  // 1. 본문 로드 (실패 시 RSS body를 폴백으로 사용)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -94,17 +94,32 @@ function ArticleFullViewModal({
     fetchArticleContent(article.link)
       .then((res) => {
         if (cancelled) return;
-        setContent(res.textContent || "본문을 추출하지 못했습니다.");
-        setTitle(res.title || article.title);
+        const txt = res.textContent?.trim();
+        if (txt && txt.length > 50) {
+          setContent(txt);
+          setTitle(res.title || article.title);
+        } else if (article.body && article.body.trim().length > 50) {
+          setContent(article.body.trim());
+          setTitle(article.title);
+        } else {
+          setContent("본문을 추출하지 못했습니다. 아래 '원문 보기'에서 직접 확인해주세요.");
+          setTitle(article.title);
+        }
       })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "기사를 불러올 수 없습니다.");
+      .catch(() => {
+        if (cancelled) return;
+        if (article.body && article.body.trim().length > 50) {
+          setContent(article.body.trim());
+          setTitle(article.title);
+        } else {
+          setError("본문 로드에 실패했습니다. CORS 또는 사이트 차단으로 인한 것으로, '원문 보기'에서 직접 확인해주세요.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [article.link]);
+  }, [article.link, article.body, article.title]);
 
   // 2. 본문 로드 완료 시 개별 기사 AI 요약 생성
   useEffect(() => {

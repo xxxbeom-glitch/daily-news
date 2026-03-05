@@ -32,6 +32,16 @@ const CONTENT_SELECTORS = [
   ".story-body-text",
   "[itemprop='articleBody']",
   ".pf-content",
+  /* 매일경제, 한국경제 등 국내 언론사 */
+  ".news_body",
+  "#news_body",
+  ".view_content",
+  ".article-view",
+  ".news_ct",
+  "#newsct",
+  ".news_end_body",
+  ".cont_news",
+  ".article_txt",
 ];
 
 function extractText(el: Element): string {
@@ -44,7 +54,7 @@ export async function fetchArticleContent(url: string): Promise<ArticleReaderRes
   const cached = articleCache.get(url);
   if (cached) return cached;
 
-  const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: 15000 });
+  const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: 20000 });
   if (!ok || !text) {
     throw new Error("기사를 불러올 수 없습니다.");
   }
