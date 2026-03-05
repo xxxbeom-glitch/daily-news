@@ -86,27 +86,6 @@ export function ArchivePage() {
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
       <div className="flex items-center gap-2 mb-4">
-        <div className="flex gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsInternational(false)}
-            className={`px-4 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
-              !isInternational ? "bg-[#618EFF] text-white" : "bg-white/10 text-white/60 hover:bg-white/15"
-            }`}
-          >
-            한국
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsInternational(true)}
-            className={`px-4 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
-              isInternational ? "bg-[#618EFF] text-white" : "bg-white/10 text-white/60 hover:bg-white/15"
-            }`}
-          >
-            미국
-          </button>
-        </div>
-
         {/* AI요약 아티클 드롭다운 */}
         <div ref={dropdownRef} className="relative flex-1 min-w-0">
           <button
@@ -176,6 +155,28 @@ export function ArchivePage() {
             ))}
           </div>
         )}
+        </div>
+
+        {/* 국가 탭 (한 줄 합쳐서 반씩 active/inactive) */}
+        <div className="flex shrink-0 rounded-[10px] border border-white/10 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setIsInternational(false)}
+            className={`flex-1 min-w-[52px] py-2.5 text-sm font-medium transition-colors ${
+              !isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
+            }`}
+          >
+            한국
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsInternational(true)}
+            className={`flex-1 min-w-[52px] py-2.5 text-sm font-medium transition-colors border-l border-white/10 ${
+              isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
+            }`}
+          >
+            미국
+          </button>
         </div>
       </div>
 

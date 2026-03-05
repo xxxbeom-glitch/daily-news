@@ -8,7 +8,7 @@ import type { DashboardItem } from "../utils/fetchMarketData";
 import type { ChartDataPoint } from "../utils/fetchMarketData";
 
 const CACHE_KEY = "market_dashboard_cache";
-const CACHE_CHART_PREFIX = "market_chart_";
+const CACHE_CHART_PREFIX = "market_chart_1wk_";
 
 function getKstDate(): { y: number; m: number; d: number; hour: number } {
   const formatter = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });

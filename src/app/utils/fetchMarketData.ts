@@ -829,9 +829,9 @@ function parseChartJson(text: string, interval: string): ChartDataPoint[] {
   }
 }
 
-/** 종목별 주간 캔들 차트 데이터 (interval=1wk, range=6mo) */
+/** 종목별 주간 캔들 차트 데이터 (interval=1wk, range=1y) */
 export async function fetchChartData(symbol: string): Promise<ChartDataPoint[]> {
-  const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1wk&range=6mo`;
+  const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1wk&range=1y`;
   let text: string;
   if (import.meta.env.DEV) {
     const res = await fetch(url);
