@@ -838,6 +838,23 @@ export function SettingsPage() {
           </div>
         </Link>
       </section>
+
+      {/* 차트 라이선스 (lightweight-charts attributionLogo 비활성화 시 요구사항) */}
+      <section className="mb-4">
+        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden px-4 py-3">
+          <p style={{ fontSize: 12 }} className="text-white/50">
+            오늘의 시장 차트는 TradingView lightweight-charts를 사용합니다.{" "}
+            <a
+              href="https://www.tradingview.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#618EFF] hover:underline"
+            >
+              TradingView
+            </a>
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

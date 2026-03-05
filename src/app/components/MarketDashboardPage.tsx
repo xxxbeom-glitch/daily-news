@@ -21,19 +21,21 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
     }
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: 70,
+      height: 110,
       layout: {
         background: { color: "transparent" },
         textColor: "#94a3b8",
+        attributionLogo: false,
       },
       grid: {
         vertLines: { visible: false },
         horzLines: { color: "rgba(255,255,255,0.06)" },
       },
       rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false },
+      timeScale: { visible: false, borderVisible: false },
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
+      lastValueVisible: false,
       upColor: "#34d399",
       downColor: "#f87171",
       borderUpColor: "#34d399",
@@ -58,7 +60,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
     };
   }, [data]);
 
-  return <div ref={containerRef} className="w-full" style={{ height: 70 }} />;
+  return <div ref={containerRef} className="w-full" style={{ height: 110 }} />;
 }
 
 function DashboardCard({ item }: { item: DashboardItem }) {
@@ -90,11 +92,11 @@ function DashboardCard({ item }: { item: DashboardItem }) {
           {item.change}
         </span>
       </div>
-      <div className="min-h-[70px]">
+      <div className="min-h-[110px]">
         {chartData.length > 0 ? (
           <CandlestickChart data={chartData} />
         ) : (
-          <div className="h-[70px] flex items-center justify-center text-white/30 text-xs">로딩 중…</div>
+          <div className="h-[110px] flex items-center justify-center text-white/30 text-xs">로딩 중…</div>
         )}
       </div>
     </div>
