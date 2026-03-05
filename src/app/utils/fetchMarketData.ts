@@ -117,7 +117,7 @@ function getDataGoKrKey(): string {
   return key;
 }
 
-/** Yahoo Finance 차트 API로 국내 지수 조회 */
+/** Yahoo Finance 차트 API로 국내 지수 조회 (종가 기준) */
 async function fetchYahooIndices(): Promise<IndexData[] | null> {
   const results: IndexData[] = [];
   for (const { symbol, name } of DOMESTIC_YAHOO_INDICES) {
@@ -128,15 +128,16 @@ async function fetchYahooIndices(): Promise<IndexData[] | null> {
       const json = JSON.parse(text) as {
         chart?: {
           result?: Array<{
-            meta?: { regularMarketPrice?: number; chartPreviousClose?: number };
+            meta?: { regularMarketPrice?: number; chartPreviousClose?: number; regularMarketClose?: number };
             indicators?: { quote?: Array<{ close?: (number | null)[] }> };
           }>;
         };
       };
       const result = json?.chart?.result?.[0];
       if (!result) continue;
-      const price = result.meta?.regularMarketPrice ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).pop();
-      const prev = result.meta?.chartPreviousClose ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).slice(-2)[0];
+      const closes = result.indicators?.quote?.[0]?.close?.filter((c) => c != null) ?? [];
+      const price = (result.meta as { regularMarketClose?: number })?.regularMarketClose ?? closes[closes.length - 1] ?? result.meta?.regularMarketPrice;
+      const prev = result.meta?.chartPreviousClose ?? closes[closes.length - 2];
       if (price == null || prev == null) continue;
       const change = price - prev;
       const changePct = prev !== 0 ? (change / prev) * 100 : 0;
@@ -154,7 +155,7 @@ async function fetchYahooIndices(): Promise<IndexData[] | null> {
   return results.length >= 2 ? results : null;
 }
 
-/** Yahoo Finance 차트 API로 해외 대표지수 조회 */
+/** Yahoo Finance 차트 API로 해외 대표지수 조회 (종가 기준) */
 async function fetchYahooInternationalIndices(): Promise<IndexData[] | null> {
   const results: IndexData[] = [];
   for (const { symbol, name } of INTERNATIONAL_YAHOO_INDICES) {
@@ -172,8 +173,9 @@ async function fetchYahooInternationalIndices(): Promise<IndexData[] | null> {
       };
       const result = json?.chart?.result?.[0];
       if (!result) continue;
-      const price = result.meta?.regularMarketPrice ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).pop();
-      const prev = result.meta?.chartPreviousClose ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).slice(-2)[0];
+      const closes = result.indicators?.quote?.[0]?.close?.filter((c) => c != null) ?? [];
+      const price = (result.meta as { regularMarketClose?: number })?.regularMarketClose ?? closes[closes.length - 1] ?? result.meta?.regularMarketPrice;
+      const prev = result.meta?.chartPreviousClose ?? closes[closes.length - 2];
       if (price == null || prev == null) continue;
       const change = price - prev;
       const changePct = prev !== 0 ? (change / prev) * 100 : 0;
@@ -191,7 +193,7 @@ async function fetchYahooInternationalIndices(): Promise<IndexData[] | null> {
   return results.length >= 2 ? results : null;
 }
 
-/** Yahoo Finance로 M7·반도체주 등락율 조회 */
+/** Yahoo Finance로 M7·반도체주 등락율 조회 (종가 기준) */
 async function fetchYahooStockMovers(): Promise<{ up: StockMover[]; down: StockMover[] } | null> {
   const nameMap = getM7SemiMoversMap();
   const symbols = Object.keys(nameMap);
@@ -213,8 +215,9 @@ async function fetchYahooStockMovers(): Promise<{ up: StockMover[]; down: StockM
       };
       const result = json?.chart?.result?.[0];
       if (!result) continue;
-      const price = result.meta?.regularMarketPrice ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).pop();
-      const prev = result.meta?.chartPreviousClose ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).slice(-2)[0];
+      const closes = result.indicators?.quote?.[0]?.close?.filter((c) => c != null) ?? [];
+      const price = (result.meta as { regularMarketClose?: number })?.regularMarketClose ?? closes[closes.length - 1] ?? result.meta?.regularMarketPrice;
+      const prev = result.meta?.chartPreviousClose ?? closes[closes.length - 2];
       if (price == null || prev == null) continue;
       const changePct = prev !== 0 ? ((price - prev) / prev) * 100 : 0;
       items.push({

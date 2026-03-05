@@ -77,13 +77,12 @@ export async function runMarketSummaryPipeline(
       data = await generateMarketSummary({
       articles: articlePayload,
       isInternational,
-      model: "gemini",
-      modelId: "gemini-2.5-flash",
+      model: "claude",
+      modelId: "claude-3-5-sonnet-20241022",
       interestMemory: interestMemory || undefined,
       moversSeed,
     });
   } catch {
-    const otherModel = selectedModel === "gemini" ? "gpt" : "gemini";
     try {
       data = await generateMarketSummary({
         articles: articlePayload,
@@ -93,11 +92,11 @@ export async function runMarketSummaryPipeline(
         interestMemory: interestMemory || undefined,
         moversSeed,
       });
-      actualModel = otherModel;
+      actualModel = "gemini";
     } catch {
       data = isInternational ? mockMarketSummaryInternational : mockMarketSummaryDomestic;
       data = { ...data, totalAssessmentError: true };
-      actualModel = selectedModel;
+      actualModel = "gemini";
     }
   }
 
@@ -106,8 +105,8 @@ export async function runMarketSummaryPipeline(
   if ((data.indices?.length ?? 0) > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0) {
     try {
       data = await verifyAndCorrectMarketSummary(data, {
-        model: "claude",
-        modelId: "claude-3-5-sonnet-20241022",
+        model: "gemini",
+        modelId: "gemini-3.1-pro-preview",
       });
     } catch {
       /* 2차 검증 실패 시 원본 유지 */

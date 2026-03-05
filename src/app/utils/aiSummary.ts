@@ -442,8 +442,8 @@ async function callOpenAI(prompt: string, modelId?: string): Promise<string> {
 export interface GenerateSummaryOptions {
   articles: RawRssArticle[];
   isInternational: boolean;
-  model: "gemini" | "gpt";
-  /** 관리자 지정 모델 ID (Gemini/OpenAI 모델 중 하나) */
+  model: "gemini" | "gpt" | "claude";
+  /** 관리자 지정 모델 ID */
   modelId?: string;
   watchlist?: { symbol: string; name: string; isDomestic?: boolean }[];
   /** 사용자가 입력한 관심 섹터·기업 메모리. AI 프롬프트에 반영 */
@@ -462,8 +462,10 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
     throw new Error("분석할 기사가 없습니다.");
   }
 
-  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
-  const useOpenAI = modelId ? OPENAI_MODELS.includes(modelId) : model === "gpt";
+  const useClaude = model === "claude" || (modelId && CLAUDE_MODELS.includes(modelId));
+  const useGemini = !useClaude && (modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini");
+  const useOpenAI = !useClaude && !useGemini;
+  const claudeModelId = useClaude && modelId && CLAUDE_MODELS.includes(modelId) ? modelId : CLAUDE_MODELS[0];
   const geminiModelId = useGemini && modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined;
   const openAIModelId = useOpenAI && modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined;
 
@@ -471,11 +473,15 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
     watchlist,
     moversSeed,
     interestMemory,
-    includeTotalAssessment: useGemini,
+    includeTotalAssessment: useGemini || useClaude,
   });
-  const rawResponse = useGemini ? await callGemini(prompt, geminiModelId) : await callOpenAI(prompt, openAIModelId);
+  const rawResponse = useClaude
+    ? await callClaude(prompt, claudeModelId)
+    : useGemini
+      ? await callGemini(prompt, geminiModelId)
+      : await callOpenAI(prompt, openAIModelId);
   const data = parseAndNormalize(rawResponse, isInternational);
-  if (!useGemini) {
+  if (!useGemini && !useClaude) {
     data.totalAssessmentError = true;
   } else if (!data.totalAssessment || !String(data.totalAssessment).trim()) {
     data.totalAssessmentError = true;
@@ -494,8 +500,8 @@ function buildVerificationPrompt(data: MarketSummaryData): string {
   const indicesStr = data.indices.map((i) => `${i.name}: ${i.value} (${i.change})`).join(", ");
   const moversUpStr = data.moversUp.map((m) => `${m.name}(${m.ticker}): ${m.changeRate}`).join(", ");
   const moversDownStr = data.moversDown.map((m) => `${m.name}(${m.ticker}): ${m.changeRate}`).join(", ");
-  return `## 검증용 기준 데이터 (Yahoo Finance 실데이터 - 변경 불가)
-아래는 야후파이낸스에서 확인된 **지수·기업 등락** 실데이터입니다. 이 값들이 최종 기준입니다.
+  return `## 검증용 기준 데이터 (Yahoo Finance 종가 기준 실데이터 - 변경 불가)
+아래는 야후파이낸스 **종가**에서 확인된 지수·기업 등락 실데이터입니다. 이 값들이 최종 기준입니다.
 
 ### 대표 지수 (실데이터)
 ${indicesStr}
