@@ -57,16 +57,11 @@ export const domesticSources: NewsSource[] = [
   { id: "yna_economy", name: "연합뉴스 경제", rssUrl: "https://www.yna.co.kr/rss/economy.xml" },
 ];
 
-// 해외 언론사
+// 해외 시황 (장 마감 후 리포트 위주 - CNBC·MarketWatch·Seeking Alpha 직접 RSS)
 export const internationalSources: NewsSource[] = [
-  { id: "finnhub", name: "Finnhub 뉴스", rssUrl: "https://finnhub.io/api/v1/news" },
-  { id: "gn_cnbc", name: "CNBC", rssUrl: toGoogleNewsRssUrlIntl("cnbc.com") },
-  { id: "gn_wsj", name: "WSJ", rssUrl: toGoogleNewsRssUrlIntl("wsj.com") },
-  { id: "gn_bloomberg", name: "Bloomberg", rssUrl: toGoogleNewsRssUrlIntl("bloomberg.com") },
-  { id: "gn_reuters", name: "Reuters", rssUrl: toGoogleNewsRssUrlIntl("reuters.com") },
-  { id: "gn_yahoo", name: "Yahoo Finance", rssUrl: toGoogleNewsRssUrlIntl("finance.yahoo.com") },
-  { id: "gn_investing", name: "Investing.com", rssUrl: toGoogleNewsRssUrlIntl("investing.com") },
-  { id: "gn_marketwatch", name: "MarketWatch", rssUrl: toGoogleNewsRssUrlIntl("marketwatch.com") },
+  { id: "rss_cnbc_finance", name: "CNBC Finance", rssUrl: "https://www.cnbc.com/id/10000664/device/rss/rss.html" },
+  { id: "rss_marketwatch_top", name: "MarketWatch Top Stories", rssUrl: "http://feeds.marketwatch.com/marketwatch/topstories/" },
+  { id: "rss_seeking_alpha", name: "Seeking Alpha Market News", rssUrl: "https://seekingalpha.com/market_news.xml" },
 ];
 
 // Mock articles (개발용)

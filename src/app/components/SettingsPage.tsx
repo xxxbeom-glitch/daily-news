@@ -607,11 +607,12 @@ export function SettingsPage() {
               );
             })}
             </div>
-            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>해외 언론사</div>
+            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>해외 시황 RSS</div>
             <div className="divide-y divide-white/6">
             {internationalSources.map((s) => {
               const status = sourceStatus[s.id] ?? "ok";
               const isSelected = selectedSourceIds.international.includes(s.id);
+              const label = s.id.startsWith("rss_") ? "[시황] " : "";
               return (
                 <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
@@ -621,7 +622,9 @@ export function SettingsPage() {
                       onChange={() => toggleSourceSelection(s.id, "international")}
                       className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
                     />
-                    <span style={{ fontSize: 14 }} className="text-white/90 truncate">{s.name}</span>
+                    <span style={{ fontSize: 14 }} className="text-white/90 truncate">
+                      {label}{s.name}
+                    </span>
                   </label>
                   <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
                     {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
