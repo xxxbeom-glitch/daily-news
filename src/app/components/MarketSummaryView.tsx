@@ -105,18 +105,24 @@ export function MarketSummaryView({
   );
 
   if (isHeadlineMode) {
+    const stripBullet = (text: string) =>
+      (text ?? "")
+        .split("\n")
+        .map((line) => line.replace(/^\s*[-・]\s*/, "").trim())
+        .filter(Boolean)
+        .join("\n");
     return (
       <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
         {header}
         <div className="px-5 py-0 pb-6">
           <div className="mt-[22px] space-y-[22px]">
             {data.keyIssues.map((item, i) => (
-              <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
+              <div key={i}>
                 <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {item.title}
                 </div>
                 <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[8px] whitespace-pre-line">
-                  {item.body}
+                  {stripBullet(item.body ?? "")}
                 </div>
               </div>
             ))}
