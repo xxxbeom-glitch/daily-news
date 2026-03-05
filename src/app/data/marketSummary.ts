@@ -91,6 +91,8 @@ export interface MarketSummaryData {
   currencies?: IndexData[];
   /** 글로벌 마켓 데일리 전용: 에너지/금속 (WTI, Brent, 금, 은, 구리 등) */
   commodities?: IndexData[];
+  /** 글로벌 마켓 전용: 주요 섹터ETF (SPY, QQQ, DIA) */
+  sectorEtf?: IndexData[];
   /** 데이터 검증 결과 */
   verificationResult?: {
     matchPercent: number;       // 0~100 (RSS 기사 기준만 산출)

@@ -127,7 +127,7 @@ export function MarketSummaryView({
     const stripBullet = (text: string) =>
       (text ?? "")
         .split("\n")
-        .map((line) => line.replace(/^\s*[-・]\s*/, "").trim())
+        .map((line) => line.replace(/^\s*[-・■]\s*/, "").trim())
         .filter(Boolean)
         .join("\n");
     const isGlobalMarket = data.regionLabel.includes("글로벌 마켓");
@@ -156,16 +156,15 @@ export function MarketSummaryView({
         <div className="px-5 py-0 pb-6">
           {isGlobalMarket && (
             <>
-              {renderTable("지수", data.indices ?? [])}
-              {renderTable("통화", data.currencies ?? [])}
-              {renderTable("에너지/금속", data.commodities ?? [])}
+              {renderTable("시장지표", data.indices ?? [])}
+              {renderTable("주요 섹터ETF", data.sectorEtf ?? [])}
             </>
           )}
           <div className="mt-[22px] space-y-[26px]">
             {data.keyIssues.map((item, i) => (
               <div key={i}>
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
-                  {item.title}
+                  {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
                 <div className="border-l-2 border-[#618EFF]/30 pl-3 mt-[8px]">
                   <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line">
