@@ -221,9 +221,12 @@ export function MarketSummaryView({
               <div className="my-5 border-t border-dashed border-white/15" />
             </>
           )}
-          <div className="mt-[22px] space-y-[26px]">
+          <div className="mt-[40px]">
             {dedupeKeyIssues(data.keyIssues).map((item, i) => (
-              <div key={i}>
+              <div
+                key={i}
+                className={i > 0 ? "pt-[22px] mt-[22px] border-t border-dashed border-white/10" : ""}
+              >
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>

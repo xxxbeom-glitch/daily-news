@@ -93,13 +93,13 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
-      <div className="flex items-stretch gap-2 mb-4 shrink-0">
+      <div className="flex items-stretch gap-0 mb-4 shrink-0">
         {/* AI요약 아티클 드롭다운 */}
         <div ref={dropdownRef} className="relative flex-1 min-w-0 flex">
           <button
             type="button"
             onClick={() => setDropdownOpen((o) => !o)}
-            className="w-full flex items-center justify-between gap-2 px-4 h-10 rounded-[10px] border border-white/10 bg-white/5 text-left"
+            className="w-full flex items-center justify-between gap-2 px-4 h-10 rounded-l-[10px] rounded-r-none border border-white/10 border-r-0 bg-white/5 text-left"
             style={{ fontSize: 12 }}
           >
             <span className="text-white/90 truncate">
@@ -166,7 +166,7 @@ export function ArchivePage() {
         </div>
 
         {/* 국가 탭 - 드롭다운과 동일 스타일, active: text-white, inactive: opacity-40 */}
-        <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
+        <div className="flex shrink-0 h-10 rounded-r-[10px] rounded-l-none border border-white/10 border-l-0 bg-white/5 overflow-hidden">
           <button
             type="button"
             onClick={() => setIsInternational(false)}
