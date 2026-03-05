@@ -1,6 +1,6 @@
 /**
  * 시장 지수·종목 데이터 수집
- * - 해외: Finnhub (ETF로 지수 대체)
+ * - 해외: Yahoo Finance 고정 (^GSPC, ^IXIC, ^DJI, GLD, SLV + M7/반도체주)
  * - 국내: Yahoo Finance ^KS11, ^KQ11, ^KS200 (야후 파이낸스)
  */
 
@@ -18,6 +18,15 @@ const DOMESTIC_YAHOO_INDICES = [
   { symbol: "^KS11", name: "코스피" },
   { symbol: "^KQ11", name: "코스닥" },
   { symbol: "^KS200", name: "코스피 200" },
+];
+
+/** 해외 대표지수 (Yahoo Finance 고정) */
+const INTERNATIONAL_YAHOO_INDICES = [
+  { symbol: "^GSPC", name: "S&P500" },
+  { symbol: "^IXIC", name: "나스닥" },
+  { symbol: "^DJI", name: "다우존스" },
+  { symbol: "GLD", name: "금" },
+  { symbol: "SLV", name: "은" },
 ];
 
 interface FinnhubEarningsItem {
@@ -45,8 +54,8 @@ interface FinnhubQuote {
   t: number;
 }
 
-/** 해외 지수 (ETF로 대체 - Finnhub 무료 tier) */
-const INTERNATIONAL_INDICES = [
+/** Finnhub ETF (해외 지수 폴백) */
+const INTERNATIONAL_FINNHUB_INDICES = [
   { symbol: "SPY", name: "S&P500" },
   { symbol: "QQQ", name: "나스닥" },
   { symbol: "DIA", name: "다우존스" },
@@ -143,6 +152,83 @@ async function fetchYahooIndices(): Promise<IndexData[] | null> {
     }
   }
   return results.length >= 2 ? results : null;
+}
+
+/** Yahoo Finance 차트 API로 해외 대표지수 조회 */
+async function fetchYahooInternationalIndices(): Promise<IndexData[] | null> {
+  const results: IndexData[] = [];
+  for (const { symbol, name } of INTERNATIONAL_YAHOO_INDICES) {
+    const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+    const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: TIMEOUT_MS });
+    if (!ok || !text) continue;
+    try {
+      const json = JSON.parse(text) as {
+        chart?: {
+          result?: Array<{
+            meta?: { regularMarketPrice?: number; chartPreviousClose?: number };
+            indicators?: { quote?: Array<{ close?: (number | null)[] }> };
+          }>;
+        };
+      };
+      const result = json?.chart?.result?.[0];
+      if (!result) continue;
+      const price = result.meta?.regularMarketPrice ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).pop();
+      const prev = result.meta?.chartPreviousClose ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).slice(-2)[0];
+      if (price == null || prev == null) continue;
+      const change = price - prev;
+      const changePct = prev !== 0 ? (change / prev) * 100 : 0;
+      results.push({
+        name,
+        value: formatNum(price),
+        change: formatChange(changePct),
+        changeAbs: change >= 0 ? `▲${Math.abs(change).toFixed(2)}` : `▼${Math.abs(change).toFixed(2)}`,
+        isUp: change >= 0,
+      });
+    } catch {
+      continue;
+    }
+  }
+  return results.length >= 2 ? results : null;
+}
+
+/** Yahoo Finance로 M7·반도체주 등락율 조회 */
+async function fetchYahooStockMovers(): Promise<{ up: StockMover[]; down: StockMover[] } | null> {
+  const nameMap = getM7SemiMoversMap();
+  const symbols = Object.keys(nameMap);
+  if (symbols.length === 0) return null;
+
+  const items: { symbol: string; name: string; changePct: number }[] = [];
+  for (const symbol of symbols) {
+    const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+    const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: TIMEOUT_MS });
+    if (!ok || !text) continue;
+    try {
+      const json = JSON.parse(text) as {
+        chart?: {
+          result?: Array<{
+            meta?: { regularMarketPrice?: number; chartPreviousClose?: number };
+            indicators?: { quote?: Array<{ close?: (number | null)[] }> };
+          }>;
+        };
+      };
+      const result = json?.chart?.result?.[0];
+      if (!result) continue;
+      const price = result.meta?.regularMarketPrice ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).pop();
+      const prev = result.meta?.chartPreviousClose ?? result.indicators?.quote?.[0]?.close?.filter((c) => c != null).slice(-2)[0];
+      if (price == null || prev == null) continue;
+      const changePct = prev !== 0 ? ((price - prev) / prev) * 100 : 0;
+      items.push({
+        symbol,
+        name: nameMap[symbol] ?? symbol,
+        changePct,
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  if (items.length === 0) return null;
+  return toStockMovers(items);
 }
 
 /** 공공데이터 지수시세 응답 항목 (필드명 변형 지원) */
@@ -282,7 +368,11 @@ export async function fetchIndices(isInternational: boolean): Promise<FetchIndic
   const yahooSource: SourceRef = { outlet: "Yahoo Finance", headline: "실시간 지수" };
 
   if (isInternational) {
-    const symbols = INTERNATIONAL_INDICES;
+    const yahooIndices = await fetchYahooInternationalIndices();
+    if (yahooIndices && yahooIndices.length >= 2) {
+      return { indices: yahooIndices, source: yahooSource };
+    }
+    const symbols = INTERNATIONAL_FINNHUB_INDICES;
     const results = await Promise.all(
       symbols.map(({ symbol, name }) => fetchFinnhubQuoteWithName(symbol, name))
     );
@@ -399,6 +489,16 @@ export async function fetchTopMovers(
   | { up: StockMover[]; down: StockMover[]; sources: SourceRef[] }
   | { kospiMovers: MarketMoversBlock }
 > {
+  const yahooSource: SourceRef = { outlet: "Yahoo Finance", headline: "실시간 시세" };
+  const finnhubSource: SourceRef = { outlet: "Finnhub", headline: "실시간 시세" };
+
+  if (isInternational) {
+    const yahooMovers = await fetchYahooStockMovers();
+    if (yahooMovers && (yahooMovers.up.length > 0 || yahooMovers.down.length > 0)) {
+      return { ...yahooMovers, sources: [yahooSource] };
+    }
+  }
+
   const symbols = isInternational ? getM7SemiMovers() : [...DOMESTIC_MOVERS];
   const nameMap = isInternational ? getM7SemiMoversMap() : DOMESTIC_MOVERS_MAP;
   const results = await Promise.all(
@@ -409,11 +509,9 @@ export async function fetchTopMovers(
     .filter((r): r is NonNullable<typeof r> => r !== null)
     .map((r) => ({ symbol: r.symbol, name: r.name, changePct: r.changePct }));
 
-  const source: SourceRef = { outlet: "Finnhub", headline: "실시간 시세" };
-
   if (isInternational) {
     const { up, down } = toStockMovers(withChange);
-    return { up, down, sources: [source] };
+    return { up, down, sources: [finnhubSource] };
   }
 
   const kospi = withChange.filter((x) => x.symbol.endsWith(".KS"));

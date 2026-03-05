@@ -9,7 +9,7 @@ import {
   mockMarketSummaryInternational,
   mockMarketSummaryDomestic,
 } from "../data/marketSummary";
-import { generateMarketSummary } from "../utils/aiSummary";
+import { generateMarketSummary, verifyAndCorrectMarketSummary } from "../utils/aiSummary";
 import { useArchive } from "../context/ArchiveContext";
 import { MarketSummaryView } from "./MarketSummaryView";
 import {
@@ -205,6 +205,14 @@ export function SearchPage() {
       }
 
       await enrichMarketData(data, isInternational, { preserveMovers: !!moversSeed });
+
+      if (isInternational && (data.indices?.length > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0)) {
+        try {
+          data = await verifyAndCorrectMarketSummary(data, { model: actualModel });
+        } catch {
+          /* 2차 검증 실패 시 원본 유지 */
+        }
+      }
 
       const now = new Date();
       const title =

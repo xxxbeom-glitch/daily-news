@@ -11,7 +11,7 @@ import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInterna
 import { getAdminModelId } from "../utils/adminSettings";
 import { fetchRssFeeds, filterArticlesByRangeTieredWithMin } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
-import { generateMarketSummary } from "../utils/aiSummary";
+import { generateMarketSummary, verifyAndCorrectMarketSummary } from "../utils/aiSummary";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 import type { Article } from "../data/newsSources";
@@ -104,6 +104,17 @@ export async function runMarketSummaryPipeline(
   }
 
   await enrichMarketData(data, isInternational, { preserveMovers: !!moversSeed });
+
+  if (isInternational && (data.indices?.length > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0)) {
+    try {
+      data = await verifyAndCorrectMarketSummary(data, {
+        model: actualModel,
+        modelId: adminModelId ?? undefined,
+      });
+    } catch {
+      /* 2차 검증 실패 시 원본 유지 */
+    }
+  }
 
   const now = new Date();
   const title =

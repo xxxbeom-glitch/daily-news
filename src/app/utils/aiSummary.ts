@@ -444,6 +444,86 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
   return data;
 }
 
+/** 2차 검증 프롬프트: 검증용 데이터와 요약을 비교해 오류 수정 */
+function buildVerificationPrompt(data: MarketSummaryData): string {
+  const indicesStr = data.indices.map((i) => `${i.name}: ${i.value} (${i.change})`).join(", ");
+  const moversUpStr = data.moversUp.map((m) => `${m.name}(${m.ticker}): ${m.changeRate}`).join(", ");
+  const moversDownStr = data.moversDown.map((m) => `${m.name}(${m.ticker}): ${m.changeRate}`).join(", ");
+  return `## 검증용 기준 데이터 (Yahoo Finance 실데이터 - 변경 불가)
+아래는 야후파이낸스에서 확인된 **지수·기업 등락** 실데이터입니다. 이 값들이 최종 기준입니다.
+
+### 대표 지수 (실데이터)
+${indicesStr}
+
+### 상승 종목 (실데이터)
+${moversUpStr || "(없음)"}
+
+### 하락 종목 (실데이터)
+${moversDownStr || "(없음)"}
+
+---
+
+## 현재 시황 요약 (검증 대상)
+아래 요약 내용 중 위 실데이터와 **충돌하는 숫자**(지수값, 등락률, %, 기업별 changeRate 등)가 있으면 반드시 수정하세요.
+- totalAssessment, keyIssues, geopoliticalIssues, movers reason, earnings result 등 텍스트에 언급된 숫자를 검증용 기준에 맞게 고치세요.
+- 수정이 필요 없으면 원문을 그대로 유지하세요.
+- indices, moversUp, moversDown는 검증용 기준 데이터를 **그대로** 사용하세요. (AI가 바꾸지 말 것)
+
+### 현재 요약
+- totalAssessment: ${(data.totalAssessment ?? "").slice(0, 600)}
+- keyIssues: ${JSON.stringify(data.keyIssues.slice(0, 10).map((k) => ({ title: k.title, body: (k.body ?? "").slice(0, 200) })))}
+- geopoliticalIssues: ${JSON.stringify((data.geopoliticalIssues ?? []).slice(0, 8).map((g) => ({ title: g.title, body: (g.body ?? "").slice(0, 150) })))}
+- moversUp: ${JSON.stringify(data.moversUp.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate, reason: (m.reason ?? "").slice(0, 150) })))}
+- moversDown: ${JSON.stringify(data.moversDown.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate, reason: (m.reason ?? "").slice(0, 150) })))}
+
+---
+
+## 요청
+1. 위 검증용 기준 데이터와 비교하여, 요약 텍스트에 **숫자·등락률 오류**가 있으면 수정.
+2. 수정된 전체 시황 요약을 아래 JSON 형식으로 출력. indices·moversUp·moversDown는 반드시 검증용 기준 데이터를 그대로 사용.
+3. 다른 텍스트는 변경하지 말고, 오류 수정만 수행.
+4. 반드시 유효한 JSON만 출력하세요.
+
+### 출력 JSON 형식 (indices, moversUp, moversDown는 검증용 기준과 동일하게)
+{ "date": "...", "regionLabel": "...", "totalAssessment": "...", "indices": [...], "keyIssues": [...], "moversUp": [...], "moversDown": [...], "geopoliticalIssues": [...] }
+반드시 유효한 JSON만 출력하세요.`;
+}
+
+/**
+ * AI 2차 검증: 실데이터(지수·등락율)와 요약을 비교해 숫자 오류를 수정
+ * - indices·movers는 이미 Yahoo 등 실데이터로 채워져 있음 (그대로 유지)
+ * - totalAssessment, keyIssues, geopoliticalIssues, movers reason 등 텍스트 내 오류 수정
+ */
+export async function verifyAndCorrectMarketSummary(
+  data: MarketSummaryData,
+  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+): Promise<MarketSummaryData> {
+  if (!data.indices?.length && !data.moversUp?.length && !data.moversDown?.length) {
+    return data;
+  }
+  const model = opts?.model ?? "gemini";
+  const modelId = opts?.modelId;
+  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const prompt = buildVerificationPrompt(data);
+  try {
+    const rawResponse = useGemini
+      ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
+      : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+    const isInternational = (data.regionLabel ?? "").includes("해외");
+    const corrected = parseAndNormalize(rawResponse, isInternational);
+    corrected.indices = data.indices;
+    corrected.moversUp = data.moversUp;
+    corrected.moversDown = data.moversDown;
+    corrected.indicesSources = data.indicesSources;
+    corrected.moversSources = data.moversSources;
+    if (data.earningsPast?.length) corrected.earningsPast = data.earningsPast;
+    if (data.earningsUpcoming?.length) corrected.earningsUpcoming = data.earningsUpcoming;
+    return corrected;
+  } catch {
+    return data;
+  }
+}
+
 /** 유튜브 영상 제목·설명 기반 시황 요약용 프롬프트 */
 function buildPromptFromVideo(title: string, description: string): string {
   const content = `## 유튜브 영상
