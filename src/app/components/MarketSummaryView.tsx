@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Maximize2 } from "lucide-react";
 import { summarizeReportContent } from "../utils/aiSummary";
 import type {
