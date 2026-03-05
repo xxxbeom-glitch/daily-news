@@ -15,7 +15,7 @@ function HeaderContent() {
   const location = useLocation();
 
   return (
-    <header className="flex-shrink-0 z-50 bg-[#0a0a0f]/96 backdrop-blur-md border-b border-white/5">
+    <header className="flex-shrink-0 z-50 bg-[#0a0a0f]/96 backdrop-blur-md">
       <div className="flex items-center justify-between gap-3 px-4 h-[64px]">
         <Link
           to="/"
@@ -28,7 +28,7 @@ function HeaderContent() {
           {formatHeaderDate()}
         </span>
       </div>
-      <nav className="flex items-end gap-6 mx-4 mb-3 pb-1">
+      <nav className="flex items-end gap-6 mx-4 mb-3 pb-1 border-b border-white/10">
             <Link
               to="/market"
               className={`pb-2 text-sm transition-colors ${
