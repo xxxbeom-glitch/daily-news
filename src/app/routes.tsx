@@ -5,6 +5,7 @@ import { SettingsPageWrapper } from "./components/SettingsPageWrapper";
 import { SearchPageWrapper } from "./components/SearchPageWrapper";
 import { AdminPage } from "./components/AdminPage";
 import { LoginPage } from "./components/LoginPage";
+import { TestPage } from "./components/TestPage";
 
 export const router = createBrowserRouter([
   {
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ArchivePageWrapper /> },
       { path: "search", element: <SearchPageWrapper /> },
+      { path: "test", element: <TestPage /> },
       { path: "keyword", element: <Navigate to="/" replace /> },
       { path: "scrap", element: <Navigate to="/" replace /> },
       { path: "admin", element: <Navigate to="/settings/admin" replace /> },

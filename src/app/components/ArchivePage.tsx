@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, BookmarkX } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useArchive } from "../context/ArchiveContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
 import { saveArchiveState, loadArchiveState } from "../utils/persistState";
@@ -86,7 +87,14 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <p className="text-white/40 mb-3" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
+      <div className="mb-3">
+        <p className="text-white/40" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
+        <p className="text-white/35 mt-1 break-all" style={{ fontSize: 11 }}>
+          <Link to="/test" className="text-[#618EFF]/80 hover:text-[#618EFF]">
+            {typeof window !== "undefined" ? `${window.location.origin}/test` : "/test"}
+          </Link>
+        </p>
+      </div>
       {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
       <div className="flex items-stretch gap-4 mb-4">
         <div ref={dropdownRef} className="relative flex-1 min-w-0">

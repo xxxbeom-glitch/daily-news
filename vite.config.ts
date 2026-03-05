@@ -5,7 +5,8 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    host: true, // 폰에서 접속 가능하도록 0.0.0.0 노출
+    host: "0.0.0.0", // 폰/내부망 접속용 (192.168.x.x)
+    port: 5173,
     proxy: {
       // 공공데이터 API CORS 우회 (국내 지수)
       "/api/data-go-kr": {

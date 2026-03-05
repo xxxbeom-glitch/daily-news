@@ -115,6 +115,16 @@ function HeaderContent() {
               </Link>
             )}
             <Link
+              to="/test"
+              className={`pb-2 text-sm transition-colors ${
+                location.pathname === "/test"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  : "text-white/50 hover:text-white/70"
+              }`}
+            >
+              테스트
+            </Link>
+            <Link
               to="/settings"
               className={`pb-2 text-sm transition-colors ${
                 location.pathname === "/settings" || location.pathname.startsWith("/settings/")

@@ -40,3 +40,11 @@ VITE_FIREBASE_APP_ID=1:123:web:abc
 - `users/{uid}/sessions/{sessionId}` - 시황 요약 세션 (날짜별)
 
 .env에 위 3개 변수가 없으면 Firebase 없이 기존처럼 localStorage만 사용됩니다.
+
+## 5. 내부망 접속 시 (192.168.x.x)
+
+폰·다른 PC에서 `http://192.168.x.x:5173`으로 접속할 경우:
+
+**Firebase Console** → **Authentication** → **설정** → **승인된 도메인**에 `192.168.35.169` (또는 사용 중인 PC IP) 추가.
+
+추가하지 않으면 익명 로그인 등 Auth 호출이 거부될 수 있습니다. (앱 자체는 동작함)

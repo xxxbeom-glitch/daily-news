@@ -443,3 +443,75 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
   }
   return data;
 }
+
+/** 유튜브 영상 제목·설명 기반 시황 요약용 프롬프트 */
+function buildPromptFromVideo(title: string, description: string): string {
+  const content = `## 유튜브 영상
+제목: ${title}
+
+설명:
+${description.slice(0, 8000)}
+
+## 요청
+위 유튜브 영상 제목과 설명을 바탕으로 해외(미국) 시황 요약을 작성해주세요. 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
+
+### 필수 규칙 (기존 aiSummary.ts와 동일)
+- 문체 [전체 적용]: 반드시 '개조식' 및 '명사형 종결'만 사용.
+  · 개조식: 줄글 금지. 항목별 줄바꿈으로만 분리. 불릿·문장 앞 기호 절대 금지.
+  · 명사형 종결: 문장 끝은 명사 또는 명사형 어미(-음, -기, -함, -됨)로만 맺음.
+  · 금지어: ~다, ~습니다, ~요 등 서술형·경어체 사용 금지. (totalAssessment는 예외)
+- 간결성: 수식어·감정 표현 배제, 사실·핵심 데이터 위주 압축.
+- keyIssues: title 1줄, body 개조식·명사형 종결. body는 3줄 이상.
+- totalAssessment: 아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.
+
+### JSON 형식
+{
+  "date": "YYYY-MM-DD 요요일",
+  "regionLabel": "해외 시황 요약",
+  "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",
+  "indices": [
+    { "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }
+  ],
+  "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
+  "keyIssues": [
+    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\\n항목2 (명사형 종결)\\n항목3 이상 (명사형 종결)" }
+  ],
+  "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
+  "stockMoversLabel": "M7 및 반도체주 등락율",
+  "moversUp": [],
+  "moversDown": [],
+  "moversSources": [],
+  "geopoliticalLabel": "국제 정세 이슈",
+  "geopoliticalIssues": [],
+  "geopoliticalSources": [],
+  "earningsPast": [],
+  "earningsUpcoming": [],
+  "earningsSources": []
+}
+
+영상 내용에 없는 정보는 "—" 또는 빈 배열로 처리. 반드시 유효한 JSON만 출력하세요.`;
+  return content;
+}
+
+/**
+ * 유튜브 영상 제목·설명을 이용한 시황 요약 생성
+ */
+export async function generateMarketSummaryFromVideo(
+  title: string,
+  description: string,
+  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+): Promise<MarketSummaryData> {
+  const model = opts?.model ?? "gemini";
+  const modelId = opts?.modelId;
+  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+
+  const prompt = buildPromptFromVideo(title, description);
+  const rawResponse = useGemini
+    ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
+    : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+
+  const data = parseAndNormalize(rawResponse, true);
+  if (!useGemini) data.totalAssessmentError = true;
+  else if (!data.totalAssessment?.trim()) data.totalAssessmentError = true;
+  return data;
+}
