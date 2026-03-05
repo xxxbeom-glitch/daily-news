@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, BookmarkX } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useArchive } from "../context/ArchiveContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
 import { saveArchiveState, loadArchiveState } from "../utils/persistState";
@@ -12,7 +11,6 @@ const CONFIRM_MS = 2500;
 export function ArchivePage() {
   const { sessions, deleteSession } = useArchive();
   const { hideMarket } = useAdminSettings();
-  const [isInternational, setIsInternational] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -24,22 +22,19 @@ export function ArchivePage() {
     if (hasRestoredRef.current) return;
     hasRestoredRef.current = true;
     const saved = loadArchiveState();
-    if (!saved) return;
-    setIsInternational(saved.isInternational);
-    if (saved.selectedSessionId) setSelectedSessionId(saved.selectedSessionId);
+    if (!saved?.selectedSessionId) return;
+    setSelectedSessionId(saved.selectedSessionId);
   }, []);
 
   // 상태 변경 시 sessionStorage에 저장
   useEffect(() => {
-    saveArchiveState({ isInternational, selectedSessionId });
-  }, [isInternational, selectedSessionId]);
+    saveArchiveState({ isInternational: true, selectedSessionId });
+  }, [selectedSessionId]);
 
   const filteredSessions = useMemo(
     () =>
-      sessions
-        .filter((s) => s.isInternational === isInternational)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [sessions, isInternational]
+      [...sessions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [sessions]
   );
 
   const selectedSession = filteredSessions.find((s) => s.id === selectedSessionId)
@@ -57,7 +52,7 @@ export function ArchivePage() {
     } else {
       setSelectedSessionId(null);
     }
-  }, [isInternational, filteredIds]);
+  }, [filteredIds]);
 
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -87,17 +82,9 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <div className="mb-3">
-        <p className="text-white/40" style={{ fontSize: 12 }}>미국 8:30 / 한국 16:30 자동 생성 (휴장일 제외)</p>
-        <p className="text-white/35 mt-1 break-all" style={{ fontSize: 11 }}>
-          <Link to="/test" className="text-[#618EFF]/80 hover:text-[#618EFF]">
-            {typeof window !== "undefined" ? `${window.location.origin}/test` : "/test"}
-          </Link>
-        </p>
-      </div>
-      {/* 한 줄: 좌측 AI요약 아티클 드롭다운 | 우측 해외/국내 탭 */}
-      <div className="flex items-stretch gap-4 mb-4">
-        <div ref={dropdownRef} className="relative flex-1 min-w-0">
+      {/* AI요약 아티클 드롭다운 */}
+      <div className="mb-4">
+        <div ref={dropdownRef} className="relative w-full">
           <button
           type="button"
           onClick={() => setDropdownOpen((o) => !o)}
@@ -108,7 +95,7 @@ export function ArchivePage() {
               {selectedSession
                 ? selectedSession.title
                 : filteredSessions.length === 0
-                  ? (isInternational ? "저장된 해외 시황이 없습니다" : "저장된 국내 시황이 없습니다")
+                  ? "저장된 시황이 없습니다"
                   : "시황 요약 선택"}
             </span>
             <ChevronDown
@@ -166,34 +153,16 @@ export function ArchivePage() {
           </div>
         )}
         </div>
-        <div className="flex shrink-0 rounded-[10px] border border-white/10 bg-white/5 px-[6px] py-2">
-            <button
-              type="button"
-              onClick={() => setIsInternational(true)}
-              className={`px-[6px] py-0 transition-colors ${isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
-              style={{ fontSize: 12 }}
-            >
-              미국
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsInternational(false)}
-              className={`px-[6px] py-0 transition-colors ${!isInternational ? "text-white font-medium" : "text-white/35 hover:text-white/50"}`}
-              style={{ fontSize: 12 }}
-            >
-              한국
-            </button>
-          </div>
       </div>
 
       {/* 시황 요약 단일 뷰 */}
       {hideMarket && selectedSession ? (
         <div className="flex-1 flex items-center justify-center py-12">
           <p style={{ fontSize: 14 }} className="text-white/50 text-center">
-            오늘의 시황이 숨김 처리되어 있습니다.
+            모닝뉴스가 숨김 처리되어 있습니다.
           </p>
         </div>
-      ) : selectedSession?.marketSummary && Array.isArray(selectedSession.marketSummary?.indices) ? (
+      ) : selectedSession?.marketSummary && (Array.isArray(selectedSession.marketSummary?.indices) || (selectedSession.marketSummary?.keyIssues?.length > 0)) ? (
         <div className="flex-1 min-h-0 overflow-y-auto">
           <MarketSummaryView
             key={selectedSession.id}
@@ -212,9 +181,7 @@ export function ArchivePage() {
       ) : filteredSessions.length === 0 ? (
         <div className="flex-1 flex items-center justify-center py-12">
           <p style={{ fontSize: 14 }} className="text-white/40 text-center">
-            {isInternational ? "저장된 해외 시황이 없습니다." : "저장된 국내 시황이 없습니다."}
-            <br />
-            미국 8:30 / 한국 16:30에 자동 생성됩니다. (휴장일 제외)
+            저장된 시황이 없습니다.
           </p>
         </div>
       ) : null}

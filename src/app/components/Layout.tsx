@@ -100,7 +100,7 @@ function HeaderContent() {
                   : "text-white/50 hover:text-white/70"
               }`}
             >
-              오늘의 시황
+              모닝뉴스
             </Link>
             {showNewsTab && (
               <Link
