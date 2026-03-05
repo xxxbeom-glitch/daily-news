@@ -87,6 +87,10 @@ export interface MarketSummaryData {
   headlineArticles?: HeadlineArticle[];
   /** 헤드라인 기사 없음 메시지 */
   noHeadlineArticlesMessage?: string;
+  /** 글로벌 마켓 데일리 전용: 통화 (USD/KOR, EUR/USD 등) */
+  currencies?: IndexData[];
+  /** 글로벌 마켓 데일리 전용: 에너지/금속 (WTI, Brent, 금, 은, 구리 등) */
+  commodities?: IndexData[];
   /** 데이터 검증 결과 */
   verificationResult?: {
     matchPercent: number;       // 0~100 (RSS 기사 기준만 산출)

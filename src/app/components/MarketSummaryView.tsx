@@ -130,10 +130,37 @@ export function MarketSummaryView({
         .map((line) => line.replace(/^\s*[-・]\s*/, "").trim())
         .filter(Boolean)
         .join("\n");
+    const isGlobalMarket = data.regionLabel.includes("글로벌 마켓");
+    const lineStyle = { lineHeight: 1.5 as const };
+    const renderTable = (title: string, items: { name: string; value: string; change: string; isUp: boolean }[]) =>
+      items.length > 0 ? (
+        <div className="mt-[22px] first:mt-0">
+          <div style={{ fontSize: 14, fontWeight: 700 }} className="text-white/90 mb-2">
+            {title}
+          </div>
+          <div className="space-y-1">
+            {items.map((idx, i) => (
+              <div key={i} className="flex justify-between items-baseline gap-2" style={lineStyle}>
+                <span style={{ fontSize: 13 }} className="text-white/80">{idx.name}</span>
+                <span style={{ fontSize: 13 }} className={idx.isUp ? "text-emerald-400" : "text-red-400"}>
+                  {idx.value} {idx.change}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null;
     const headlineContent = (
       <>
         {header}
         <div className="px-5 py-0 pb-6">
+          {isGlobalMarket && (
+            <>
+              {renderTable("지수", data.indices ?? [])}
+              {renderTable("통화", data.currencies ?? [])}
+              {renderTable("에너지/금속", data.commodities ?? [])}
+            </>
+          )}
           <div className="mt-[22px] space-y-[26px]">
             {data.keyIssues.map((item, i) => (
               <div key={i}>

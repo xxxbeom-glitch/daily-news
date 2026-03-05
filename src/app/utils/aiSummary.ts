@@ -416,22 +416,29 @@ PDF 구성 (키움증권 등):
 2. News Brief(■ 항목)를 개별적으로 추출. 각 ■블록 = 1개 keyIssues 항목.
 3. 기사 제목: ■ 뒤 제목 원문 유지.
 4. 기사 내용: 최소 3줄 이상 요약. 개조식·명사형 종결. 한자→한글 치환 (美→미국, 中→중국 등).
-5. 지수·통화·에너지 표 데이터는 별도 언급하지 않고, News Brief에 집중.`;
+5. 지수·통화·에너지/금속 표 데이터를 추출하여 indices, currencies, commodities에 채우세요.
+6. 수치(종가, 등락률)는 원문 그대로 0.1 오차 없이 추출. isUp은 등락률 부호(+/−)에 따라 true/false.`;
 
 /** Global Market Daily PDF 유저 프롬프트 */
 const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily PDF에서 추출한 텍스트입니다.
 
-■로 시작하는 News Brief 블록만 개별 추출하세요. 각 ■블록마다 1개 keyIssues 항목으로 출력.
-- 기사제목: ■ 뒤 제목 원문 그대로
-- 기사내용: 최소 3줄 이상 요약. 한자 한글화. 개조식·명사형 종결.
+**반드시 다음 모두 추출하세요:**
+
+1. **지수(indices)**: 종합(KOSPI), 일본니케이225, 중국상해종합, 유로스톡스50, 독일, 프랑스, 다우존스, S&P500, 브라질, 인도 등 - 품목/종가/등락률
+2. **통화(currencies)**: USD/KOR, EUR/USD, USD/JPY, GBP/USD, AUD/USD, USD/CAD, USD/CNY, USD/HKD, USD/CHF, USD/BRL 등
+3. **에너지/금속(commodities)**: WTI, Brent, Natural Gas, 금, 은, 구리, 아연, 니켈, 알루미늄, 주석 등
+4. **News Brief(keyIssues)**: ■로 시작하는 각 뉴스 블록 - 제목 원문, 내용 최소 3줄 요약. 한자→한글.
+
+등락률: +이면 isUp:true, -이면 isUp:false. 수치는 원문 그대로.
 
 반드시 아래 JSON 형식으로만 응답하세요.
 {
   "date": "YYYY. MM. DD (요)",
   "regionLabel": "글로벌 마켓 데일리",
-  "keyIssues": [
-    { "title": "■뒤 제목 (원문)", "body": "기사내용 (최소 3줄 요약)" }
-  ]
+  "indices": [{ "name": "지수명", "value": "종가", "change": "+0.5%", "isUp": true }],
+  "currencies": [{ "name": "USD/KOR", "value": "1,462.90", "change": "-1.53%", "isUp": false }],
+  "commodities": [{ "name": "WTI", "value": "74.66", "change": "+0.13%", "isUp": true }],
+  "keyIssues": [{ "title": "■뒤 제목 (원문)", "body": "기사내용 (최소 3줄 요약)" }]
 }
 반드시 유효한 JSON만 출력하세요.`;
 
@@ -518,8 +525,40 @@ export async function generateGlobalMarketDailyFromPdf(
         modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined
       );
 
-  const result = parseMorningHeadline(rawResponse);
+  return parseGlobalMarketDaily(rawResponse);
+}
+
+/** Global Market Daily 전용 파싱 - indices, currencies, commodities, keyIssues */
+function parseGlobalMarketDaily(jsonStr: string): MarketSummaryData {
+  let raw = jsonStr.trim();
+  const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeMatch) raw = codeMatch[1].trim();
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) raw = jsonMatch[0];
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
+  }
+
+  const toIndexData = (arr: unknown[]): IndexData[] =>
+    (arr ?? []).map((x: unknown) => {
+      const o = x as { name?: string; value?: string; change?: string; isUp?: boolean };
+      return {
+        name: String(o?.name ?? ""),
+        value: String(o?.value ?? "—"),
+        change: String(o?.change ?? "0%"),
+        isUp: Boolean(o?.isUp),
+      };
+    });
+
+  const result = parseMorningHeadline(jsonStr);
   result.regionLabel = "글로벌 마켓 데일리";
+  result.indices = toIndexData((parsed.indices as unknown[]) ?? []);
+  result.currencies = toIndexData((parsed.currencies as unknown[]) ?? []);
+  result.commodities = toIndexData((parsed.commodities as unknown[]) ?? []);
   return result;
 }
 
