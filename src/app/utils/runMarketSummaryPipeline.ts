@@ -38,7 +38,7 @@ export async function runMarketSummaryPipeline(
   if (rssError) throw new Error(rssError);
 
   let articlesForFilter = rawArticles;
-  if (isInternational && domList.length > 0) {
+  if (isInternational && domList.length > 0 && intlList.length > 0) {
     articlesForFilter = rawArticles.filter((a) => {
       if (!isDomesticSourceId(a.sourceId)) return true;
       return matchesDomesticForOverseasSummary(a.title, a.body);

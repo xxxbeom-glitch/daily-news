@@ -165,7 +165,7 @@ export function SearchPage() {
       if (rssError) throw new Error(rssError);
 
       let articlesForFilter = rawArticles;
-      if (isInternational && domesticSourceList.length > 0) {
+      if (isInternational && domesticSourceList.length > 0 && intlSourceList.length > 0) {
         articlesForFilter = rawArticles.filter((a) => {
           if (!isDomesticSourceId(a.sourceId)) return true;
           return matchesDomesticForOverseasSummary(a.title, a.body);
