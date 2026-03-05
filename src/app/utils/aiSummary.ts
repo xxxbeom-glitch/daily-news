@@ -726,6 +726,32 @@ ${text}
   }
 }
 
+/**
+ * 리포트 전체 내용을 한눈에 파악할 수 있는 요약 생성 (사용자 요약하기 버튼 클릭 시)
+ */
+export async function summarizeReportContent(reportText: string): Promise<string> {
+  const text = String(reportText ?? "").trim().slice(0, 15000);
+  if (!text) return "";
+
+  const prompt = `아래는 금융·경제 리포트의 본문입니다. 전체 내용을 3~5문장으로 핵심만 요약해주세요. 한글로, 사실 위주. 리포트에 없는 내용은 추가하지 마세요.
+
+## 리포트 본문
+${text}
+
+## 요청
+위 리포트 전체를 읽고 어떤 내용인지 요약해주세요. JSON이 아닌 일반 텍스트로만 출력하세요.`;
+
+  try {
+    return await callGemini(prompt, "gemini-2.5-flash");
+  } catch {
+    try {
+      return await callOpenAI(prompt, "gpt-4o-mini");
+    } catch {
+      return "";
+    }
+  }
+}
+
 export interface GenerateSummaryOptions {
   articles: RawRssArticle[];
   isInternational: boolean;

@@ -1,5 +1,6 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { Maximize2 } from "lucide-react";
+import { summarizeReportContent } from "../utils/aiSummary";
 import type {
   MarketSummaryData,
   IndexData,
@@ -127,6 +128,8 @@ export function MarketSummaryView({
   const isInternational = data.regionLabel.includes("해외") || data.regionLabel.includes("글로벌");
   const containerRef = useRef<HTMLDivElement>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [aiSummaryText, setAiSummaryText] = useState<string | null>(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
 
   const dateToShow = displayDate ?? data.date;
   const header = (
@@ -210,6 +213,18 @@ export function MarketSummaryView({
       if (byDouble.length > 1) return byDouble;
       return cleaned.split("\n").map((p) => p.trim()).filter(Boolean);
     };
+    const items = dedupeKeyIssues(data.keyIssues);
+    const reportTextForSummary = items.map((it) => `${(it.title ?? "").replace(/^\s*■\s*/, "")}\n${it.body ?? ""}`).join("\n\n");
+    const handleSummarize = async () => {
+      if (!reportTextForSummary.trim() || aiSummaryLoading) return;
+      setAiSummaryLoading(true);
+      try {
+        const result = await summarizeReportContent(reportTextForSummary);
+        setAiSummaryText(result || "요약을 생성하지 못했습니다.");
+      } finally {
+        setAiSummaryLoading(false);
+      }
+    };
     const headlineContent = (
       <>
         {header}
@@ -222,10 +237,29 @@ export function MarketSummaryView({
             </>
           )}
           <div className="mt-[40px]">
-            {dedupeKeyIssues(data.keyIssues).map((item, i) => (
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white mb-3">AI 요약</div>
+              {aiSummaryText !== null ? (
+                <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-wrap">
+                  {aiSummaryText}
+                </div>
+              ) : aiSummaryLoading ? (
+                <div style={{ fontSize: 14 }} className="text-white/50">요약 중...</div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSummarize}
+                  className="px-4 py-2 rounded-[8px] border border-white/15 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  style={{ fontSize: 13 }}
+                >
+                  요약하기
+                </button>
+              )}
+            </div>
+            {items.map((item, i) => (
               <div
                 key={i}
-                className={i > 0 ? "pt-[22px] mt-[22px] border-t border-dashed border-white/10" : ""}
+                className="pt-[22px] mt-[22px] border-t border-dashed border-white/10"
               >
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
