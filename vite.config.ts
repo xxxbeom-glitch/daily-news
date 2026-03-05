@@ -14,6 +14,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/data-go-kr/, ""),
       },
+      // Yahoo Finance CORS 우회 (오늘의 시장)
+      "/api/yahoo": {
+        target: "https://query1.finance.yahoo.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/yahoo/, ""),
+      },
     },
   },
 });

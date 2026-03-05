@@ -10,7 +10,10 @@ import { getAdminMovers } from "./adminSettings";
 
 const FINNHUB_QUOTE = "https://finnhub.io/api/v1/quote";
 const FINNHUB_EARNINGS = "https://finnhub.io/api/v1/calendar/earnings";
-const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart";
+const YAHOO_CHART =
+  import.meta.env.DEV
+    ? "/api/yahoo/v8/finance/chart"
+    : "https://query1.finance.yahoo.com/v8/finance/chart";
 const TIMEOUT_MS = 12000;
 
 /** 국내 지수 (Yahoo Finance) */
@@ -687,10 +690,22 @@ export interface DashboardItem {
   isUp: boolean;
 }
 
-async function fetchYahooQuote(symbol: string): Promise<DashboardItem | null> {
+async function fetchYahooQuote(symbol: string, name: string): Promise<DashboardItem | null> {
   const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
-  const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: TIMEOUT_MS });
-  if (!ok || !text) return null;
+  let text: string;
+  if (import.meta.env.DEV) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      text = await res.text();
+    } catch {
+      return null;
+    }
+  } else {
+    const r = await fetchViaCorsProxy(url, { timeoutMs: 8000 });
+    if (!r.ok || !r.text) return null;
+    text = r.text;
+  }
   try {
     const json = JSON.parse(text) as {
       chart?: {
@@ -703,12 +718,13 @@ async function fetchYahooQuote(symbol: string): Promise<DashboardItem | null> {
     const result = json?.chart?.result?.[0];
     if (!result) return null;
     const closes = result.indicators?.quote?.[0]?.close?.filter((c) => c != null) ?? [];
-    const price = (result.meta as { regularMarketClose?: number })?.regularMarketClose ?? closes[closes.length - 1] ?? result.meta?.regularMarketPrice;
-    const prev = result.meta?.chartPreviousClose ?? closes[closes.length - 2];
+    const meta = result.meta as { regularMarketClose?: number; chartPreviousClose?: number; regularMarketPrice?: number };
+    const price = meta?.regularMarketClose ?? closes[closes.length - 1] ?? meta?.regularMarketPrice;
+    const prev = meta?.chartPreviousClose ?? closes[closes.length - 2];
     if (price == null || prev == null) return null;
     const changePct = prev !== 0 ? ((price - prev) / prev) * 100 : 0;
     return {
-      name: "",
+      name,
       value: formatNum(price),
       change: formatChange(changePct),
       isUp: changePct >= 0,
@@ -718,20 +734,25 @@ async function fetchYahooQuote(symbol: string): Promise<DashboardItem | null> {
   }
 }
 
-export async function fetchDashboardData(): Promise<Record<keyof typeof DASHBOARD_SYMBOLS, DashboardItem[]>> {
+/** 모든 심볼을 평탄화하여 2xn 카드용 목록 생성 */
+export function getDashboardItemList(): { section: keyof typeof DASHBOARD_SYMBOLS; symbol: string; name: string }[] {
+  const list: { section: keyof typeof DASHBOARD_SYMBOLS; symbol: string; name: string }[] = [];
   const sections = Object.keys(DASHBOARD_SYMBOLS) as (keyof typeof DASHBOARD_SYMBOLS)[];
-  const out = {} as Record<keyof typeof DASHBOARD_SYMBOLS, DashboardItem[]>;
-
   for (const section of sections) {
-    const items = DASHBOARD_SYMBOLS[section];
-    const results = await Promise.all(
-      items.map(async ({ symbol, name }) => {
-        const q = await fetchYahooQuote(symbol);
-        if (!q) return null;
-        return { ...q, name } as DashboardItem;
-      })
-    );
-    out[section] = results.filter((r): r is DashboardItem => r != null);
+    for (const { symbol, name } of DASHBOARD_SYMBOLS[section]) {
+      list.push({ section, symbol, name });
+    }
   }
-  return out;
+  return list;
+}
+
+export async function fetchDashboardData(): Promise<DashboardItem[]> {
+  const list = getDashboardItemList();
+  const results = await Promise.allSettled(
+    list.map(({ symbol, name }) => fetchYahooQuote(symbol, name))
+  );
+  return results
+    .filter((r): r is PromiseFulfilledResult<DashboardItem | null> => r.status === "fulfilled")
+    .map((r) => r.value)
+    .filter((v): v is DashboardItem => v != null);
 }
