@@ -204,7 +204,10 @@ export function MarketDashboardPage() {
           const title = CAROUSEL_TITLES[gIdx] ?? "";
           return (
             <div key={gIdx} className="flex flex-col min-w-0">
-              <div className="text-white font-semibold mb-2" style={{ fontSize: 16 }}>
+              <div
+                className="text-white font-semibold"
+                style={{ fontSize: 15, padding: 1, marginBottom: 10 }}
+              >
                 {title}
               </div>
               <div

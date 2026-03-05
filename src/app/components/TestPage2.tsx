@@ -304,12 +304,12 @@ export function TestPage2() {
             >
               <Paperclip size={18} />
             </button>
-            <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 overflow-hidden">
+            <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
               <button
                 type="button"
                 onClick={() => setTab("kr")}
-                className={`flex-1 min-w-[52px] h-full flex items-center justify-center font-medium transition-colors ${
-                  tab === "kr" ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
+                className={`flex-1 min-w-[52px] h-full flex items-center justify-center transition-colors border-r border-white/10 ${
+                  tab === "kr" ? "text-white" : "opacity-40"
                 }`}
                 style={{ fontSize: 12 }}
               >
@@ -318,8 +318,8 @@ export function TestPage2() {
               <button
                 type="button"
                 onClick={() => setTab("us")}
-                className={`flex-1 min-w-[52px] h-full flex items-center justify-center font-medium transition-colors border-l border-white/10 ${
-                  tab === "us" ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
+                className={`flex-1 min-w-[52px] h-full flex items-center justify-center transition-colors ${
+                  tab === "us" ? "text-white" : "opacity-40"
                 }`}
                 style={{ fontSize: 12 }}
               >

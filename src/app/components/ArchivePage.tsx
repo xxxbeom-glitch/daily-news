@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, BookmarkX } from "lucide-react";
+import { ChevronDown, BookmarkX, RefreshCw } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
+import { useFirebase } from "../context/FirebaseContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
 import { saveArchiveState, loadArchiveState } from "../utils/persistState";
 import type { ArchiveSession } from "../data/newsSources";
@@ -10,7 +11,9 @@ const CONFIRM_MS = 2500;
 
 export function ArchivePage() {
   const { sessions, deleteSession } = useArchive();
+  const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
   const { hideMarket } = useAdminSettings();
+  const [syncing, setSyncing] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -67,6 +70,22 @@ export function ArchivePage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // 리포트 페이지 진입 시 클라우드에서 최신 세션 불러오기 (PC에서 만든 리포트가 모바일에서 보이도록)
+  useEffect(() => {
+    if (!isFirebaseEnabled) return;
+    refreshSessionsFromCloud();
+  }, [isFirebaseEnabled, refreshSessionsFromCloud]);
+
+  const handleSync = async () => {
+    if (syncing || !isFirebaseEnabled) return;
+    setSyncing(true);
+    try {
+      await refreshSessionsFromCloud();
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleDeleteClick = (e: React.MouseEvent, session: ArchiveSession) => {
     e.stopPropagation();
@@ -157,6 +176,18 @@ export function ArchivePage() {
         )}
         </div>
 
+        {/* 클라우드 동기화 */}
+        {isFirebaseEnabled && (
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncing}
+            className="shrink-0 p-2 rounded-[10px] border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 transition-colors"
+            title="클라우드에서 새로고침"
+          >
+            <RefreshCw size={18} className={syncing ? "animate-spin" : ""} />
+          </button>
+        )}
         {/* 국가 탭 - 드롭다운과 동일 스타일, active: text-white, inactive: opacity-40 */}
         <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
           <button
