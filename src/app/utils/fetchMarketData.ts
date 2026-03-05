@@ -684,6 +684,7 @@ export const DASHBOARD_SYMBOLS = {
 } as const;
 
 export interface DashboardItem {
+  symbol: string;
   name: string;
   value: string;
   change: string;
@@ -724,6 +725,7 @@ async function fetchYahooQuote(symbol: string, name: string): Promise<DashboardI
     if (price == null || prev == null) return null;
     const changePct = prev !== 0 ? ((price - prev) / prev) * 100 : 0;
     return {
+      symbol,
       name,
       value: formatNum(price),
       change: formatChange(changePct),
@@ -779,19 +781,7 @@ export interface ChartDataPoint {
   close?: number;
 }
 
-export async function fetchVooChartData(range: ChartRange): Promise<ChartDataPoint[]> {
-  const { interval, range: rangeParam } = CHART_RANGE_CONFIG[range];
-  const url = `${YAHOO_CHART}/VOO?interval=${interval}&range=${rangeParam}`;
-  let text: string;
-  if (import.meta.env.DEV) {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    text = await res.text();
-  } else {
-    const r = await fetchViaCorsProxy(url, { timeoutMs: 10000 });
-    if (!r.ok || !r.text) return [];
-    text = r.text;
-  }
+function parseChartJson(text: string, interval: string): ChartDataPoint[] {
   try {
     const json = JSON.parse(text) as {
       chart?: {
@@ -800,7 +790,6 @@ export async function fetchVooChartData(range: ChartRange): Promise<ChartDataPoi
           indicators?: {
             quote?: Array<{ open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[] }>;
           };
-          adjclose?: Array<{ adjclose?: (number | null)[] }>;
         }>;
       };
     };
@@ -838,4 +827,36 @@ export async function fetchVooChartData(range: ChartRange): Promise<ChartDataPoi
   } catch {
     return [];
   }
+}
+
+/** 종목별 1일 캔들 차트 데이터 (interval=1d, range=5d) */
+export async function fetchChartData(symbol: string): Promise<ChartDataPoint[]> {
+  const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+  let text: string;
+  if (import.meta.env.DEV) {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    text = await res.text();
+  } else {
+    const r = await fetchViaCorsProxy(url, { timeoutMs: 10000 });
+    if (!r.ok || !r.text) return [];
+    text = r.text;
+  }
+  return parseChartJson(text, "1d");
+}
+
+export async function fetchVooChartData(range: ChartRange): Promise<ChartDataPoint[]> {
+  const { interval, range: rangeParam } = CHART_RANGE_CONFIG[range];
+  const url = `${YAHOO_CHART}/VOO?interval=${interval}&range=${rangeParam}`;
+  let text: string;
+  if (import.meta.env.DEV) {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    text = await res.text();
+  } else {
+    const r = await fetchViaCorsProxy(url, { timeoutMs: 10000 });
+    if (!r.ok || !r.text) return [];
+    text = r.text;
+  }
+  return parseChartJson(text, interval);
 }
