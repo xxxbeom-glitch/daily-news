@@ -16,8 +16,11 @@ export function TestPage4() {
       const files = e.target.files;
       if (!files?.length) return;
 
-      const file = files[0];
-      if (file.type !== "application/pdf" && !file.name?.toLowerCase().endsWith(".pdf")) {
+      const pdfFiles = Array.from(files)
+        .filter((f) => f.type === "application/pdf" || f.name?.toLowerCase().endsWith(".pdf"))
+        .slice(0, 2);
+
+      if (pdfFiles.length === 0) {
         setError("PDF 파일만 업로드할 수 있습니다.");
         e.target.value = "";
         return;
@@ -28,15 +31,22 @@ export function TestPage4() {
       setLoading(true);
 
       try {
-        const text = await extractTextFromPdf(file);
-        if (!text.trim()) {
+        const textParts: string[] = [];
+        for (let i = 0; i < pdfFiles.length; i++) {
+          const text = await extractTextFromPdf(pdfFiles[i]);
+          if (text.trim()) {
+            textParts.push(`[PDF ${i + 1}] ${pdfFiles[i].name}\n\n${text.trim()}`);
+          }
+        }
+        const combinedText = textParts.join("\n\n---\n\n");
+        if (!combinedText.trim()) {
           setError("PDF에서 텍스트를 추출할 수 없습니다. (이미지 기반 PDF일 수 있음)");
           e.target.value = "";
           return;
         }
 
         const model = getSelectedModel();
-        const data = await generateGlobalMarketDailyFromPdf(text, {
+        const data = await generateGlobalMarketDailyFromPdf(combinedText, {
           model,
           modelId: undefined,
         });
@@ -53,20 +63,18 @@ export function TestPage4() {
           createdAt: now.toISOString(),
           isInternational: true,
           sources: ["test4"],
-          articles: [
-            {
-              id: `test4-${Date.now()}`,
-              title: file.name,
-              source: "글로벌 마켓 데일리",
-              sourceId: "test4",
-              publishedAt: now.toISOString(),
-              url: "",
-              summary: "",
-              aiModel: model,
-              category: "Economy",
-              isInternational: true,
-            },
-          ],
+          articles: pdfFiles.map((f, i) => ({
+            id: `test4-${Date.now()}-${i}`,
+            title: f.name,
+            source: "글로벌 마켓 데일리",
+            sourceId: "test4",
+            publishedAt: now.toISOString(),
+            url: "",
+            summary: "",
+            aiModel: model,
+            category: "Economy" as const,
+            isInternational: true,
+          })),
           marketSummary: data,
           aiModel: model,
         });
@@ -100,6 +108,7 @@ export function TestPage4() {
             ref={fileInputRef}
             type="file"
             accept=".pdf,application/pdf"
+            multiple
             onChange={handleFileChange}
             className="hidden"
           />
@@ -108,7 +117,7 @@ export function TestPage4() {
           ) : (
             <>
               <p className="text-white/80 text-sm font-medium">PDF 파일을 선택하거나 놓아두세요</p>
-              <p className="text-white/40 text-xs mt-1">Global Market Daily 형식 (키움증권 등)</p>
+              <p className="text-white/40 text-xs mt-1">Global Market Daily 형식, 최대 2개</p>
             </>
           )}
         </div>
