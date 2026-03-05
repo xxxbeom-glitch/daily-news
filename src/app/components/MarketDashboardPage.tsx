@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
 import { createChart, CandlestickSeries } from "lightweight-charts";
 import {
   fetchDashboardData,
@@ -6,6 +7,7 @@ import {
   type DashboardItem,
   type ChartDataPoint,
 } from "../utils/fetchMarketData";
+import { loadDashboardCache, saveDashboardCache, shouldRefreshDashboard } from "../utils/marketDashboardCache";
 
 function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,38 +102,56 @@ function DashboardCard({ item }: { item: DashboardItem }) {
 }
 
 export function MarketDashboardPage() {
-  const [items, setItems] = useState<DashboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<DashboardItem[]>(() => {
+    const cached = loadDashboardCache();
+    return cached?.data ?? [];
+  });
+  const [loading, setLoading] = useState(() => shouldRefreshDashboard() && items.length === 0);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async (forceRefresh = false) => {
+    if (forceRefresh) setRefreshing(true);
+    try {
+      const data = await fetchDashboardData();
+      setItems(data);
+      setError(null);
+      saveDashboardCache(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "데이터 로드 실패");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchDashboardData()
-      .then((data) => {
-        if (!cancelled) {
-          setItems(data);
-          setError(null);
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "데이터 로드 실패");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    const cached = loadDashboardCache();
+    if (cached?.data?.length) {
+      setItems(cached.data);
+      setLoading(false);
+      if (shouldRefreshDashboard()) {
+        loadData(false);
+      }
+    } else {
+      loadData(false);
+    }
+  }, [loadData]);
+
+  const handleRefresh = () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    loadData(true);
+  };
 
   if (loading && items.length === 0) {
     return (
       <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-        <h1 className="text-white font-semibold mb-4" style={{ fontSize: 16 }}>
-          오늘의 시장
-        </h1>
+        <div className="flex items-center gap-2 mb-4">
+          <h1 className="text-white font-semibold" style={{ fontSize: 16 }}>
+            오늘의 시장
+          </h1>
+        </div>
         <p className="text-white/50">데이터 로딩 중…</p>
       </div>
     );
@@ -150,9 +170,20 @@ export function MarketDashboardPage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <h1 className="text-white font-semibold mb-4" style={{ fontSize: 16 }}>
-        오늘의 시장
-      </h1>
+      <div className="flex items-center gap-2 mb-4">
+        <h1 className="text-white font-semibold" style={{ fontSize: 16 }}>
+          오늘의 시장
+        </h1>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="새로고침"
+        >
+          <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         {items.map((item, i) => (
           <DashboardCard key={`${item.symbol}-${item.name}-${i}`} item={item} />
