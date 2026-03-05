@@ -205,7 +205,7 @@ export function MarketDashboardPage() {
               className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scroll-smooth"
               style={{ scrollSnapType: "x proximity" }}
             >
-              {groupItems.map((item, i) => (
+              {groupItems.map((item) => (
                 <div
                   key={item.symbol}
                   style={{ scrollSnapAlign: "start", minWidth: cardWidth, maxWidth: cardWidth }}

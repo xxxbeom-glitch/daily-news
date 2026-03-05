@@ -252,32 +252,27 @@ export function TestPage2() {
   return (
     <div className="flex flex-col min-h-full">
       <div className="flex-1 px-4 pt-5 pb-[120px]" onPaste={handlePaste}>
-        <h1 className="text-white font-semibold mb-4" style={{ fontSize: 16 }}>
-          데이터 업로드
-        </h1>
-
-        <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setTab("kr")}
-            className={`flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
-              tab === "kr" ? "bg-[#618EFF] text-white" : "bg-white/10 text-white/60 hover:bg-white/15"
-            }`}
-          >
-            한국
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("us")}
-            className={`flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
-              tab === "us" ? "bg-[#618EFF] text-white" : "bg-white/10 text-white/60 hover:bg-white/15"
-            }`}
-          >
-            미국
-          </button>
-        </div>
-
         <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
+          <div className="flex shrink-0 border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => setTab("kr")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                tab === "kr" ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/10"
+              }`}
+            >
+              한국
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("us")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors border-l border-white/10 ${
+                tab === "us" ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/10"
+              }`}
+            >
+              미국
+            </button>
+          </div>
           {(images.length > 0 || pdfs.length > 0) && (
             <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
               {images.map((img, i) => (
@@ -320,7 +315,7 @@ export function TestPage2() {
             rows={5}
             className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
           />
-          <div className="flex items-center justify-between px-4 py-2 border-t border-white/10 bg-white/[0.02]">
+          <div className="flex items-center px-4 py-2 border-t border-white/10 bg-white/[0.02]">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -329,7 +324,6 @@ export function TestPage2() {
             >
               <Paperclip size={18} />
             </button>
-            <span className="text-white/30 text-xs">이미지·PDF (한국: 이미지+텍스트, 미국: PDF 최대 2개)</span>
           </div>
           <input
             ref={fileInputRef}
@@ -351,7 +345,7 @@ export function TestPage2() {
             }`}
             style={{ fontSize: 15, fontWeight: 500 }}
           >
-            {loading ? "분석 중…" : "분석 후 모닝뉴스에 저장"}
+            {loading ? "분석 중…" : "리포트 작성"}
           </button>
         </div>
 
