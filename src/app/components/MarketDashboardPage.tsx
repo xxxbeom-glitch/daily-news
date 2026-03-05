@@ -62,7 +62,10 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
       }));
     if (candleData.length > 0) {
       candleSeries.setData(candleData);
-      chart.timeScale().fitContent();
+      const barCount = 12;
+      const from = Math.max(0, candleData.length - barCount);
+      const to = candleData.length - 1;
+      chart.timeScale().setVisibleLogicalRange({ from, to });
     }
     chartRef.current = chart;
     return () => {
