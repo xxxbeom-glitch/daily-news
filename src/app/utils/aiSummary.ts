@@ -216,20 +216,7 @@ function mergeMoversWithSeed(
 }
 
 function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSummaryData {
-  // JSON 블록만 추출 (마크다운 코드블록 제거)
-  let raw = jsonStr.trim();
-  const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeMatch) raw = codeMatch[1].trim();
-  // 괄호 밖 텍스트 제거 (일부 모델이 앞뒤에 설명 추가할 수 있음)
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (jsonMatch) raw = jsonMatch[0];
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
-  }
+  const parsed = extractAndParseJson(jsonStr) as Record<string, unknown>;
   const now = new Date();
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
   const dateStr = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")} (${weekDays[now.getDay()]})`;
@@ -529,20 +516,45 @@ export async function generateGlobalMarketDailyFromPdf(
   return parseGlobalMarketDaily(rawResponse);
 }
 
-/** Global Market Daily 전용 파싱 - indices, currencies, commodities, keyIssues */
-function parseGlobalMarketDaily(jsonStr: string): MarketSummaryData {
-  let raw = jsonStr.trim();
+/** AI 응답에서 JSON 객체 추출 후 파싱 (마크다운/잘린 응답 대응) */
+function extractAndParseJson(text: string): Record<string, unknown> {
+  let raw = text.trim();
   const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeMatch) raw = codeMatch[1].trim();
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (jsonMatch) raw = jsonMatch[0];
 
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
+  const startIdx = raw.indexOf("{");
+  if (startIdx === -1) throw new Error("AI 응답에서 JSON 객체를 찾을 수 없습니다.");
+  let depth = 0;
+  let endIdx = -1;
+  for (let i = startIdx; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) {
+        endIdx = i;
+        break;
+      }
+    }
   }
+  raw = endIdx >= 0 ? raw.slice(startIdx, endIdx + 1) : raw.slice(startIdx);
+
+  let repaired = raw
+    .replace(/,(\s*[}\]])/g, "$1")
+    .replace(/[\u0000-\u001f]/g, (m) => (m === "\n" || m === "\t" ? m : " "));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return JSON.parse(repaired) as Record<string, unknown>;
+    } catch {
+      repaired = repaired.replace(/,(\s*[}\]])/g, "$1");
+    }
+  }
+  throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
+}
+
+/** Global Market Daily 전용 파싱 - indices, currencies, commodities, keyIssues */
+function parseGlobalMarketDaily(jsonStr: string): MarketSummaryData {
+  const parsed = extractAndParseJson(jsonStr);
 
   const toIndexData = (arr: unknown[]): IndexData[] =>
     (arr ?? []).map((x: unknown) => {
@@ -565,18 +577,7 @@ function parseGlobalMarketDaily(jsonStr: string): MarketSummaryData {
 
 /** 조간신문 헤드라인 전용 파싱 - keyIssues만 사용, 나머지 제거 */
 function parseMorningHeadline(jsonStr: string): MarketSummaryData {
-  let raw = jsonStr.trim();
-  const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeMatch) raw = codeMatch[1].trim();
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (jsonMatch) raw = jsonMatch[0];
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
-  }
+  const parsed = extractAndParseJson(jsonStr);
 
   const now = new Date();
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
