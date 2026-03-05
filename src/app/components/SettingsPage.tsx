@@ -76,7 +76,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
+        model: "claude-3-haiku-20240307",
         max_tokens: 5,
         messages: [{ role: "user", content: "hi" }],
       }),
@@ -339,7 +339,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-full px-4 pt-6 pb-8">
+    <div className="flex flex-col min-h-full px-4 pt-6 pb-8 w-full">
       {exportStatus && (
         <div
           className={`fixed bottom-6 left-4 right-4 max-w-[430px] mx-auto px-4 py-3 rounded-[10px] z-[110] ${
@@ -462,7 +462,8 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 기억할 관심사 */}
+      {/* 기억할 관심사 - 숨김 */}
+      {false && (
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -472,47 +473,11 @@ export function SettingsPage() {
             style={{ fontSize: 14, fontWeight: 600 }}
           >
             기억할 관심사
-            <ChevronDown
-              size={16}
-              className={`text-white/60 transition-transform shrink-0 ${memoryExpanded ? "rotate-180" : ""}`}
-            />
+            <ChevronDown size={16} className={`text-white/60 transition-transform shrink-0 ${memoryExpanded ? "rotate-180" : ""}`} />
           </button>
-          {memoryExpanded && (
-            <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-4">
-              <div>
-                <label className="block text-white/60 mb-1.5" style={{ fontSize: 12, fontWeight: 600 }}>국내 (한국 시황용)</label>
-                <textarea
-                  value={interestMemoryDomestic}
-                  onChange={(e) => {
-                    const v = e.target.value.slice(0, 1000);
-                    setInterestMemoryDomesticState(v);
-                    setInterestMemoryDomestic(v);
-                  }}
-                  placeholder="예: 삼성전자, SK하이닉스, 2차전지, 반도체"
-                  className="w-full min-h-[80px] rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 resize-y focus:outline-none focus:ring-2 focus:ring-[#618EFF]/50"
-                  style={{ fontSize: 14 }}
-                />
-                <p style={{ fontSize: 12 }} className="text-white/40 mt-1">{interestMemoryDomestic.length}/1000자</p>
-              </div>
-              <div>
-                <label className="block text-white/60 mb-1.5" style={{ fontSize: 12, fontWeight: 600 }}>해외 (미국·글로벌 시황용)</label>
-                <textarea
-                  value={interestMemoryInternational}
-                  onChange={(e) => {
-                    const v = e.target.value.slice(0, 1000);
-                    setInterestMemoryInternationalState(v);
-                    setInterestMemoryInternational(v);
-                  }}
-                  placeholder="예: 엔비디아, 테슬라, 반도체, AI"
-                  className="w-full min-h-[80px] rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 resize-y focus:outline-none focus:ring-2 focus:ring-[#618EFF]/50"
-                  style={{ fontSize: 14 }}
-                />
-                <p style={{ fontSize: 12 }} className="text-white/40 mt-1">{interestMemoryInternational.length}/1000자</p>
-              </div>
-            </div>
-          )}
         </div>
       </section>
+      )}
 
       {/* 언론사 연결상태 - 숨김 */}
       {false && (
@@ -676,22 +641,13 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 저장된 아카이브 */}
+      {/* 저장된 아카이브 - 숨김 */}
+      {false && (
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setArchiveExpanded((v) => !v)}
-            className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
-            style={{ fontSize: 14, fontWeight: 600 }}
-          >
+          <button type="button" className="w-full h-[72px]">
             저장된 아카이브
-            <ChevronDown
-              size={16}
-              className={`text-white/60 transition-transform shrink-0 ${archiveExpanded ? "rotate-180" : ""}`}
-            />
           </button>
-          {archiveExpanded && (
           <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-2">
           <button
             type="button"
@@ -762,9 +718,9 @@ export function SettingsPage() {
             </p>
           )}
           </div>
-          )}
         </div>
       </section>
+      )}
 
       {/* 로그인 */}
       <section className="mb-4">

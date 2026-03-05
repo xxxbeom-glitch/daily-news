@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
 import { createChart, CandlestickSeries } from "lightweight-charts";
 import {
   fetchDashboardData,
@@ -146,10 +145,8 @@ export function MarketDashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<number | null>(() => getDashboardFetchedAt());
   const [loading, setLoading] = useState(() => shouldRefreshDashboard() && items.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = useCallback(async (forceRefresh = false) => {
-    if (forceRefresh) setRefreshing(true);
+  const loadData = useCallback(async () => {
     try {
       const data = await fetchDashboardData();
       setItems(data);
@@ -160,7 +157,6 @@ export function MarketDashboardPage() {
       setError(e instanceof Error ? e.message : "데이터 로드 실패");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -171,18 +167,19 @@ export function MarketDashboardPage() {
       setLastUpdated(cached.fetchedAt);
       setLoading(false);
       if (shouldRefreshDashboard()) {
-        loadData(false);
+        loadData();
       }
     } else {
-      loadData(false);
+      loadData();
     }
   }, [loadData]);
 
-  const handleRefresh = () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    loadData(true);
-  };
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (shouldRefreshDashboard()) loadData();
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const itemMap = new Map(items.map((i) => [i.symbol, i]));
 
@@ -205,21 +202,12 @@ export function MarketDashboardPage() {
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-16">
       <div className="flex items-center justify-between gap-2 mb-4 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="min-w-0">
           {lastUpdated != null && (
             <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white truncate">
               Updated: {formatUpdated(lastUpdated)}
             </span>
           )}
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-            title="새로고침"
-          >
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-          </button>
         </div>
         <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white shrink-0">
           출처: Yahoo Finance

@@ -75,13 +75,19 @@ function HeaderContent() {
 }
 
 export function Layout() {
+  const location = useLocation();
+  const isSettingsRoute = location.pathname === "/settings" || location.pathname.startsWith("/settings/");
+  const mainClass = isSettingsRoute
+    ? "flex-1 min-h-0 flex flex-col overflow-y-auto"
+    : "flex-1 min-h-0 flex flex-col overflow-hidden";
+
   return (
     <div className="h-screen flex flex-col max-w-[430px] mx-auto bg-[#0a0a0f] text-white overflow-hidden">
       <SearchStateProvider>
         <MarketScheduleProvider>
           <KeywordNewsProvider>
             <HeaderContent />
-          <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <main className={mainClass}>
             <Outlet />
           </main>
           </KeywordNewsProvider>
