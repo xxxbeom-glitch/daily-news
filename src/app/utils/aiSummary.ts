@@ -473,7 +473,7 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
     watchlist,
     moversSeed,
     interestMemory,
-    includeTotalAssessment: useGemini || useClaude,
+    includeTotalAssessment: !!(useGemini || useClaude),
   });
   const rawResponse = useClaude
     ? await callClaude(prompt, claudeModelId)
