@@ -251,7 +251,7 @@ export function MarketSummaryView({
             children={headlineContent}
           />
         )}
-        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden my-0 mx-0">
+        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden my-6 mx-0 bg-white/5 border border-white/8 rounded-[10px]">
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             {headlineContent}
           </div>
@@ -413,8 +413,10 @@ export function MarketSummaryView({
     return (
       <>
         <FullscreenOverlay>{intlContent}</FullscreenOverlay>
-        <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          {intlContent}
+        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] my-6 mx-0">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            {intlContent}
+          </div>
         </div>
       </>
     );
@@ -494,8 +496,10 @@ export function MarketSummaryView({
   return (
     <>
       <FullscreenOverlay>{domesticContent}</FullscreenOverlay>
-      <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-        {domesticContent}
+      <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] my-6 mx-0">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          {domesticContent}
+        </div>
       </div>
     </>
   );
