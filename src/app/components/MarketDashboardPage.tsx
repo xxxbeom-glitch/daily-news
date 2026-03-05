@@ -204,6 +204,27 @@ export function MarketDashboardPage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-16">
+      <div className="flex items-center justify-between gap-2 mb-4 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          {lastUpdated != null && (
+            <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white truncate">
+              Updated: {formatUpdated(lastUpdated)}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+            title="새로고침"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          </button>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white shrink-0">
+          출처: Yahoo Finance
+        </span>
+      </div>
       <div className="flex flex-col w-full overflow-y-auto" style={{ gap: 16 }}>
         {CAROUSEL_GROUPS.map((symbols, gIdx) => {
           const groupItems = symbols
@@ -224,27 +245,6 @@ export function MarketDashboardPage() {
       {items.length === 0 && (
         <p className="text-white/50 text-sm mt-4">표시할 데이터가 없습니다.</p>
       )}
-      <div className="mt-6 mb-8 space-y-1">
-        <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white">
-          출처: Yahoo Finance
-        </p>
-        <div className="flex items-center gap-2">
-          {lastUpdated != null && (
-            <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white">
-              Updated: {formatUpdated(lastUpdated)}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-            title="새로고침"
-          >
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
