@@ -180,7 +180,20 @@ export function MarketSummaryView({
           </div>
         </div>
       ) : null;
-    const bulletStyle = { width: 2, height: 2, borderRadius: "50%", flexShrink: 0, alignSelf: "flex-start", marginTop: 8 } as const;
+    const bulletSize = 3;
+    const bulletStyle = {
+      width: bulletSize,
+      height: bulletSize,
+      borderRadius: "50%",
+      flexShrink: 0,
+      marginTop: 10,
+    } as const;
+    const bodyParagraphs = (text: string) => {
+      const cleaned = stripBullet(text);
+      const byDouble = cleaned.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
+      if (byDouble.length > 1) return byDouble;
+      return cleaned.split("\n").map((p) => p.trim()).filter(Boolean);
+    };
     const headlineContent = (
       <>
         {header}
@@ -198,11 +211,15 @@ export function MarketSummaryView({
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
-                <div className="flex gap-2 mt-[8px]">
-                  <span style={bulletStyle} className="bg-white/50 block" />
-                  <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line flex-1">
-                    {stripBullet(item.body ?? "")}
-                  </div>
+                <div className="mt-[8px] space-y-[10px]">
+                  {bodyParagraphs(item.body ?? "").map((para, j) => (
+                    <div key={j} className="flex gap-2 items-start">
+                      <span style={bulletStyle} className="bg-white/50 block shrink-0" />
+                      <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line flex-1">
+                        {para}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
