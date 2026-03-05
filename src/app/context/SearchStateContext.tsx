@@ -1,8 +1,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { getSelectedModel, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import type { MarketSummaryData } from "../data/marketSummary";
+import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
 interface SearchStateContextValue {
+  /** 오늘의 뉴스 검색 결과 (RSS+5키워드 필터만, AI 요약 없음) */
+  searchArticles: RawRssArticle[];
+  setSearchArticles: (a: RawRssArticle[]) => void;
   summaryInternational: MarketSummaryData | null;
   summaryDomestic: MarketSummaryData | null;
   setSummaryInternational: (s: MarketSummaryData | null) => void;
@@ -28,6 +32,7 @@ interface SearchStateContextValue {
 const SearchStateContext = createContext<SearchStateContextValue | null>(null);
 
 export function SearchStateProvider({ children }: { children: ReactNode }) {
+  const [searchArticles, setSearchArticles] = useState<RawRssArticle[]>([]);
   const [summaryInternational, setSummaryInternational] = useState<MarketSummaryData | null>(null);
   const [summaryDomestic, setSummaryDomestic] = useState<MarketSummaryData | null>(null);
   const [summaryModel, setSummaryModel] = useState<"gemini" | "gpt">("gemini");
@@ -46,6 +51,8 @@ export function SearchStateProvider({ children }: { children: ReactNode }) {
   const [fetchInfo, setFetchInfo] = useState<string | null>(null);
 
   const value: SearchStateContextValue = {
+    searchArticles,
+    setSearchArticles,
     summaryInternational,
     summaryDomestic,
     setSummaryInternational,

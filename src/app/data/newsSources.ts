@@ -68,6 +68,15 @@ export const DOMESTIC_OVERSEAS_MARKET_KEYWORDS = [
   "시황",
 ];
 
+/** 오늘의 뉴스 검색 - 5대 핵심 키워드 필터 */
+export const NEWS_SEARCH_KEYWORDS = ["S&P500", "나스닥", "뉴욕증시", "장을 마감", "장을 마쳤다", "NYSE"] as const;
+
+/** 제목+본문에 5대 키워드 1개 이상 포함 시 검색 결과에 포함 */
+export function matchesNewsSearchKeywords(title: string, body?: string): boolean {
+  const text = `${title} ${body ?? ""}`;
+  return NEWS_SEARCH_KEYWORDS.some((kw) => text.includes(kw));
+}
+
 export function isDomesticSourceId(id: string): boolean {
   return domesticSources.some((s) => s.id === id);
 }

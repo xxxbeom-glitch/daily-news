@@ -428,6 +428,32 @@ async function callOpenAI(prompt: string, modelId?: string): Promise<string> {
   }
 }
 
+/**
+ * 개별 기사 본문만 대상으로 핵심 요약 생성 (전체보기 진입 시 사용)
+ */
+export async function summarizeSingleArticle(body: string): Promise<string> {
+  const text = String(body ?? "").trim().slice(0, 12000);
+  if (!text) return "";
+
+  const prompt = `다음 금융·경제 기사 본문을 3~5문장으로 핵심만 요약해주세요. 한글로, 사실 위주. 기사에 없는 내용은 추가하지 마세요.
+
+## 기사 본문
+${text}
+
+## 요청
+위 본문만 보고 핵심 내용을 요약해주세요. JSON이 아닌 일반 텍스트로만 출력하세요.`;
+
+  try {
+    return await callGemini(prompt, "gemini-2.5-flash");
+  } catch {
+    try {
+      return await callOpenAI(prompt, "gpt-4o-mini");
+    } catch {
+      return "";
+    }
+  }
+}
+
 export interface GenerateSummaryOptions {
   articles: RawRssArticle[];
   isInternational: boolean;
