@@ -61,10 +61,6 @@ export function SearchPage() {
   const hasIntlSources = selectedSources.international.length > 0;
   const hasDomesticSources = selectedSources.domestic.length > 0;
   const hasAnySource = hasIntlSources || hasDomesticSources;
-  const hasSourcesForFilter =
-    (regionFilter === "both" && hasAnySource) ||
-    (regionFilter === "us" && hasIntlSources) ||
-    (regionFilter === "kr" && hasDomesticSources);
 
   const intlSourceList = internationalSources.filter((s) => selectedSources.international.includes(s.id));
   const domesticSourceList = domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
@@ -282,7 +278,7 @@ export function SearchPage() {
   );
 
   const handleFetch = useCallback(async () => {
-    if (!hasSources) return;
+    if (!hasAnySource) return;
     setIsLoading(true);
     setSummaryInternational(null);
     setSummaryDomestic(null);

@@ -8,7 +8,6 @@ import type { MarketSummaryData } from "../data/marketSummary";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { mockMarketSummaryInternational, mockMarketSummaryDomestic } from "../data/marketSummary";
 import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, getSelectedModel, parseInterestKeywords } from "../utils/persistState";
-import { getAdminModelId } from "../utils/adminSettings";
 import { fetchRssFeeds, filterArticlesByRangeTieredWithMin } from "../utils/fetchRssFeeds";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { generateMarketSummary, verifyAndCorrectMarketSummary } from "../utils/aiSummary";
@@ -72,7 +71,6 @@ export async function runMarketSummaryPipeline(
   }));
 
   const selectedModel = getSelectedModel();
-  const adminModelId = getAdminModelId();
   let data: MarketSummaryData;
   let actualModel: "gemini" | "gpt" = selectedModel;
   try {
