@@ -7,6 +7,7 @@ import { AdminPage } from "./components/AdminPage";
 import { LoginPage } from "./components/LoginPage";
 import { TestPage } from "./components/TestPage";
 import { TestPage2 } from "./components/TestPage2";
+import { MarketDashboardPage } from "./components/MarketDashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { index: true, element: <ArchivePageWrapper /> },
+      { path: "market", element: <MarketDashboardPage /> },
       { path: "search", element: <SearchPageWrapper /> },
       { path: "test", element: <TestPage /> },
       { path: "test2", element: <TestPage2 /> },

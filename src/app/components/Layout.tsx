@@ -102,6 +102,16 @@ function HeaderContent() {
             >
               모닝뉴스
             </Link>
+            <Link
+              to="/market"
+              className={`pb-2 text-sm transition-colors ${
+                location.pathname === "/market"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  : "text-white/50 hover:text-white/70"
+              }`}
+            >
+              오늘의 시장
+            </Link>
             {showNewsTab && (
               <Link
                 to="/search"

@@ -123,7 +123,7 @@ export function MarketSummaryView({
   displayDate?: string;
 }) {
   const data = initialData;
-  const isHeadlineMode = data.regionLabel.includes("조간신문") || data.regionLabel.includes("글로벌 마켓");
+  const isHeadlineMode = data.regionLabel.includes("한국경제") || data.regionLabel.includes("글로벌 마켓");
   const isInternational = data.regionLabel.includes("해외") || data.regionLabel.includes("글로벌");
   const containerRef = useRef<HTMLDivElement>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
@@ -144,9 +144,9 @@ export function MarketSummaryView({
       </div>
       <button
         type="button"
-        onClick={() => setFullscreenOpen(true)}
+        onClick={() => setFullscreenOpen((prev) => !prev)}
         className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors shrink-0"
-        title="전체 펼쳐보기"
+        title={fullscreenOpen ? "원래대로" : "전체 펼쳐보기"}
       >
         <Maximize2 size={18} />
       </button>
@@ -170,9 +170,9 @@ export function MarketSummaryView({
           </div>
           <div className="space-y-1">
             {items.map((idx, i) => (
-              <div key={i} className="flex justify-between items-baseline gap-2" style={lineStyle}>
-                <span style={{ fontSize: 13 }} className="text-white/80">{idx.name}</span>
-                <span style={{ fontSize: 13 }} className={idx.isUp ? "text-emerald-400" : "text-red-400"}>
+              <div key={i} className="flex items-baseline gap-[6px]" style={lineStyle}>
+                <span style={{ fontSize: 13 }} className="text-white/80 text-left">{idx.name}</span>
+                <span style={{ fontSize: 13 }} className={`text-left ${idx.isUp ? "text-emerald-400" : "text-red-400"}`}>
                   {idx.value} {idx.change}
                 </span>
               </div>

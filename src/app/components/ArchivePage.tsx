@@ -198,7 +198,9 @@ export function ArchivePage() {
             aiModel={selectedSession.aiModel ?? "gemini"}
             articles={selectedSession.articles}
             displayDate={
-              selectedSession.marketSummary?.regionLabel?.includes?.("조간신문") && selectedSession.createdAt
+              (selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") ||
+                selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓")) &&
+              selectedSession.createdAt
                 ? (() => {
                     const d = new Date(selectedSession.createdAt);
                     const w = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];

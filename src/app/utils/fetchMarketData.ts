@@ -643,3 +643,95 @@ export async function enrichMarketData(
   }
 
 }
+
+/** 오늘의 시장 대시보드용 심볼 */
+export const DASHBOARD_SYMBOLS = {
+  usIndices: [
+    { symbol: "^GSPC", name: "S&P500" },
+    { symbol: "^IXIC", name: "나스닥" },
+    { symbol: "^DJI", name: "다우존스" },
+  ],
+  commodities: [
+    { symbol: "GC=F", name: "금 현물" },
+    { symbol: "SI=F", name: "은 현물" },
+    { symbol: "CL=F", name: "WTI" },
+  ],
+  krIndices: [
+    { symbol: "^KS11", name: "코스피" },
+    { symbol: "^KQ11", name: "코스닥" },
+    { symbol: "^KS200", name: "코스피200" },
+  ],
+  fx: [
+    { symbol: "USDKRW=X", name: "원달러 환율" },
+    { symbol: "DX-Y.NYB", name: "달러 인덱스" },
+  ],
+  etfs: [
+    { symbol: "VOO", name: "VOO" },
+    { symbol: "QQQ", name: "QQQ" },
+  ],
+  usStocks: [
+    { symbol: "VRT", name: "VRT" },
+    { symbol: "ASTS", name: "ASTS" },
+    { symbol: "RKLB", name: "RKLB" },
+  ],
+  krStocks: [
+    { symbol: "005930.KS", name: "삼성전자" },
+    { symbol: "HPSP", name: "HPSP" },
+  ],
+} as const;
+
+export interface DashboardItem {
+  name: string;
+  value: string;
+  change: string;
+  isUp: boolean;
+}
+
+async function fetchYahooQuote(symbol: string): Promise<DashboardItem | null> {
+  const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+  const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: TIMEOUT_MS });
+  if (!ok || !text) return null;
+  try {
+    const json = JSON.parse(text) as {
+      chart?: {
+        result?: Array<{
+          meta?: { regularMarketPrice?: number; chartPreviousClose?: number; regularMarketClose?: number };
+          indicators?: { quote?: Array<{ close?: (number | null)[] }> };
+        }>;
+      };
+    };
+    const result = json?.chart?.result?.[0];
+    if (!result) return null;
+    const closes = result.indicators?.quote?.[0]?.close?.filter((c) => c != null) ?? [];
+    const price = (result.meta as { regularMarketClose?: number })?.regularMarketClose ?? closes[closes.length - 1] ?? result.meta?.regularMarketPrice;
+    const prev = result.meta?.chartPreviousClose ?? closes[closes.length - 2];
+    if (price == null || prev == null) return null;
+    const changePct = prev !== 0 ? ((price - prev) / prev) * 100 : 0;
+    return {
+      name: "",
+      value: formatNum(price),
+      change: formatChange(changePct),
+      isUp: changePct >= 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchDashboardData(): Promise<Record<keyof typeof DASHBOARD_SYMBOLS, DashboardItem[]>> {
+  const sections = Object.keys(DASHBOARD_SYMBOLS) as (keyof typeof DASHBOARD_SYMBOLS)[];
+  const out = {} as Record<keyof typeof DASHBOARD_SYMBOLS, DashboardItem[]>;
+
+  for (const section of sections) {
+    const items = DASHBOARD_SYMBOLS[section];
+    const results = await Promise.all(
+      items.map(async ({ symbol, name }) => {
+        const q = await fetchYahooQuote(symbol);
+        if (!q) return null;
+        return { ...q, name } as DashboardItem;
+      })
+    );
+    out[section] = results.filter((r): r is DashboardItem => r != null);
+  }
+  return out;
+}

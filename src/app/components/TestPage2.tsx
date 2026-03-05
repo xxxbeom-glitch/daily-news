@@ -8,8 +8,7 @@ import { extractTextFromPdf } from "../utils/pdfExtract";
 
 type CountryTab = "kr" | "us";
 
-const ACCEPT_IMAGE = "image/png,image/jpeg,image/gif,image/webp";
-const ACCEPT_PDF = "application/pdf,.pdf";
+const ACCEPT_ALL = "image/png,image/jpeg,image/gif,image/webp,application/pdf,.pdf";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const PDF_TYPE = "application/pdf";
 
@@ -17,6 +16,11 @@ interface UploadedImage {
   data: string;
   mimeType: string;
   name?: string;
+}
+
+interface UploadedPdf {
+  name: string;
+  text: string;
 }
 
 function isDuplicateImage(images: UploadedImage[], newData: string): boolean {
@@ -28,6 +32,7 @@ export function TestPage2() {
   const [tab, setTab] = useState<CountryTab>("kr");
   const [inputValue, setInputValue] = useState("");
   const [images, setImages] = useState<UploadedImage[]>([]);
+  const [pdfs, setPdfs] = useState<UploadedPdf[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -37,30 +42,14 @@ export function TestPage2() {
     setImages((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const removePdf = useCallback((index: number) => {
+    setPdfs((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   const addImageIfNotDuplicate = useCallback((img: UploadedImage) => {
     setImages((prev) => {
       if (isDuplicateImage(prev, img.data)) return prev;
       return [...prev, img];
-    });
-  }, []);
-
-  const processImageFile = useCallback((file: File): Promise<UploadedImage | string | null> => {
-    return new Promise((resolve) => {
-      if (IMAGE_TYPES.includes(file.type)) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64 = result.includes(",") ? result.split(",")[1] : result;
-          if (base64) {
-            resolve({ data: base64, mimeType: file.type, name: file.name });
-          } else {
-            resolve(null);
-          }
-        };
-        reader.readAsDataURL(file);
-      } else {
-        resolve(`이미지만 업로드 가능합니다. (PNG, JPEG, GIF, WebP)`);
-      }
     });
   }, []);
 
@@ -70,86 +59,41 @@ export function TestPage2() {
       if (!files?.length) return;
       setError(null);
 
-      if (tab === "kr") {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const result = await processImageFile(file);
-          if (result && typeof result === "object") {
-            addImageIfNotDuplicate(result);
-          } else if (typeof result === "string") {
-            setError(result);
-          }
-        }
-      } else {
-        const pdfFiles = Array.from(files)
-          .filter((f) => f.type === PDF_TYPE || f.name?.toLowerCase().endsWith(".pdf"))
-          .slice(0, 2);
-        if (pdfFiles.length === 0) {
-          setError("PDF 파일만 업로드할 수 있습니다.");
-          e.target.value = "";
-          return;
-        }
-        setLoading(true);
-        try {
-          const textParts: string[] = [];
-          for (let i = 0; i < pdfFiles.length; i++) {
-            const text = await extractTextFromPdf(pdfFiles[i]);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type === PDF_TYPE || file.name?.toLowerCase().endsWith(".pdf")) {
+          try {
+            const text = await extractTextFromPdf(file);
             if (text.trim()) {
-              textParts.push(`[PDF ${i + 1}] ${pdfFiles[i].name}\n\n${text.trim()}`);
+              setPdfs((prev) => {
+                const next = [...prev, { name: file.name, text: text.trim() }];
+                return next.slice(-2);
+              });
+            } else {
+              setError(`'${file.name}': 텍스트를 추출할 수 없습니다.`);
             }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : `PDF 처리 실패: ${file.name}`);
           }
-          const combinedText = textParts.join("\n\n---\n\n");
-          if (!combinedText.trim()) {
-            setError("PDF에서 텍스트를 추출할 수 없습니다.");
-            e.target.value = "";
-            return;
-          }
-          const model = getSelectedModel();
-          const data = await generateGlobalMarketDailyFromPdf(combinedText, {
-            model,
-            modelId: undefined,
-          });
-          const now = new Date();
-          const title =
-            `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
-            (now.getHours() < 12 ? "오전" : "오후") +
-            ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 글로벌 마켓 데일리`;
-          addSession({
-            id: `session-${Date.now()}-gmd`,
-            title,
-            createdAt: now.toISOString(),
-            isInternational: true,
-            sources: ["test2"],
-            articles: pdfFiles.map((f, i) => ({
-              id: `test2-${Date.now()}-${i}`,
-              title: f.name,
-              source: "글로벌 마켓 데일리",
-              sourceId: "test2",
-              publishedAt: now.toISOString(),
-              url: "",
-              summary: "",
-              aiModel: model,
-              category: "Economy" as const,
-              isInternational: true,
-            })),
-            marketSummary: data,
-            aiModel: model,
-          });
-          setSuccessMessage("모닝뉴스에 저장되었습니다.");
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "분석 실패");
-        } finally {
-          setLoading(false);
+        } else if (IMAGE_TYPES.includes(file.type)) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.includes(",") ? result.split(",")[1] : result;
+            if (base64) {
+              addImageIfNotDuplicate({ data: base64, mimeType: file.type, name: file.name });
+            }
+          };
+          reader.readAsDataURL(file);
         }
       }
       e.target.value = "";
     },
-    [tab, processImageFile, addImageIfNotDuplicate, addSession]
+    [addImageIfNotDuplicate]
   );
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
-      if (tab !== "kr") return;
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const item of items) {
@@ -157,93 +101,153 @@ export function TestPage2() {
           e.preventDefault();
           const file = item.getAsFile();
           if (file) {
-            processImageFile(file).then((result) => {
-              if (result && typeof result === "object") {
-                addImageIfNotDuplicate(result);
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              const base64 = result.includes(",") ? result.split(",")[1] : result;
+              if (base64) {
+                addImageIfNotDuplicate({ data: base64, mimeType: file.type, name: file.name });
               }
-            });
+            };
+            reader.readAsDataURL(file);
           }
           break;
         }
       }
     },
-    [tab, processImageFile, addImageIfNotDuplicate]
+    [addImageIfNotDuplicate]
   );
 
-  const handleAnalyzeKr = useCallback(async () => {
-    const hasImages = images.length > 0;
-    const hasText = inputValue.trim().length > 0;
-    if (!hasImages && !hasText) {
-      setError("이미지를 첨부하거나 텍스트를 입력하세요.");
-      return;
-    }
-    setError(null);
-    setSuccessMessage(null);
-    setLoading(true);
+  const handleAnalyze = useCallback(async () => {
+    if (tab === "kr") {
+      const hasImages = images.length > 0;
+      const hasText = inputValue.trim().length > 0;
+      if (!hasImages && !hasText) {
+        setError("이미지를 첨부하거나 텍스트를 입력하세요.");
+        return;
+      }
 
-    let finalText = inputValue.trim();
-    const urlMatches = finalText.match(/\bhttps?:\/\/[^\s]+/g);
-    if (urlMatches?.length) {
-      const contents: string[] = [];
-      for (const url of urlMatches) {
-        try {
-          const { title, textContent } = await fetchArticleContent(url.trim());
-          const part = [title ? `[제목] ${title}` : "", textContent ?? ""].filter(Boolean).join("\n\n");
-          if (part) contents.push(part);
-        } catch {
-          contents.push(`[URL] ${url}`);
+      setError(null);
+      setSuccessMessage(null);
+      setLoading(true);
+
+      let finalText = inputValue.trim();
+      const urlMatches = finalText.match(/\bhttps?:\/\/[^\s]+/g);
+      if (urlMatches?.length) {
+        const contents: string[] = [];
+        for (const url of urlMatches) {
+          try {
+            const { title, textContent } = await fetchArticleContent(url.trim());
+            const part = [title ? `[제목] ${title}` : "", textContent ?? ""].filter(Boolean).join("\n\n");
+            if (part) contents.push(part);
+          } catch {
+            contents.push(`[URL] ${url}`);
+          }
+        }
+        if (contents.length > 0) {
+          finalText = contents.join("\n\n---\n\n");
         }
       }
-      if (contents.length > 0) {
-        finalText = contents.join("\n\n---\n\n");
-      }
-    }
 
-    try {
-      const model = getSelectedModel();
-      const data = await generateMarketSummaryFromUploadedData(
-        { text: finalText || "", images: hasImages ? images : undefined },
-        { model, modelId: undefined }
-      );
-      const now = new Date();
-      const title =
-        `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
-        (now.getHours() < 12 ? "오전" : "오후") +
-        ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 한국 뉴스`;
-      addSession({
-        id: `session-${Date.now()}-kr`,
-        title,
-        createdAt: now.toISOString(),
-        isInternational: false,
-        sources: ["test2"],
-        articles: [
-          {
-            id: `test2-${Date.now()}`,
-            title: finalText ? "데이터 직접 입력" : "이미지 분석",
-            source: "한국 뉴스",
+      try {
+        const model = getSelectedModel();
+        const data = await generateMarketSummaryFromUploadedData(
+          { text: finalText || "", images: hasImages ? images : undefined },
+          { model, modelId: undefined }
+        );
+        const now = new Date();
+        const title =
+          `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
+          (now.getHours() < 12 ? "오전" : "오후") +
+          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 한국 뉴스`;
+        addSession({
+          id: `session-${Date.now()}-kr`,
+          title,
+          createdAt: now.toISOString(),
+          isInternational: false,
+          sources: ["test2"],
+          articles: [
+            {
+              id: `test2-${Date.now()}`,
+              title: finalText ? "데이터 직접 입력" : "이미지 분석",
+              source: "한국 뉴스",
+              sourceId: "test2",
+              publishedAt: now.toISOString(),
+              url: "",
+              summary: "",
+              aiModel: model,
+              category: "Economy",
+              isInternational: false,
+            },
+          ],
+          marketSummary: data,
+          aiModel: model,
+        });
+        setSuccessMessage("모닝뉴스에 저장되었습니다.");
+        setInputValue("");
+        setImages([]);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "분석 실패");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      if (pdfs.length === 0) {
+        setError("PDF 파일을 첨부하세요.");
+        return;
+      }
+
+      setError(null);
+      setSuccessMessage(null);
+      setLoading(true);
+
+      try {
+        const combinedText = pdfs
+          .map((p, i) => `[PDF ${i + 1}] ${p.name}\n\n${p.text}`)
+          .join("\n\n---\n\n");
+        const model = getSelectedModel();
+        const data = await generateGlobalMarketDailyFromPdf(combinedText, {
+          model,
+          modelId: undefined,
+        });
+        const now = new Date();
+        const title =
+          `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
+          (now.getHours() < 12 ? "오전" : "오후") +
+          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 글로벌 마켓 데일리`;
+        addSession({
+          id: `session-${Date.now()}-gmd`,
+          title,
+          createdAt: now.toISOString(),
+          isInternational: true,
+          sources: ["test2"],
+          articles: pdfs.map((p, i) => ({
+            id: `test2-${Date.now()}-${i}`,
+            title: p.name,
+            source: "글로벌 마켓 데일리",
             sourceId: "test2",
             publishedAt: now.toISOString(),
             url: "",
             summary: "",
             aiModel: model,
-            category: "Economy",
-            isInternational: false,
-          },
-        ],
-        marketSummary: data,
-        aiModel: model,
-      });
-      setSuccessMessage("모닝뉴스에 저장되었습니다.");
-      setInputValue("");
-      setImages([]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "분석 실패");
-    } finally {
-      setLoading(false);
+            category: "Economy" as const,
+            isInternational: true,
+          })),
+          marketSummary: data,
+          aiModel: model,
+        });
+        setSuccessMessage("모닝뉴스에 저장되었습니다.");
+        setPdfs([]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "분석 실패");
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [inputValue, images, addSession]);
+  }, [tab, inputValue, images, pdfs, addSession]);
 
-  const canSubmitKr = (inputValue.trim().length > 0 || images.length > 0) && !loading;
+  const canSubmit =
+    (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0)) || (tab === "us" && pdfs.length > 0);
 
   return (
     <div className="flex flex-col min-h-full">
@@ -273,101 +277,87 @@ export function TestPage2() {
           </button>
         </div>
 
-        {tab === "kr" ? (
-          <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
-                {images.map((img, i) => (
-                  <div key={i} className="relative">
-                    <img
-                      src={`data:${img.mimeType};base64,${img.data}`}
-                      alt=""
-                      className="w-16 h-16 object-cover rounded border border-white/10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(i)}
-                      className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500/90 text-white text-[10px] leading-none hover:bg-red-500"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="이미지 첨부(Ctrl+V) 또는 기사 링크·텍스트 입력"
-              rows={5}
-              className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
-            />
-            <div className="flex items-center justify-between px-4 py-2 border-t border-white/10 bg-white/[0.02]">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
-                title="이미지 첨부"
-              >
-                <Paperclip size={18} />
-              </button>
-              <span className="text-white/30 text-xs">이미지만 첨부 (한국 뉴스)</span>
+        <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
+          {(images.length > 0 || pdfs.length > 0) && (
+            <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
+              {images.map((img, i) => (
+                <div key={`img-${i}`} className="relative">
+                  <img
+                    src={`data:${img.mimeType};base64,${img.data}`}
+                    alt=""
+                    className="w-16 h-16 object-cover rounded border border-white/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500/90 text-white text-[10px] leading-none hover:bg-red-500"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {pdfs.map((p, i) => (
+                <div
+                  key={`pdf-${i}`}
+                  className="flex items-center gap-2 px-3 py-2 rounded border border-white/10 bg-white/5"
+                >
+                  <span className="text-white/80 text-xs truncate max-w-[120px]">{p.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removePdf(i)}
+                    className="text-red-400 hover:text-red-300 text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPT_IMAGE}
-              onChange={handleFileChange}
-              multiple
-              className="hidden"
-            />
-            <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#0a0a0f]/95 backdrop-blur-md border-t border-white/6 px-4 pt-3 pb-5 z-10">
-              <button
-                type="button"
-                onClick={handleAnalyzeKr}
-                disabled={!canSubmitKr}
-                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
-                  !canSubmitKr ? "bg-white/5 text-white/30 cursor-not-allowed" : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
-                }`}
-                style={{ fontSize: 15, fontWeight: 500 }}
-              >
-                {loading ? "분석 중…" : "분석 후 모닝뉴스에 저장"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div
-              onClick={() => !loading && fileInputRef.current?.click()}
-              className="rounded-[12px] border-2 border-dashed border-white/20 bg-white/5 py-12 px-4 text-center cursor-pointer hover:bg-white/[0.07] hover:border-white/30 transition-colors"
+          )}
+          <textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="이미지(Ctrl+V)·PDF 첨부, 기사 링크·텍스트 입력"
+            rows={5}
+            className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
+          />
+          <div className="flex items-center justify-between px-4 py-2 border-t border-white/10 bg-white/[0.02]">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
+              title="첨부"
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ACCEPT_PDF}
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              {loading ? (
-                <p className="text-white/70 text-sm">PDF 분석 중…</p>
-              ) : (
-                <>
-                  <p className="text-white/80 text-sm font-medium">PDF 파일 선택</p>
-                  <p className="text-white/40 text-xs mt-1">Global Market Daily·Insight, 최대 2개 (미국 시황)</p>
-                </>
-              )}
-            </div>
-          </>
-        )}
+              <Paperclip size={18} />
+            </button>
+            <span className="text-white/30 text-xs">이미지·PDF (한국: 이미지+텍스트, 미국: PDF 최대 2개)</span>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT_ALL}
+            onChange={handleFileChange}
+            multiple
+            className="hidden"
+          />
+        </div>
+
+        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#0a0a0f]/95 backdrop-blur-md border-t border-white/6 px-4 pt-3 pb-5 z-10">
+          <button
+            type="button"
+            onClick={handleAnalyze}
+            disabled={!canSubmit || loading}
+            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
+              !canSubmit || loading ? "bg-white/5 text-white/30 cursor-not-allowed" : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
+            }`}
+            style={{ fontSize: 15, fontWeight: 500 }}
+          >
+            {loading ? "분석 중…" : "분석 후 모닝뉴스에 저장"}
+          </button>
+        </div>
 
         {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
         {successMessage && <p className="text-[#618EFF] text-sm mt-4">{successMessage}</p>}
       </div>
-
-      {tab === "us" && (
-        <div className="h-0" aria-hidden />
-      )}
     </div>
   );
 }
