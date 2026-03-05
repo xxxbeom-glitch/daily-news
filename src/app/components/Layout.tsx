@@ -132,17 +132,7 @@ function HeaderContent() {
                   : "text-white/50 hover:text-white/70"
               }`}
             >
-              테스트2
-            </Link>
-            <Link
-              to="/test4"
-              className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/test4"
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
-                  : "text-white/50 hover:text-white/70"
-              }`}
-            >
-              테스트4
+              업로드
             </Link>
             <Link
               to="/settings"

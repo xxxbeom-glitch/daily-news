@@ -1,11 +1,41 @@
-import React, { useRef, useState } from "react";
-import { Maximize2, X } from "lucide-react";
+import React, { useRef, useState, useEffect } from "react";
+import { Maximize2 } from "lucide-react";
 import type {
   MarketSummaryData,
   IndexData,
   IssueItem,
 } from "../data/marketSummary";
 import type { Article } from "../data/newsSources";
+
+function FullscreenLayer({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-50 w-full h-full bg-[#0a0a0f] overflow-y-auto"
+      role="dialog"
+      aria-label="전체 펼쳐보기"
+    >
+      <div
+        className="h-14 shrink-0 cursor-pointer"
+        onClick={onClose}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onClose()}
+        aria-label="닫기"
+      />
+      <div ref={contentRef} className="min-h-full py-0 px-4 pb-6">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function formatDisplayDate(dateStr: string): string {
   const match = dateStr.match(/^(\d{4})[-.]\s*(\d{1,2})[-.]\s*(\d{1,2})\s*(?:\(?([일월화수목금토])[요일]*\)?)?/);
@@ -150,14 +180,16 @@ export function MarketSummaryView({
           </div>
         </div>
       ) : null;
+    const bulletStyle = { width: 2, height: 2, borderRadius: "50%", flexShrink: 0, alignSelf: "flex-start", marginTop: 8 } as const;
     const headlineContent = (
       <>
         {header}
-        <div className="px-5 py-0 pb-6">
+        <div className="px-5 pt-5 pb-6">
           {isGlobalMarket && (
             <>
               {renderTable("시장지표", data.indices ?? [])}
               {renderTable("주요 섹터ETF", data.sectorEtf ?? [])}
+              <div className="my-5 border-t border-dashed border-white/15" />
             </>
           )}
           <div className="mt-[22px] space-y-[26px]">
@@ -166,8 +198,9 @@ export function MarketSummaryView({
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
-                <div className="border-l-2 border-[#618EFF]/30 pl-3 mt-[8px]">
-                  <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line">
+                <div className="flex gap-2 mt-[8px]">
+                  <span style={bulletStyle} className="bg-white/50 block" />
+                  <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line flex-1">
                     {stripBullet(item.body ?? "")}
                   </div>
                 </div>
@@ -180,29 +213,12 @@ export function MarketSummaryView({
     return (
       <>
         {fullscreenOpen && (
-          <div
-            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-            onClick={() => setFullscreenOpen(false)}
-            role="dialog"
-            aria-label="전체 펼쳐보기"
-          >
-            <div
-              className="relative w-full max-w-[500px] max-h-[90vh] overflow-y-auto rounded-[12px] bg-[#0a0a0f] border border-white/10 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="absolute top-3 right-3 z-10 p-2 text-white/60 hover:text-white rounded-lg hover:bg-white/10"
-                onClick={() => setFullscreenOpen(false)}
-                title="닫기"
-              >
-                <X size={20} />
-              </button>
-              {headlineContent}
-            </div>
-          </div>
+          <FullscreenLayer
+            onClose={() => setFullscreenOpen(false)}
+            children={headlineContent}
+          />
         )}
-        <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
+        <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden my-6 mx-0">
           {headlineContent}
         </div>
       </>
@@ -214,27 +230,9 @@ export function MarketSummaryView({
 
   const FullscreenOverlay = ({ children }: { children: React.ReactNode }) =>
     fullscreenOpen ? (
-      <div
-        className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-        onClick={() => setFullscreenOpen(false)}
-        role="dialog"
-        aria-label="전체 펼쳐보기"
-      >
-        <div
-          className="relative w-full max-w-[500px] max-h-[90vh] overflow-y-auto rounded-[12px] bg-[#0a0a0f] border border-white/10 shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="absolute top-3 right-3 z-10 p-2 text-white/60 hover:text-white rounded-lg hover:bg-white/10"
-            onClick={() => setFullscreenOpen(false)}
-            title="닫기"
-          >
-            <X size={20} />
-          </button>
-          {children}
-        </div>
-      </div>
+      <FullscreenLayer onClose={() => setFullscreenOpen(false)}>
+        {children}
+      </FullscreenLayer>
     ) : null;
 
   if (isInternational) {

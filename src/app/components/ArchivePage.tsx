@@ -14,27 +14,30 @@ export function ArchivePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isInternational, setIsInternational] = useState(() => loadArchiveState()?.isInternational ?? true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 모바일: 나갔다 오면 화면 초기화 방지 - 저장된 상태 복원
   const hasRestoredRef = useRef(false);
   useEffect(() => {
     if (hasRestoredRef.current) return;
     hasRestoredRef.current = true;
     const saved = loadArchiveState();
-    if (!saved?.selectedSessionId) return;
-    setSelectedSessionId(saved.selectedSessionId);
+    if (saved) {
+      if (typeof saved.isInternational === "boolean") setIsInternational(saved.isInternational);
+      if (saved.selectedSessionId) setSelectedSessionId(saved.selectedSessionId);
+    }
   }, []);
 
-  // 상태 변경 시 sessionStorage에 저장
   useEffect(() => {
-    saveArchiveState({ isInternational: true, selectedSessionId });
-  }, [selectedSessionId]);
+    saveArchiveState({ isInternational, selectedSessionId });
+  }, [isInternational, selectedSessionId]);
 
   const filteredSessions = useMemo(
     () =>
-      [...sessions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [sessions]
+      [...sessions]
+        .filter((s) => s.isInternational === isInternational)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [sessions, isInternational]
   );
 
   const selectedSession = filteredSessions.find((s) => s.id === selectedSessionId)
@@ -82,6 +85,27 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setIsInternational(false)}
+          className={`flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
+            !isInternational ? "bg-[#618EFF] text-white" : "bg-white/10 text-white/60 hover:bg-white/15"
+          }`}
+        >
+          한국
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsInternational(true)}
+          className={`flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-colors ${
+            isInternational ? "bg-[#618EFF] text-white" : "bg-white/10 text-white/60 hover:bg-white/15"
+          }`}
+        >
+          미국
+        </button>
+      </div>
+
       {/* AI요약 아티클 드롭다운 */}
       <div className="mb-4">
         <div ref={dropdownRef} className="relative w-full">

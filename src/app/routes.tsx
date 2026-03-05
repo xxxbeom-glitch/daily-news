@@ -7,7 +7,6 @@ import { AdminPage } from "./components/AdminPage";
 import { LoginPage } from "./components/LoginPage";
 import { TestPage } from "./components/TestPage";
 import { TestPage2 } from "./components/TestPage2";
-import { TestPage4 } from "./components/TestPage4";
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +17,6 @@ export const router = createBrowserRouter([
       { path: "search", element: <SearchPageWrapper /> },
       { path: "test", element: <TestPage /> },
       { path: "test2", element: <TestPage2 /> },
-      { path: "test4", element: <TestPage4 /> },
       { path: "keyword", element: <Navigate to="/" replace /> },
       { path: "scrap", element: <Navigate to="/" replace /> },
       { path: "admin", element: <Navigate to="/settings/admin" replace /> },
