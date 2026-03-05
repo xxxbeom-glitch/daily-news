@@ -1,12 +1,13 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import type {
   MarketSummaryData,
   IndexData,
   IssueItem,
-  EarningsItem,
+  HeadlineArticle,
 } from "../data/marketSummary";
 import type { Article } from "../data/newsSources";
+import { runDataVerification } from "../utils/aiSummary";
 
 function formatDisplayDate(dateStr: string): string {
   const match = dateStr.match(/^(\d{4})[-.]\s*(\d{1,2})[-.]\s*(\d{1,2})\s*(?:\(?([일월화수목금토])[요일]*\)?)?/);
@@ -77,7 +78,7 @@ function UsedArticlesSection({ articles }: { articles?: Article[] }) {
 }
 
 export function MarketSummaryView({
-  data,
+  data: initialData,
   aiModel,
   articles,
 }: {
@@ -85,33 +86,34 @@ export function MarketSummaryView({
   aiModel: "gemini" | "gpt";
   articles?: Article[];
 }) {
+  const [data, setData] = useState<MarketSummaryData>(initialData);
   const isInternational = data.regionLabel.includes("해외") || data.regionLabel.includes("글로벌");
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [verifyState, setVerifyState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handler = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handler);
-    document.addEventListener("webkitfullscreenchange", handler);
-    return () => {
-      document.removeEventListener("fullscreenchange", handler);
-      document.removeEventListener("webkitfullscreenchange", handler);
-    };
-  }, []);
+  useEffect(() => { setData(initialData); setVerifyState("idle"); setVerifyMsg(null); }, [initialData]);
 
-  const handleToggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (isFullscreen) {
-      const exitFs = document.exitFullscreen ?? (document as { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen;
-      if (exitFs) exitFs.call(document);
-    } else {
-      const el = containerRef.current;
-      const reqFs = el.requestFullscreen ?? (el as { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen;
-      if (reqFs) reqFs.call(el);
+  const handleVerify = async () => {
+    setVerifyState("loading");
+    setVerifyMsg(null);
+    try {
+      const result = await runDataVerification(data);
+      setData(result.correctedData);
+      const pct = result.matchPercent;
+      setVerifyMsg(pct < 100
+        ? `⚠️ 실제 시장 데이터와 상충하는 ${result.correctedCount}개의 항목이 자동 교정되었습니다.`
+        : null);
+      setVerifyState("done");
+    } catch {
+      setVerifyState("error");
+      setVerifyMsg("검증 중 오류가 발생했습니다.");
     }
   };
+
+  const verifyBadge = data.verificationResult?.isVerified
+    ? `데이터 검증 완료 (실제 데이터 일치율: ${data.verificationResult.matchPercent}%)`
+    : null;
 
   const header = (
     <div className="flex items-center justify-between px-[17px] pt-[26px] pb-[26px] border-b border-dashed border-white/10">
@@ -129,12 +131,20 @@ export function MarketSummaryView({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={handleToggleFullscreen}
-          className="p-1.5 rounded-[6px] text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors"
-          title={isFullscreen ? "전체 화면 닫기" : "전체 화면"}
-          aria-label={isFullscreen ? "전체 화면 닫기" : "전체 화면"}
+          onClick={handleVerify}
+          disabled={verifyState === "loading"}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] border transition-colors text-sm font-medium ${
+            verifyState === "done"
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+              : verifyState === "loading"
+                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                : "border-white/10 bg-white/5 text-white/60 hover:text-white/80 hover:bg-white/10"
+          }`}
+          style={{ fontSize: 12 }}
+          title="데이터 검증"
         >
-          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          <ShieldCheck size={14} />
+          {verifyState === "loading" ? "검증 중..." : verifyState === "done" ? "검증 완료" : "데이터 검증"}
         </button>
       </div>
     </div>
@@ -145,15 +155,26 @@ export function MarketSummaryView({
 
   if (isInternational) {
     return (
-      <div ref={containerRef} className={`bg-white/5 border border-white/8 rounded-[10px] overflow-hidden ${isFullscreen ? "!bg-[#0a0a0f] overflow-y-auto min-h-full pt-[52px]" : ""}`}>
+      <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
         {header}
         <div className="px-5 py-0 pb-6">
+
+          {/* 검증 완료 배지 */}
+          {verifyBadge && (
+            <div className="mt-[18px] px-4 py-2.5 rounded-[8px] bg-emerald-500/10 border border-emerald-500/25">
+              <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-emerald-400">✅ {verifyBadge}</span>
+            </div>
+          )}
+
+          {/* 총평 */}
           <div className="mt-[22px] pt-[22px] pb-0 first:mt-0 first:pt-[22px] first:pb-0 border-t border-dashed border-white/10 first:border-t-0">
             <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">{totalAssessmentLabel}</span>
             <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[14px] min-h-[20px]">
               {data.totalAssessment ? data.totalAssessment : data.totalAssessmentError ? "Error" : ""}
             </div>
           </div>
+
+          {/* 대표 지수 */}
           <BlockTitle emoji="📊">대표 지수</BlockTitle>
           <div className="flex flex-col gap-y-[4px] mt-[14px]" style={lineStyle}>
             {data.indices.map((idx: IndexData, i: number) => (
@@ -176,57 +197,87 @@ export function MarketSummaryView({
             </div>
           )}
 
-          <BlockTitle emoji="📋">주요 이슈 정리</BlockTitle>
-          <div className="mt-[14px] space-y-3">
-            {data.keyIssues.slice(0, isInternational ? 10 : 12).map((item: IssueItem, i: number) => (
-              <div key={i}>
-                <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                  {item.title}
-                </div>
-                <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">
-                  {item.body}
-                </div>
+          {/* 주요 헤드라인 기사 (언론사별 독립 나열) */}
+          {data.headlineArticles && data.headlineArticles.length > 0 ? (
+            <>
+              <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
+              <div className="mt-[14px] space-y-4">
+                {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
+                  <div key={i} className="border-l-2 border-white/10 pl-3">
+                    <div style={{ fontSize: 12, fontWeight: 600, ...lineStyle }} className="text-[#618EFF]/80 mb-[4px]">
+                      {item.sourceName}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                      {item.title}
+                    </div>
+                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-[6px]">
+                      {item.summary}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
+              <div className="mt-[14px] space-y-3">
+                {data.keyIssues.slice(0, 10).map((item: IssueItem, i: number) => (
+                  <div key={i}>
+                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                      {item.title}
+                    </div>
+                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">
+                      {item.body}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           {data.keyIssuesSources.length > 0 && (
             <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
               출처: {data.keyIssuesSources.map((s) => s.outlet).join(", ")}
             </div>
           )}
 
-          <BlockTitle emoji="📈">{data.stockMoversLabel}</BlockTitle>
-          <div className="mt-[14px] space-y-[9px]">
-            {data.moversUp.map((m, i) => (
-              <div key={i}>
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{m.name}</span>
-                  <span style={{ fontSize: 14 }} className="text-white/40">({m.ticker})</span>
-                  <span style={{ fontSize: 14 }} className={m.isUp ? "text-emerald-400" : "text-red-400"}>{m.changeRate}</span>
-                </div>
-                <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{m.reason}</div>
+          {/* M7·반도체주 등락 */}
+          {(data.moversUp.length > 0 || data.moversDown.length > 0) && (
+            <>
+              <BlockTitle emoji="📈">{data.stockMoversLabel}</BlockTitle>
+              <div className="mt-[14px] space-y-[9px]">
+                {data.moversUp.map((m, i) => (
+                  <div key={i}>
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{m.name}</span>
+                      <span style={{ fontSize: 14 }} className="text-white/40">({m.ticker})</span>
+                      <span style={{ fontSize: 14 }} className={m.isUp ? "text-emerald-400" : "text-red-400"}>{m.changeRate}</span>
+                    </div>
+                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{m.reason}</div>
+                  </div>
+                ))}
+                {data.moversDown.map((m, i) => (
+                  <div key={i} className={i === 0 ? "mt-[18px]" : ""}>
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{m.name}</span>
+                      <span style={{ fontSize: 14 }} className="text-white/40">({m.ticker})</span>
+                      <span style={{ fontSize: 14 }} className={m.isUp ? "text-emerald-400" : "text-red-400"}>{m.changeRate}</span>
+                    </div>
+                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{m.reason}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-            {data.moversDown.map((m, i) => (
-              <div key={i} className={i === 0 ? "mt-[18px]" : ""}>
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{m.name}</span>
-                  <span style={{ fontSize: 14 }} className="text-white/40">({m.ticker})</span>
-                  <span style={{ fontSize: 14 }} className={m.isUp ? "text-emerald-400" : "text-red-400"}>{m.changeRate}</span>
+              {data.moversSources.length > 0 && (
+                <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
+                  출처: {data.moversSources.map((s) => s.outlet).join(", ")}
                 </div>
-                <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{m.reason}</div>
-              </div>
-            ))}
-          </div>
-          {data.moversSources.length > 0 && (
-            <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
-              출처: {data.moversSources.map((s) => s.outlet).join(", ")}
-            </div>
+              )}
+            </>
           )}
 
+          {/* 국제 정세 기사 */}
           {data.geopoliticalLabel && data.geopoliticalIssues && data.geopoliticalIssues.length > 0 && (
             <>
-              <BlockTitle emoji="🌍">{data.geopoliticalLabel}</BlockTitle>
+              <BlockTitle emoji="🌍">국제 정세 기사</BlockTitle>
               <div className="mt-[14px] space-y-[9px]">
                 {data.geopoliticalIssues.slice(0, 7).map((item: IssueItem, i: number) => (
                   <div key={i}>
@@ -243,16 +294,29 @@ export function MarketSummaryView({
             </>
           )}
 
+          {/* 검증 경고 메시지 */}
+          {verifyMsg && (
+            <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
+              <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-amber-400">{verifyMsg}</span>
+            </div>
+          )}
+
           <UsedArticlesSection articles={articles} />
         </div>
       </div>
     );
   }
 
+  // 국내 뉴스
   return (
-    <div ref={containerRef} className={`bg-white/5 border border-white/8 rounded-[10px] overflow-hidden ${isFullscreen ? "!bg-[#0a0a0f] overflow-y-auto min-h-full pt-[52px]" : ""}`}>
+    <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
       {header}
       <div className="px-5 py-0 pb-6">
+        {verifyBadge && (
+          <div className="mt-[18px] px-4 py-2.5 rounded-[8px] bg-emerald-500/10 border border-emerald-500/25">
+            <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-emerald-400">✅ {verifyBadge}</span>
+          </div>
+        )}
         <div className="mt-[22px] pt-[22px] pb-0 first:mt-0 first:pt-[22px] first:pb-0 border-t border-dashed border-white/10 first:border-t-0">
           <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">{totalAssessmentLabel}</span>
           <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[14px] min-h-[20px]">
@@ -281,9 +345,9 @@ export function MarketSummaryView({
           </div>
         )}
 
-        <BlockTitle emoji="📋">주요 이슈 정리</BlockTitle>
+        <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
         <div className="mt-[14px] space-y-3">
-          {data.keyIssues.slice(0, isInternational ? 10 : 12).map((item: IssueItem, i: number) => (
+          {data.keyIssues.slice(0, 12).map((item: IssueItem, i: number) => (
             <div key={i}>
               <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
                 {item.title}
@@ -300,63 +364,12 @@ export function MarketSummaryView({
           </div>
         )}
 
-        {data.geopoliticalLabel && data.geopoliticalIssues && data.geopoliticalIssues.length > 0 && (
-          <>
-            <BlockTitle emoji="🌍">{data.geopoliticalLabel}</BlockTitle>
-            <div className="mt-[14px] space-y-[9px]">
-              {data.geopoliticalIssues.slice(0, 7).map((item: IssueItem, i: number) => (
-                <div key={i}>
-                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{item.title}</div>
-                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/58 mt-[2px]">{item.body}</div>
-                </div>
-              ))}
-            </div>
-            {data.geopoliticalSources && data.geopoliticalSources.length > 0 && (
-              <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
-                출처: {data.geopoliticalSources.map((s) => s.outlet).join(", ")}
-              </div>
-            )}
-          </>
-        )}
+        {/* 실적발표 이슈 - hidden */}
 
-        {data.earningsPast && data.earningsPast.length > 0 && (
-          <>
-            <BlockTitle emoji="💰">실적발표 이슈</BlockTitle>
-            <div className="mt-[14px]">
-              <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white">간밤 실적 결과</div>
-              <div className="space-y-[9px] mt-[9px]">
-                {data.earningsPast.map((e: EarningsItem, i: number) => (
-                  <div key={i}>
-                    <div className="flex items-baseline gap-2 flex-wrap">
-                      <span style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/90">{e.company}</span>
-                      <span style={{ fontSize: 14 }} className="text-white/40">({e.ticker})</span>
-                      {e.changeRate && (
-                        <span style={{ fontSize: 14 }} className={e.changeRate.startsWith("+") ? "text-emerald-400" : "text-red-400"}>
-                          {e.changeRate}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/55 mt-[2px]">{e.result}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {data.earningsUpcoming && data.earningsUpcoming.length > 0 && (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 600, ...lineStyle }} className="text-white mt-[18px]">예정 발표 일정</div>
-                <div className="space-y-[4px] mt-[9px]" style={lineStyle}>
-                  {data.earningsUpcoming.map((s, i) => (
-                    <div key={i} style={{ fontSize: 14 }} className="text-white/55">{s}</div>
-                  ))}
-                </div>
-              </>
-            )}
-            {data.earningsSources && data.earningsSources.length > 0 && (
-              <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
-                출처: {data.earningsSources.map((s) => s.outlet).join(", ")}
-              </div>
-            )}
-          </>
+        {verifyMsg && (
+          <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
+            <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-amber-400">{verifyMsg}</span>
+          </div>
         )}
         <UsedArticlesSection articles={articles} />
       </div>

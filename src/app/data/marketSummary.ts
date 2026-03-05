@@ -32,6 +32,14 @@ export interface SourceRef {
   headline: string; // 기사 제목
 }
 
+/** 언론사별 독립 기사 (헤드라인 기사 섹션용) */
+export interface HeadlineArticle {
+  sourceName: string; // "한국경제"
+  title: string;      // 기사 원제목
+  summary: string;    // 3~4줄 핵심 요약 (개조식·명사형 종결)
+  url?: string;
+}
+
 // 국내 전용: 코스닥/코스피 각각 상승·하락 TOP3
 export interface MarketMoversBlock {
   up: StockMover[];
@@ -62,12 +70,20 @@ export interface MarketSummaryData {
   bigTechLabel: string;           // "빅테크 & AI 기업 이슈" | "국내 시가총액 100위 기업 이슈"
   bigTechIssues: IssueItem[];
   bigTechSources: SourceRef[];
-  geopoliticalLabel?: string;     // "국제 정세 이슈" (해외만)
+  geopoliticalLabel?: string;     // "국제 정세 기사" (해외만)
   geopoliticalIssues?: IssueItem[];
   geopoliticalSources?: SourceRef[];
   earningsPast?: EarningsItem[];
   earningsUpcoming?: string[];
   earningsSources?: SourceRef[];
+  /** 언론사별 독립 기사 목록 (헤드라인 기사 섹션) */
+  headlineArticles?: HeadlineArticle[];
+  /** 데이터 검증 결과 */
+  verificationResult?: {
+    matchPercent: number;       // 0~100
+    correctedCount: number;     // 교정된 항목 수
+    isVerified: boolean;
+  };
 }
 
 // Mock 시황 데이터 - 해외
