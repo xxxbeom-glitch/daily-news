@@ -296,29 +296,54 @@ function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_A
 }
 
 async function callGemini(prompt: string, modelId?: string): Promise<string> {
+  return callGeminiWithOptions(prompt, { modelId });
+}
+
+interface GeminiPart {
+  text?: string;
+  inlineData?: { mimeType: string; data: string };
+}
+
+async function callGeminiWithOptions(
+  prompt: string,
+  opts?: {
+    modelId?: string;
+    systemInstruction?: string;
+    parts?: GeminiPart[];
+  }
+): Promise<string> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
     throw new Error("Gemini API 키가 설정되지 않았습니다. .env에 VITE_GEMINI_API_KEY를 추가해주세요.");
   }
 
-  const models = modelId && GEMINI_MODELS.includes(modelId) ? [modelId] : GEMINI_MODELS;
+  const userParts: GeminiPart[] = opts?.parts ?? [{ text: prompt }];
+  if (!opts?.parts) {
+    userParts[0] = { text: prompt };
+  }
+
+  const models = opts?.modelId && GEMINI_MODELS.includes(opts.modelId) ? [opts.modelId] : GEMINI_MODELS;
   let lastError: Error | null = null;
   for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
+    const timeout = setTimeout(() => controller.abort(), 90000);
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const body: Record<string, unknown> = {
+        contents: [{ role: "user", parts: userParts }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json",
+        },
+      };
+      if (opts?.systemInstruction?.trim()) {
+        body.systemInstruction = { parts: [{ text: opts.systemInstruction }] };
+      }
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 8192,
-            responseMimeType: "application/json",
-          },
-        }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
       clearTimeout(timeout);
@@ -342,6 +367,95 @@ async function callGemini(prompt: string, modelId?: string): Promise<string> {
     }
   }
   throw lastError ?? new Error("Gemini API 호출 실패");
+}
+
+/** 테스트2(데이터 직접 입력)용 시스템 프롬프트: 외부 지식 차단, 수치 엄격성, 논리 검증 */
+const DATA_VERIFICATION_SYSTEM_PROMPT = `역할: 귀하는 금융 데이터 무결성 검증 전문가이자 전문 시황 분석가입니다.
+
+분석 원칙:
+1. 외부 지식 차단: 귀하가 기존에 학습한 지식이나 외부 실시간 검색 결과는 무시하십시오. 오직 사용자가 '테스트2' 탭을 통해 업로드한 파일, 이미지, 텍스트의 내용만을 근거로 삼으십시오.
+2. 수치 엄격성: 자료에 명시된 지수(Point)와 등락률(%)을 0.1의 오차 없이 그대로 추출하십시오. 자료에 수치가 없다면 임의로 계산하지 말고 '데이터 미비'로 표기하십시오.
+3. 논리 검증: 기사 내용 중 '상승'과 '하락'에 대한 서술이 수치와 일치하는지 대조 분석하십시오. 모순이 발견될 경우 수치를 우선시하여 리포트를 작성하십시오.
+4. 요약 및 저장: 분석이 완료되면 지정된 '오늘의 시황' 템플릿에 맞춰 내용을 정리하고, 최종본을 '오늘의 시황' 탭으로 전송할 수 있도록 JSON 형식으로 출력하십시오.`;
+
+/** 테스트2용 유저 프롬프트 템플릿 */
+const DATA_VERIFICATION_USER_PROMPT = `업로드된 파일 내의 개별 기사들을 분석하여 요약하십시오. 각 기사에서 언급된 지수, 주요 종목 등락, 핵심 이슈를 추출하여 기존 '오늘의 시황' 양식으로 작성하십시오. 분석이 끝나면 즉시 저장 가능한 상태로 출력하십시오.
+
+반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
+{
+  "date": "YYYY. MM. DD (요)",
+  "regionLabel": "해외 시황 요약" 또는 "한국 시장 뉴스",
+  "totalAssessment": "서술형·존댓말로 총평",
+  "indices": [{ "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }],
+  "indicesSources": [],
+  "stockMoversLabel": "M7 및 반도체주 등락율",
+  "moversUp": [],
+  "moversDown": [],
+  "moversSources": [],
+  "bigTechLabel": "빅테크 & AI 기업 이슈",
+  "bigTechIssues": [],
+  "geopoliticalLabel": "국제 정세 이슈",
+  "geopoliticalIssues": [],
+  "geopoliticalSources": []
+}
+자료에 없는 정보는 "—" 또는 빈 배열로 처리하세요. 반드시 유효한 JSON만 출력하세요.`;
+
+export interface UploadedDataInput {
+  text: string;
+  images?: { data: string; mimeType: string }[];
+}
+
+export interface GenerateFromUploadedOptions {
+  model?: "gemini" | "gpt";
+  modelId?: string;
+}
+
+/**
+ * 테스트2: 업로드된 텍스트/이미지를 금융 데이터 무결성 검증 프롬프트로 분석하여 MarketSummaryData 생성
+ */
+export async function generateMarketSummaryFromUploadedData(
+  input: UploadedDataInput,
+  opts?: GenerateFromUploadedOptions
+): Promise<MarketSummaryData> {
+  const { text, images } = input;
+  const hasContent = (text?.trim().length ?? 0) > 0 || (images?.length ?? 0) > 0;
+  if (!hasContent) {
+    throw new Error("분석할 텍스트 또는 이미지가 없습니다.");
+  }
+
+  const model = opts?.model ?? "gemini";
+  const modelId = opts?.modelId;
+  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+
+  if (!useGemini && (images?.length ?? 0) > 0) {
+    throw new Error("이미지 분석은 Gemini 모델만 지원합니다. 설정에서 Gemini를 선택해주세요.");
+  }
+
+  const fullUserPrompt = `${DATA_VERIFICATION_USER_PROMPT}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
+
+  let rawResponse: string;
+  if (useGemini) {
+    const parts: GeminiPart[] = [];
+    if (images?.length) {
+      for (const img of images) {
+        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+      }
+    }
+    parts.push({ text: fullUserPrompt });
+    rawResponse = await callGeminiWithOptions("", {
+      modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
+      systemInstruction: DATA_VERIFICATION_SYSTEM_PROMPT,
+      parts,
+    });
+  } else {
+    const prompt = `${DATA_VERIFICATION_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
+    rawResponse = await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+  }
+
+  const regionHint = text.includes("코스피") || text.includes("코스닥") || text.includes("KOSPI") || text.includes("KOSDAQ")
+    ? false
+    : true;
+  return parseAndNormalize(rawResponse, regionHint);
 }
 
 async function callClaude(prompt: string, modelId?: string): Promise<string> {
