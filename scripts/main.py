@@ -18,7 +18,7 @@ KST = timezone(timedelta(hours=9))
 FEEDS = [
     {"name": "CNBC Finance", "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html"},
     {"name": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/"},
-    {"name": "Seeking Alpha Market News", "url": "https://seekingalpha.com/market_news.xml"},
+    {"name": "Seeking Alpha Market News", "url": "https://seekingalpha.com/market_currents.xml"},
 ]
 
 # 시황 전용 키워드 (closing bell, market recap, market wrap)

@@ -19,7 +19,7 @@ KST = timezone(timedelta(hours=9))
 FEEDS = [
     {"name": "CNBC Finance", "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html"},
     {"name": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/"},
-    {"name": "Seeking Alpha Market News", "url": "https://seekingalpha.com/market_news.xml"},
+    {"name": "Seeking Alpha Market News", "url": "https://seekingalpha.com/market_currents.xml"},
 ]
 
 # 시황 관련 키워드 (제목에 하나라도 포함되면 채택)

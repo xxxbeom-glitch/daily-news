@@ -61,7 +61,7 @@ export const domesticSources: NewsSource[] = [
 export const internationalSources: NewsSource[] = [
   { id: "rss_cnbc_finance", name: "CNBC Finance", rssUrl: "https://www.cnbc.com/id/10000664/device/rss/rss.html" },
   { id: "rss_marketwatch_top", name: "MarketWatch Top Stories", rssUrl: "http://feeds.marketwatch.com/marketwatch/topstories/" },
-  { id: "rss_seeking_alpha", name: "Seeking Alpha Market News", rssUrl: "https://seekingalpha.com/market_news.xml" },
+  { id: "rss_seeking_alpha", name: "Seeking Alpha Market News", rssUrl: "https://seekingalpha.com/market_currents.xml" },
 ];
 
 // Mock articles (개발용)
