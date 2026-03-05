@@ -221,13 +221,13 @@ export function MarketSummaryView({
               <div className="my-5 border-t border-dashed border-white/15" />
             </>
           )}
-          <div className="mt-[22px] space-y-[26px] pr-1">
+          <div className="mt-[22px] space-y-[26px]">
             {dedupeKeyIssues(data.keyIssues).map((item, i) => (
-              <div key={i} className="rounded-[10px] border border-white/8 bg-white/5 overflow-hidden flex flex-col max-h-[min(75vh,560px)]">
-                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white p-4 pb-0 shrink-0">
+              <div key={i}>
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
-                <div className="mt-[8px] space-y-[10px] p-4 pt-2 flex-1 min-h-0 overflow-y-auto">
+                <div className="mt-[8px] space-y-[10px]">
                   {bodyParagraphs(item.body ?? "").map((para, j) => (
                     <div key={j} className="flex gap-2 items-start">
                       <span style={bulletStyle} className="bg-white/50 block shrink-0" />
