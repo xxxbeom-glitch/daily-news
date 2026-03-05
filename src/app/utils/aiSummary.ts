@@ -493,6 +493,66 @@ ${description.slice(0, 8000)}
   return content;
 }
 
+/** 선택 영상들 제목·설명을 종합하여 미국 시황 요약 (오늘의 시황 추가용) */
+function buildPromptFromVideos(videos: { title: string; description: string }[]): string {
+  const items = videos
+    .map((v, i) => `### 영상 ${i + 1}\n제목: ${v.title}\n\n설명:\n${(v.description || "").slice(0, 4000)}`)
+    .join("\n\n");
+  return `## 유튜브 시황 영상들
+${items}
+
+## 요청
+위 유튜브 영상들의 제목과 설명을 종합하여 오늘의 미국 시황 요약을 작성해주세요.
+- 문체: 개조식, 명사형 종결(-음, -기, -함, -됨). 문두 불릿·기호 금지.
+- 형식은 아래 JSON 구조를 따르되, 영상 내용에 맞게 자유롭게 작성. 영상에 없는 정보는 "—" 또는 빈 배열로.
+- 반드시 유효한 JSON만 출력.
+
+### JSON 형식
+{
+  "date": "YYYY. MM. DD (요)",
+  "regionLabel": "해외 시황 요약",
+  "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",
+  "indices": [{ "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }],
+  "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
+  "keyIssues": [{ "title": "1줄 제목", "body": "항목 (명사형 종결)" }],
+  "keyIssuesSources": [],
+  "stockMoversLabel": "M7 및 반도체주 등락율",
+  "moversUp": [],
+  "moversDown": [],
+  "moversSources": [],
+  "geopoliticalLabel": "국제 정세 이슈",
+  "geopoliticalIssues": [],
+  "geopoliticalSources": [],
+  "earningsPast": [],
+  "earningsUpcoming": [],
+  "earningsSources": []
+}
+반드시 유효한 JSON만 출력하세요.`;
+}
+
+/**
+ * 선택된 유튜브 영상들을 종합하여 미국 시황 요약 생성 (오늘의 시황 추가용)
+ */
+export async function generateMarketSummaryFromVideos(
+  videos: { title: string; description: string }[],
+  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+): Promise<MarketSummaryData> {
+  if (videos.length === 0) throw new Error("선택된 영상이 없습니다.");
+  const model = opts?.model ?? "gemini";
+  const modelId = opts?.modelId;
+  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+
+  const prompt = buildPromptFromVideos(videos);
+  const rawResponse = useGemini
+    ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
+    : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+
+  const data = parseAndNormalize(rawResponse, true);
+  if (!useGemini) data.totalAssessmentError = true;
+  else if (!data.totalAssessment?.trim()) data.totalAssessmentError = true;
+  return data;
+}
+
 /**
  * 유튜브 영상 제목·설명을 이용한 시황 요약 생성
  */
