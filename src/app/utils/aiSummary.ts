@@ -13,7 +13,7 @@ export interface RawRssArticle {
   body?: string;
 }
 
-const GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+const GEMINI_MODELS = ["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
 const OPENAI_MODEL = "gpt-4o-mini";
 
 function buildArticleContext(articles: RawRssArticle[], maxItems = 25): string {
