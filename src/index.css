@@ -70,6 +70,15 @@ html, body {
   font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* 캐러셀 스크롤바 숨김 */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* 헤더 지수 티커: 우→좌 스크롤 */
 @keyframes ticker {
   0% { transform: translateX(0); }

@@ -5,6 +5,7 @@ import {
   fetchDashboardData,
   fetchChartData,
   CAROUSEL_GROUPS,
+  CAROUSEL_TITLES,
   type DashboardItem,
   type ChartDataPoint,
 } from "../utils/fetchMarketData";
@@ -173,7 +174,6 @@ export function MarketDashboardPage() {
   };
 
   const itemMap = new Map(items.map((i) => [i.symbol, i]));
-  const cardWidth = "calc(50vw - 42px)";
 
   if (loading && items.length === 0) {
     return (
@@ -193,26 +193,32 @@ export function MarketDashboardPage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-16">
-      <div className="space-y-4">
+      <div className="flex flex-col" style={{ gap: 26 }}>
         {CAROUSEL_GROUPS.map((symbols, gIdx) => {
           const groupItems = symbols
             .map((s) => itemMap.get(s))
             .filter((i): i is DashboardItem => i != null);
           if (groupItems.length === 0) return null;
+          const title = CAROUSEL_TITLES[gIdx] ?? "";
           return (
-            <div
-              key={gIdx}
-              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scroll-smooth"
-              style={{ scrollSnapType: "x proximity" }}
-            >
-              {groupItems.map((item) => (
-                <div
-                  key={item.symbol}
-                  style={{ scrollSnapAlign: "start", minWidth: cardWidth, maxWidth: cardWidth }}
-                >
-                  <DashboardCard item={item} />
-                </div>
-              ))}
+            <div key={gIdx} className="flex flex-col min-w-0">
+              <div style={{ fontSize: 12 }} className="text-white/50 mb-2">
+                {title}
+              </div>
+              <div
+                className="flex items-start gap-3 overflow-x-auto scrollbar-hide scroll-smooth -mx-4 px-4"
+                style={{ scrollSnapType: "x proximity" }}
+              >
+                {groupItems.map((item) => (
+                  <div
+                    key={item.symbol}
+                    className="flex-shrink-0 flex"
+                    style={{ scrollSnapAlign: "start", width: "calc(50vw - 42px)", minWidth: "calc(50vw - 42px)" }}
+                  >
+                    <DashboardCard item={item} />
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })}

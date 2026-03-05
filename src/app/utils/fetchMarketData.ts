@@ -693,6 +693,16 @@ export const CAROUSEL_GROUPS: string[][] = [
   ["005930.KS"],
 ];
 
+/** 캐러셀 섹션 타이틀 */
+export const CAROUSEL_TITLES: string[] = [
+  "미국 3대지수",
+  "원자재",
+  "한국 대표지수",
+  "환율",
+  "미국종목",
+  "한국종목",
+];
+
 export interface DashboardItem {
   symbol: string;
   name: string;

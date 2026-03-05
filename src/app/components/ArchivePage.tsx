@@ -85,13 +85,13 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-stretch gap-2 mb-4">
         {/* AI요약 아티클 드롭다운 */}
-        <div ref={dropdownRef} className="relative flex-1 min-w-0">
+        <div ref={dropdownRef} className="relative flex-1 min-w-0 flex">
           <button
-          type="button"
-          onClick={() => setDropdownOpen((o) => !o)}
-            className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-[10px] border border-white/10 bg-white/5 text-left"
+            type="button"
+            onClick={() => setDropdownOpen((o) => !o)}
+            className="w-full flex items-center justify-between gap-2 px-4 h-10 rounded-[10px] border border-white/10 bg-white/5 text-left"
             style={{ fontSize: 12 }}
           >
             <span className="text-white/90 truncate">
@@ -158,24 +158,24 @@ export function ArchivePage() {
         </div>
 
         {/* 국가 탭 (한 줄 합쳐서 반씩 active/inactive) */}
-        <div className="flex shrink-0 rounded-[10px] border border-white/10 overflow-hidden">
+        <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 overflow-hidden">
           <button
             type="button"
             onClick={() => setIsInternational(false)}
-            className={`flex-1 min-w-[52px] py-3 font-medium transition-colors ${
+            className={`flex-1 min-w-[52px] h-full flex items-center justify-center font-medium transition-colors ${
               !isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
             }`}
-            style={{ fontSize: 13 }}
+            style={{ fontSize: 12 }}
           >
             한국
           </button>
           <button
             type="button"
             onClick={() => setIsInternational(true)}
-            className={`flex-1 min-w-[52px] py-3 font-medium transition-colors border-l border-white/10 ${
+            className={`flex-1 min-w-[52px] h-full flex items-center justify-center font-medium transition-colors border-l border-white/10 ${
               isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
             }`}
-            style={{ fontSize: 13 }}
+            style={{ fontSize: 12 }}
           >
             미국
           </button>
