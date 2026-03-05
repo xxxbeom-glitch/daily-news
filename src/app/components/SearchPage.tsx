@@ -249,7 +249,7 @@ export function SearchPage() {
         try {
           data = await verifyAndCorrectMarketSummary(data, {
             model: "gemini",
-            modelId: "gemini-2.5-pro",
+            modelId: "gemini-3.1-pro-preview",
           });
         } catch {
           /* 2차 검증 실패 시 원본 유지 */
