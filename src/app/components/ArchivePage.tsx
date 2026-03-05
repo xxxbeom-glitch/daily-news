@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, BookmarkX, RefreshCw } from "lucide-react";
+import { ChevronDown, BookmarkX } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
@@ -13,7 +13,6 @@ export function ArchivePage() {
   const { sessions, deleteSession } = useArchive();
   const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
   const { hideMarket } = useAdminSettings();
-  const [syncing, setSyncing] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -76,16 +75,6 @@ export function ArchivePage() {
     if (!isFirebaseEnabled) return;
     refreshSessionsFromCloud();
   }, [isFirebaseEnabled, refreshSessionsFromCloud]);
-
-  const handleSync = async () => {
-    if (syncing || !isFirebaseEnabled) return;
-    setSyncing(true);
-    try {
-      await refreshSessionsFromCloud();
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleDeleteClick = (e: React.MouseEvent, session: ArchiveSession) => {
     e.stopPropagation();
@@ -176,18 +165,6 @@ export function ArchivePage() {
         )}
         </div>
 
-        {/* 클라우드 동기화 */}
-        {isFirebaseEnabled && (
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            className="shrink-0 p-2 rounded-[10px] border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 transition-colors"
-            title="클라우드에서 새로고침"
-          >
-            <RefreshCw size={18} className={syncing ? "animate-spin" : ""} />
-          </button>
-        )}
         {/* 국가 탭 - 드롭다운과 동일 스타일, active: text-white, inactive: opacity-40 */}
         <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
           <button
@@ -225,7 +202,7 @@ export function ArchivePage() {
           || Array.isArray(selectedSession.marketSummary?.currencies) && (selectedSession.marketSummary.currencies?.length ?? 0) > 0
           || Array.isArray(selectedSession.marketSummary?.commodities) && (selectedSession.marketSummary.commodities?.length ?? 0) > 0
           || (selectedSession.marketSummary?.keyIssues?.length ?? 0) > 0) ? (
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <MarketSummaryView
             key={selectedSession.id}
             data={selectedSession.marketSummary}

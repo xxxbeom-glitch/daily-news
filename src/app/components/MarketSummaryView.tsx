@@ -153,6 +153,22 @@ export function MarketSummaryView({
     </div>
   );
 
+  /** keyIssues: 동일 제목 중복 제거 (제목별로 body 병합) */
+  const dedupeKeyIssues = (items: IssueItem[]): IssueItem[] => {
+    const byTitle = new Map<string, string[]>();
+    for (const item of items) {
+      const t = (item.title ?? "").trim() || "(제목 없음)";
+      if (!byTitle.has(t)) byTitle.set(t, []);
+      const body = (item.body ?? "").trim();
+      if (body) byTitle.get(t)!.push(body);
+    }
+    return Array.from(byTitle.entries()).map(([title, bodies]) => ({
+      title,
+      body: bodies.join("\n\n"),
+      changeRate: undefined,
+    }));
+  };
+
   if (isHeadlineMode) {
     const stripBullet = (text: string) =>
       (text ?? "")
@@ -205,13 +221,13 @@ export function MarketSummaryView({
               <div className="my-5 border-t border-dashed border-white/15" />
             </>
           )}
-          <div className="mt-[22px] space-y-[26px]">
-            {data.keyIssues.map((item, i) => (
-              <div key={i}>
-                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
+          <div className="mt-[22px] space-y-[26px] pr-1">
+            {dedupeKeyIssues(data.keyIssues).map((item, i) => (
+              <div key={i} className="rounded-[10px] border border-white/8 bg-white/5 overflow-hidden flex flex-col max-h-[min(40vh,320px)]">
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white p-4 pb-0 shrink-0">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
-                <div className="mt-[8px] space-y-[10px]">
+                <div className="mt-[8px] space-y-[10px] p-4 pt-2 flex-1 min-h-0 overflow-y-auto">
                   {bodyParagraphs(item.body ?? "").map((para, j) => (
                     <div key={j} className="flex gap-2 items-start">
                       <span style={bulletStyle} className="bg-white/50 block shrink-0" />
@@ -235,8 +251,10 @@ export function MarketSummaryView({
             children={headlineContent}
           />
         )}
-        <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden my-6 mx-0">
-          {headlineContent}
+        <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden my-0 mx-0">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            {headlineContent}
+          </div>
         </div>
       </>
     );

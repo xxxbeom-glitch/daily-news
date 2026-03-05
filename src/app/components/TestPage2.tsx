@@ -183,7 +183,7 @@ export function TestPage2() {
           marketSummary: data,
           aiModel: model,
         });
-        setSuccessMessage("모닝뉴스에 저장되었습니다.");
+        setSuccessMessage("리포트에 저장되었습니다.");
         setInputValue("");
         setImages([]);
       } catch (e) {
@@ -236,7 +236,7 @@ export function TestPage2() {
           marketSummary: data,
           aiModel: model,
         });
-        setSuccessMessage("모닝뉴스에 저장되었습니다.");
+        setSuccessMessage("리포트에 저장되었습니다.");
         setPdfs([]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "분석 실패");
