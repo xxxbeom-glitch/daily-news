@@ -5,8 +5,10 @@
  */
 
 import type { DashboardItem } from "../utils/fetchMarketData";
+import type { ChartDataPoint } from "../utils/fetchMarketData";
 
 const CACHE_KEY = "market_dashboard_cache";
+const CACHE_CHART_PREFIX = "market_chart_";
 
 function getKstDate(): { y: number; m: number; d: number; hour: number } {
   const formatter = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
@@ -69,4 +71,31 @@ export function saveDashboardCache(data: DashboardItem[]): void {
 /** 9시/16시 기준으로 갱신이 필요한지 */
 export function shouldRefreshDashboard(): boolean {
   return loadDashboardCache() === null;
+}
+
+/** 차트 데이터 캐시 유효 여부 */
+function isChartCacheValid(fetchedAt: number): boolean {
+  return fetchedAt >= getSlotStartMs();
+}
+
+export function loadChartCache(symbol: string): ChartDataPoint[] | null {
+  try {
+    const raw = localStorage.getItem(CACHE_CHART_PREFIX + symbol);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: ChartDataPoint[]; fetchedAt: number };
+    if (!Array.isArray(parsed?.data) || typeof parsed?.fetchedAt !== "number") return null;
+    if (!isChartCacheValid(parsed.fetchedAt)) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+export function saveChartCache(symbol: string, data: ChartDataPoint[]): void {
+  try {
+    const payload = { data, fetchedAt: Date.now() };
+    localStorage.setItem(CACHE_CHART_PREFIX + symbol, JSON.stringify(payload));
+  } catch {
+    /* ignore */
+  }
 }

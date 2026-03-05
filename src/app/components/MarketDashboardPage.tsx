@@ -7,7 +7,7 @@ import {
   type DashboardItem,
   type ChartDataPoint,
 } from "../utils/fetchMarketData";
-import { loadDashboardCache, saveDashboardCache, shouldRefreshDashboard } from "../utils/marketDashboardCache";
+import { loadDashboardCache, saveDashboardCache, shouldRefreshDashboard, loadChartCache, saveChartCache } from "../utils/marketDashboardCache";
 
 function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -21,7 +21,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
     }
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: 110,
+      height: 80,
       layout: {
         background: { color: "transparent" },
         textColor: "#94a3b8",
@@ -31,7 +31,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
         vertLines: { visible: false },
         horzLines: { color: "rgba(255,255,255,0.06)" },
       },
-      rightPriceScale: { borderVisible: false },
+      rightPriceScale: { visible: false, borderVisible: false },
       timeScale: { visible: false, borderVisible: false },
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -60,16 +60,24 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
     };
   }, [data]);
 
-  return <div ref={containerRef} className="w-full" style={{ height: 110 }} />;
+  return <div ref={containerRef} className="w-full" style={{ height: 80 }} />;
 }
 
 function DashboardCard({ item }: { item: DashboardItem }) {
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>(() => loadChartCache(item.symbol) ?? []);
 
   useEffect(() => {
+    const cached = loadChartCache(item.symbol);
+    if (cached?.length) {
+      setChartData(cached);
+      return;
+    }
     let cancelled = false;
     fetchChartData(item.symbol).then((data) => {
-      if (!cancelled) setChartData(data);
+      if (!cancelled) {
+        setChartData(data);
+        if (data.length > 0) saveChartCache(item.symbol, data);
+      }
     });
     return () => {
       cancelled = true;
@@ -92,11 +100,11 @@ function DashboardCard({ item }: { item: DashboardItem }) {
           {item.change}
         </span>
       </div>
-      <div className="min-h-[110px]">
+      <div className="min-h-[80px] mt-[26px]">
         {chartData.length > 0 ? (
           <CandlestickChart data={chartData} />
         ) : (
-          <div className="h-[110px] flex items-center justify-center text-white/30 text-xs">로딩 중…</div>
+          <div className="h-[80px] flex items-center justify-center text-white/30 text-xs">로딩 중…</div>
         )}
       </div>
     </div>
