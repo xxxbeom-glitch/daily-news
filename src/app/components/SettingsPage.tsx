@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
-import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
+import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
 import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
@@ -184,12 +184,8 @@ async function checkConnectionStatus(
 export function SettingsPage() {
   const { sessions, clearAllSessions } = useArchive();
   const [aiEngineExpanded, setAiEngineExpanded] = useState(false);
-  const [memoryExpanded, setMemoryExpanded] = useState(false);
-  const [interestMemoryDomestic, setInterestMemoryDomesticState] = useState(() => getInterestMemoryDomestic());
-  const [interestMemoryInternational, setInterestMemoryInternationalState] = useState(() => getInterestMemoryInternational());
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [apiExpanded, setApiExpanded] = useState(false);
-  const [archiveExpanded, setArchiveExpanded] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
@@ -463,21 +459,6 @@ export function SettingsPage() {
       </section>
 
       {/* 기억할 관심사 - 숨김 */}
-      {false && (
-      <section className="mb-4">
-        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setMemoryExpanded((v) => !v)}
-            className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
-            style={{ fontSize: 14, fontWeight: 600 }}
-          >
-            기억할 관심사
-            <ChevronDown size={16} className={`text-white/60 transition-transform shrink-0 ${memoryExpanded ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-      </section>
-      )}
 
       {/* 언론사 연결상태 - 숨김 */}
       {false && (
