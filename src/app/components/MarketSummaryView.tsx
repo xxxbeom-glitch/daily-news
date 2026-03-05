@@ -197,29 +197,48 @@ export function MarketSummaryView({
             </div>
           )}
 
-          {/* 실시간 주요 언론사별 기사 */}
-          <BlockTitle emoji="📋">실시간 주요 언론사별 기사</BlockTitle>
+          {/* 실시간 주요 언론사별 기사 (RSS 원문 직결) */}
+          <BlockTitle emoji="📰">실시간 주요 언론사별 기사</BlockTitle>
           {data.headlineArticles && data.headlineArticles.length > 0 ? (
-            <div className="mt-[14px] space-y-4">
+            <div className="mt-[14px] space-y-[18px]">
               {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
-                <div key={i} className="border-l-2 border-white/10 pl-3">
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }} className="text-[#618EFF]/80 mb-[4px] uppercase">
-                    {item.sourceName}
+                <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
+                  <div className="flex items-center gap-2 mb-[5px]">
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em" }} className="text-[#618EFF]/90">
+                      {item.sourceName}
+                    </span>
+                    <span style={{ fontSize: 10 }} className="text-white/20">RSS</span>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                    {item.title}
-                  </div>
-                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-[6px]">
-                    {item.summary}
-                  </div>
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 14, fontWeight: 500, ...lineStyle }}
+                      className="text-white/95 hover:text-white hover:underline transition-colors block"
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                      {item.title}
+                    </div>
+                  )}
+                  {item.summary && item.summary !== "(본문 미수집)" && (
+                    <div style={{ fontSize: 13, ...lineStyle }} className="text-white/50 mt-[6px]">
+                      {item.summary}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           ) : data.noHeadlineArticlesMessage ? (
             <div className="mt-[14px] px-4 py-3 rounded-[8px] bg-white/5 border border-white/8">
-              <span style={{ fontSize: 14, ...lineStyle }} className="text-white/40">
-                {data.noHeadlineArticlesMessage}
-              </span>
+              {data.noHeadlineArticlesMessage.split("\n").map((line, i) => (
+                <div key={i} style={{ fontSize: i === 0 ? 14 : 12, ...lineStyle }} className={i === 0 ? "text-white/50" : "text-white/30 mt-1"}>
+                  {line}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="mt-[14px] space-y-3">
@@ -295,7 +314,7 @@ export function MarketSummaryView({
             </>
           )}
 
-          {/* 검증 경고 + 교정 전후 상세 */}
+          {/* 검증 결과 + 교정 전후 상세 */}
           {verifyState === "done" && data.verificationResult && (
             <>
               {verifyMsg && (
@@ -305,17 +324,14 @@ export function MarketSummaryView({
               )}
               {data.verificationResult.corrections && data.verificationResult.corrections.length > 0 && (
                 <div className="mt-3 space-y-2">
+                  <div style={{ fontSize: 12, fontWeight: 600 }} className="text-white/40 mb-1">⚠️ 수치 불일치 항목 발견</div>
                   {data.verificationResult.corrections.map((c, i) => (
                     <div key={i} className="px-3 py-2 rounded-[6px] bg-white/3 border border-white/6">
                       <div style={{ fontSize: 11, fontWeight: 600 }} className="text-white/40 mb-[4px]">{c.field}</div>
                       {c.original && (
-                        <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-red-400/80">
-                          수정 전: {c.original}
-                        </div>
+                        <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-red-400/80">수정 전: {c.original}</div>
                       )}
-                      <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-emerald-400/80">
-                        기준값: {c.corrected}
-                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-emerald-400/80">기준값: {c.corrected}</div>
                     </div>
                   ))}
                 </div>
@@ -327,8 +343,7 @@ export function MarketSummaryView({
               <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-red-400">{verifyMsg}</span>
             </div>
           )}
-
-          <UsedArticlesSection articles={articles} />
+          {/* 해외 뷰: 헤드라인 섹션이 RSS 기사를 이미 표시하므로 "사용된 기사" 섹션 제거 */}
         </div>
       </div>
     );
