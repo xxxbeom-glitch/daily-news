@@ -84,8 +84,8 @@ export function ArchivePage() {
   };
 
   return (
-    <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <div className="flex items-stretch gap-2 mb-4">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden px-4 pt-5 pb-6">
+      <div className="flex items-stretch gap-2 mb-4 shrink-0">
         {/* AI요약 아티클 드롭다운 */}
         <div ref={dropdownRef} className="relative flex-1 min-w-0 flex">
           <button
@@ -182,9 +182,9 @@ export function ArchivePage() {
         </div>
       </div>
 
-      {/* 시황 요약 단일 뷰 */}
+      {/* 시황 요약 단일 뷰 - 현재 화면 높이 내에서만 스크롤 */}
       {hideMarket && selectedSession ? (
-        <div className="flex-1 flex items-center justify-center py-12">
+        <div className="flex-1 min-h-0 flex items-center justify-center py-12 overflow-hidden">
           <p style={{ fontSize: 14 }} className="text-white/50 text-center">
             모닝뉴스가 숨김 처리되어 있습니다.
           </p>
@@ -194,7 +194,7 @@ export function ArchivePage() {
           || Array.isArray(selectedSession.marketSummary?.currencies) && (selectedSession.marketSummary.currencies?.length ?? 0) > 0
           || Array.isArray(selectedSession.marketSummary?.commodities) && (selectedSession.marketSummary.commodities?.length ?? 0) > 0
           || (selectedSession.marketSummary?.keyIssues?.length ?? 0) > 0) ? (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <MarketSummaryView
             key={selectedSession.id}
             data={selectedSession.marketSummary}
@@ -214,14 +214,14 @@ export function ArchivePage() {
           />
         </div>
       ) : selectedSession ? (
-        <div className="flex-1 flex items-center justify-center py-12">
+        <div className="flex-1 min-h-0 flex items-center justify-center py-12 overflow-hidden">
           <p style={{ fontSize: 14 }} className="text-white/50 text-center">
             이전 형식으로 저장된 아카이브입니다.<br />
             시황 요약을 확인할 수 없습니다.
           </p>
         </div>
       ) : filteredSessions.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center py-12">
+        <div className="flex-1 min-h-0 flex items-center justify-center py-12 overflow-hidden">
           <p style={{ fontSize: 14 }} className="text-white/40 text-center">
             저장된 리포트가 없습니다.
           </p>

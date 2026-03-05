@@ -30,16 +30,6 @@ function HeaderContent() {
       </div>
       <nav className="flex items-end gap-6 mx-4 mb-3 pb-1 border-b border-white/10">
             <Link
-              to="/"
-              className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/" || location.pathname === ""
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
-                  : "text-white/50 hover:text-white/70"
-              }`}
-            >
-              모닝뉴스
-            </Link>
-            <Link
               to="/market"
               className={`pb-2 text-sm transition-colors ${
                 location.pathname === "/market"
@@ -48,6 +38,16 @@ function HeaderContent() {
               }`}
             >
               오늘의 시장
+            </Link>
+            <Link
+              to="/"
+              className={`pb-2 text-sm transition-colors ${
+                location.pathname === "/" || location.pathname === ""
+                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  : "text-white/50 hover:text-white/70"
+              }`}
+            >
+              리포트
             </Link>
             <Link
               to="/test2"

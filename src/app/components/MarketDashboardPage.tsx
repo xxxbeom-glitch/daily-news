@@ -208,7 +208,7 @@ export function MarketDashboardPage() {
                 {title}
               </div>
               <div
-                className={`flex items-start gap-3 overflow-x-auto scrollbar-hide scroll-smooth -mx-4 ${groupItems.length >= 3 ? "pl-0 pr-4" : "px-4"}`}
+                className="flex items-start gap-3 overflow-x-auto scrollbar-hide scroll-smooth"
                 style={{ scrollSnapType: "x proximity" }}
               >
                 {groupItems.map((item) => (
