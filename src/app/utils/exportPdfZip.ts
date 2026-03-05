@@ -5,7 +5,7 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import JSZip from "jszip";
 import type { ArchiveSession } from "../data/newsSources";
-import type { IndexData, IssueItem, StockMover, EarningsItem } from "../data/marketSummary";
+import type { IndexData, StockMover, EarningsItem } from "../data/marketSummary";
 
 const PDF_WIDTH = 595;
 const PDF_HEIGHT = 842;
@@ -46,13 +46,15 @@ function sessionToPrintableHtml(session: ArchiveSession): string {
     )
     .join("");
 
-  const issuesHtml = (data.keyIssues ?? [])
-    .slice(0, isIntl ? 10 : 12)
+  const issuesHtml = (data.headlineArticles ?? [])
+    .filter((a) => a.verificationStatus !== "numerical_error")
+    .slice(0, isIntl ? 20 : 20)
     .map(
-      (item: IssueItem) =>
+      (item: { sourceName: string; title: string; summary?: string }) =>
         `<div style="margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:600;color:#618EFF;">${escapeHtml(item.sourceName)}</div>
           <div style="font-size:14px;font-weight:500;${lineStyle};">${escapeHtml(item.title)}</div>
-          <div style="font-size:14px;color:#444;${lineStyle};margin-top:4px;">${escapeHtml(item.body)}</div>
+          <div style="font-size:13px;color:#444;${lineStyle};margin-top:4px;">${escapeHtml(item.summary ?? "")}</div>
         </div>`
     )
     .join("");

@@ -157,7 +157,7 @@ export async function runMarketSummaryPipeline(
             sourceId: sourceList[0]?.id ?? "unknown",
             publishedAt: now.toISOString(),
             url: "https://example.com",
-            summary: data.keyIssues[0]?.body ?? "",
+            summary: data.headlineArticles?.[0]?.summary ?? data.totalAssessment ?? "",
             aiModel: actualModel,
             category: "Economy",
             isInternational,

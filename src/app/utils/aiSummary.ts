@@ -65,12 +65,12 @@ function buildPrompt(
   });
   const watchlistSection =
     relevantWatchlist.length > 0
-      ? `\n## 관심종목\n뉴스에 아래 기업 관련 내용이 있으면 keyIssues에 자연스럽게 녹여 포함. (별도 섹션 만들지 말 것)\n${relevantWatchlist.map((w) => `${w.name}(${w.symbol})`).join(", ")}\n`
+      ? `\n## 관심종목\n뉴스에 아래 기업 관련 내용이 있으면 totalAssessment에 간략히 언급.\n${relevantWatchlist.map((w) => `${w.name}(${w.symbol})`).join(", ")}\n`
       : "";
 
   const memorySection =
     interestMemory && interestMemory.trim().length > 0
-      ? `\n## 사용자 관심사\n아래 키워드/섹터/기업 관련 뉴스가 있으면 keyIssues에 우선 포함.\n${interestMemory.trim()}\n`
+      ? `\n## 사용자 관심사\n${interestMemory.trim()}\n`
       : "";
 
   const moversSection = isInternational && moversSeed && (moversSeed.up.length > 0 || moversSeed.down.length > 0)
@@ -83,7 +83,6 @@ function buildPrompt(
 
   const analysisStyle = "기사들을 종합하여 시장 추세를 분석하세요. 기사 원문에 있는 내용만 활용하고, 없는 사건을 지어내지 마세요.";
 
-  // 헤드라인 기사 컨텍스트 (AI가 keyIssues 작성 시 참고용 - AI가 제목을 만들어서는 안 됨)
   const headlineContext = headlineRssArticles.length > 0
     ? `\n## 참고: 수집된 실시간 기사 목록 (제목/출처 변경 금지)\n${headlineRssArticles.slice(0, 15).map((a, i) => `[${i}] [${a.sourceName}] ${a.title}${a.body ? `\n   본문요약: ${a.body.slice(0, 200)}` : ""}`).join("\n")}\n`
     : "";
@@ -103,29 +102,23 @@ ${articleList}
 - 기사에 없는 사건·발언·법안을 임의로 추가하지 마세요.
 
 ### 필수 규칙
-- 문체: 개조식·명사형 종결만. 줄글·불릿기호(■,-,•) 문두 금지. totalAssessment만 서술형·존댓말 허용.
+- 문체: totalAssessment만 서술형·존댓말 허용. 기사 원문에 없는 내용 지어내지 마세요.
 - 모든 문자열: 한글로. 기업 표기: "기업명(티커)"
-- keyIssues: title 1줄, body 3줄 이상 구체적 서술.
-${isInternational ? "- keyIssues 비율: 미국 중심 뉴스 약 80%." : "- keyIssues: 반드시 정확히 12개. 부족하면 '기타 시장 이슈'로 채울 것."}
-${isInternational ? "- geopoliticalIssues: 5~8개. body 2줄 이상." : ""}
 ${includeTotalAssessment ? `- totalAssessment: [필수] 아나운서 브리핑 방식 서술형·존댓말. 수집된 기사 기반으로만 작성. 기사에 없는 내용 금지.` : ""}
 
-### JSON 형식 (이 형식으로만 응답)
+### JSON 형식 (이 형식으로만 응답, keyIssues·geopoliticalIssues 제외)
 ${isInternational ? `{
   "date": "YYYY-MM-DD 요요일",
   "regionLabel": "해외 시황 요약",${includeTotalAssessment ? `
-  "totalAssessment": "서술형·존댓말로 총평 (수집된 기사 기반으로만)",` : ""}
+  "totalAssessment": "서술형·존댓말로 총평 (수집된 기사 기반)",` : ""}
   "indices": [{ "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }],
-  "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
-  "keyIssues": [{ "title": "1줄 제목", "body": "항목1\n항목2\n항목3" }],
-  "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
+  "indicesSources": [],
   "stockMoversLabel": "M7 및 반도체주 등락율",
   "moversUp": [{ "name": "기업명", "ticker": "TICKER", "changeRate": "+1.5%", "isUp": true, "reason": "reason" }],
   "moversDown": [{ "name": "기업명", "ticker": "TICKER", "changeRate": "-1.2%", "isUp": false, "reason": "reason" }],
   "moversSources": [],
   "geopoliticalLabel": "국제 정세 기사",
-  "geopoliticalIssues": [{ "title": "1줄", "body": "항목" }],
-  "geopoliticalSources": [],
+  "geopoliticalIssues": [],
   "earningsPast": [],
   "earningsUpcoming": [],
   "earningsSources": []
@@ -139,15 +132,12 @@ ${isInternational ? `{
     { "name": "코스피 200", "value": "수치", "change": "+0.3%", "changeAbs": "▲2.10", "isUp": true }
   ],
   "indicesSources": [],
-  "keyIssues": [{ "title": "1줄 제목", "body": "항목1\n항목2\n항목3" }],
-  "keyIssuesSources": [],
   "stockMoversLabel": "",
   "moversUp": [],
   "moversDown": [],
   "moversSources": [],
   "bigTechLabel": "",
-  "bigTechIssues": [],
-  "bigTechSources": []
+  "bigTechIssues": []
 }`}
 
 국내 indices: 코스피·코스닥·코스피200 필수 포함. 실적발표(earnings) 제외.
@@ -256,8 +246,8 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
     ...(totalAssessment ? { totalAssessment } : {}),
     indices: ensureIndexData((parsed.indices as IndexData[]) ?? []),
     indicesSources: ensureSourceRefs((parsed.indicesSources as SourceRef[]) ?? []),
-    keyIssues: ensureIssueItems((parsed.keyIssues as IssueItem[]) ?? []),
-    keyIssuesSources: ensureSourceRefs((parsed.keyIssuesSources as SourceRef[]) ?? []),
+    keyIssues: [],
+    keyIssuesSources: [],
     stockMoversLabel: (parsed.stockMoversLabel as string) ?? (isInternational ? "S&P500" : ""),
     moversUp: ensureStockMovers((parsed.moversUp as StockMover[]) ?? []),
     moversDown: ensureStockMovers((parsed.moversDown as StockMover[]) ?? []),
@@ -456,7 +446,7 @@ export interface GenerateSummaryOptions {
  *   1단계: RSS 기사 키워드 필터 → headlineArticles (AI 개입 0%)
  *   2단계: yfinance 데이터 (moversSeed/indices)
  *   3단계: 데이터 없으면 생성 중단
- *   4단계: AI는 totalAssessment + keyIssues + movers reason만 생성
+ *   4단계: AI는 totalAssessment + movers reason만 생성 (keyIssues 폐기)
  */
 export async function generateMarketSummary(options: GenerateSummaryOptions): Promise<MarketSummaryData> {
   const { articles, isInternational, model, modelId, watchlist, interestMemory, moversSeed } = options;
@@ -521,6 +511,7 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
       title: a.title,
       summary: a.body ? a.body.slice(0, 350).trim() : "(본문 미수집)",
       url: a.link,
+      verificationStatus: "unverified" as const,
     }));
   }
 
@@ -530,11 +521,6 @@ export async function generateMarketSummary(options: GenerateSummaryOptions): Pr
     data.totalAssessmentError = true;
   }
   if (moversSeed) mergeMoversWithSeed(data, moversSeed);
-  if (!isInternational) {
-    while (data.keyIssues.length < 12) {
-      data.keyIssues.push({ title: "기타 시장 이슈", body: "추가 뉴스 부족으로 별도 이슈 없음." });
-    }
-  }
   return data;
 }
 
@@ -562,13 +548,12 @@ ${moversDownStr || "(없음)"}
 
 ## 현재 시황 요약 (검증 대상)
 아래 요약 내용 중 위 실데이터와 **충돌하는 숫자**(지수값, 등락률, %, 기업별 changeRate 등)가 있으면 반드시 수정하세요.
-- totalAssessment, keyIssues, geopoliticalIssues, movers reason, earnings result 등 텍스트에 언급된 숫자를 검증용 기준에 맞게 고치세요.
+- totalAssessment, geopoliticalIssues, movers reason 등 텍스트에 언급된 숫자를 검증용 기준에 맞게 고치세요. (keyIssues 폐기·검증 제외)
 - 수정이 필요 없으면 원문을 그대로 유지하세요.
 - indices, moversUp, moversDown는 검증용 기준 데이터를 **그대로** 사용하세요. (AI가 바꾸지 말 것)
 
 ### 현재 요약
 - totalAssessment: ${(data.totalAssessment ?? "").slice(0, 600)}
-- keyIssues: ${JSON.stringify(data.keyIssues.slice(0, 10).map((k) => ({ title: k.title, body: (k.body ?? "").slice(0, 200) })))}
 - geopoliticalIssues: ${JSON.stringify((data.geopoliticalIssues ?? []).slice(0, 8).map((g) => ({ title: g.title, body: (g.body ?? "").slice(0, 150) })))}
 - moversUp: ${JSON.stringify(data.moversUp.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate, reason: (m.reason ?? "").slice(0, 150) })))}
 - moversDown: ${JSON.stringify(data.moversDown.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate, reason: (m.reason ?? "").slice(0, 150) })))}
@@ -592,14 +577,14 @@ ${moversDownStr || "(없음)"}
 4. 반드시 유효한 JSON만 출력하세요.
 
 ### 출력 JSON 형식 (indices, moversUp, moversDown는 검증용 기준과 동일하게)
-{ "date": "...", "regionLabel": "...", "totalAssessment": "...", "indices": [...], "keyIssues": [...], "moversUp": [...], "moversDown": [...], "geopoliticalIssues": [...] }
+{ "date": "...", "regionLabel": "...", "totalAssessment": "...", "indices": [...], "moversUp": [...], "moversDown": [...], "geopoliticalIssues": [...] }
 반드시 유효한 JSON만 출력하세요.`;
 }
 
 /**
  * AI 2차 검증: 실데이터(지수·등락율)와 요약을 비교해 숫자 오류를 수정
  * - indices·movers는 이미 Yahoo 등 실데이터로 채워져 있음 (그대로 유지)
- * - totalAssessment, keyIssues, geopoliticalIssues, movers reason 등 텍스트 내 오류 수정
+ * - totalAssessment, geopoliticalIssues, movers reason 등 텍스트 내 오류 수정 (keyIssues 폐기)
  */
 export async function verifyAndCorrectMarketSummary(
   data: MarketSummaryData,
@@ -626,6 +611,8 @@ export async function verifyAndCorrectMarketSummary(
     corrected.moversDown = data.moversDown;
     corrected.indicesSources = data.indicesSources;
     corrected.moversSources = data.moversSources;
+    corrected.keyIssues = [];
+    if (data.headlineArticles?.length) corrected.headlineArticles = data.headlineArticles;
     if (data.earningsPast?.length) corrected.earningsPast = data.earningsPast;
     if (data.earningsUpcoming?.length) corrected.earningsUpcoming = data.earningsUpcoming;
     return corrected;
@@ -640,231 +627,131 @@ export interface DataVerificationResult {
   correctedData: MarketSummaryData;
 }
 
-interface CheckItem {
-  field: string;
-  passed: boolean;
-  original: string;
-  expected: string;
-  /** 감점 가중치: 등락방향 오류=50, 수치 불일치=20, 언론사명 누락=10 */
-  deduction: number;
-}
-
-/** TypeScript 직접 비교: 상승 종목에 하락 표현 / 하락 종목에 상승 표현 검출 */
-function checkMoverDirections(data: MarketSummaryData): CheckItem[] {
-  const checks: CheckItem[] = [];
-  const DOWN_TERMS = /하락|약세|조정|급락|하회|후퇴|위축|매도세/;
-  const UP_TERMS = /상승|강세|반등|급등|상회|호조/;
-  for (const m of data.moversUp) {
-    if (!m.reason?.trim()) continue;
-    const hasWrong = DOWN_TERMS.test(m.reason);
-    checks.push({
-      field: `상승종목 ${m.name}(${m.ticker}) reason`,
-      passed: !hasWrong,
-      original: hasWrong ? m.reason.slice(0, 120) : "",
-      expected: `${m.name}은 상승(${m.changeRate}) → 상승·반등·강세 표현 필요`,
-      deduction: hasWrong ? 50 : 0,
-    });
-  }
-  for (const m of data.moversDown) {
-    if (!m.reason?.trim()) continue;
-    const hasWrong = UP_TERMS.test(m.reason);
-    checks.push({
-      field: `하락종목 ${m.name}(${m.ticker}) reason`,
-      passed: !hasWrong,
-      original: hasWrong ? m.reason.slice(0, 120) : "",
-      expected: `${m.name}은 하락(${m.changeRate}) → 하락·약세·조정 표현 필요`,
-      deduction: hasWrong ? 50 : 0,
-    });
-  }
-  return checks;
+/** 기사 단위 수치 검증 결과 */
+interface ArticleAuditResult {
+  articleIndex: number;
+  status: "verified" | "numerical_error";
+  errors: string[];
 }
 
 /**
- * 순수 TypeScript 산술 검증: regex로 텍스트에서 숫자 추출 → 실데이터와 직접 비교
- * 0.05% 이상 차이 → Fail (-20 감점)
- * 방향 기호 불일치(+인데 '하락' 표현) → Fail (-50 감점)
+ * 순수 TypeScript 산술 검증: headlineArticles(RSS)만 검증. keyIssues·totalAssessment는 점수 산출에서 제외.
+ * 0.05% 이상 차이 → numerical_error
  */
-function auditNumericMentions(data: MarketSummaryData): CheckItem[] {
-  if (!data.indices?.length) return [];
+function auditHeadlineArticles(data: MarketSummaryData): ArticleAuditResult[] {
+  if (!data.indices?.length || !data.headlineArticles?.length) return [];
 
-  const reportText = [
-    data.totalAssessment ?? "",
-    ...data.keyIssues.map((k) => `${k.title} ${k.body ?? ""}`),
-    ...data.moversUp.map((m) => m.reason ?? ""),
-    ...data.moversDown.map((m) => m.reason ?? ""),
-  ].join(" ");
+  const results: ArticleAuditResult[] = [];
 
-  const checks: CheckItem[] = [];
+  for (let i = 0; i < data.headlineArticles.length; i++) {
+    const art = data.headlineArticles[i];
+    const text = `${art.title} ${art.summary ?? ""}`;
+    const errors: string[] = [];
 
-  for (const idx of data.indices) {
-    // 실제 등락률 파싱 (예: "+1.52%" → 1.52, "-0.38%" → -0.38)
-    const changeStr = idx.change ?? "0%";
-    const changeSign = idx.isUp ? 1 : -1;
-    const actualChangePct = parseFloat(changeStr.replace(/[^0-9.]/g, "")) * changeSign;
+    for (const idx of data.indices) {
+      const changeStr = idx.change ?? "0%";
+      const changeSign = idx.isUp ? 1 : -1;
+      const actualChangePct = parseFloat(changeStr.replace(/[^0-9.]/g, "")) * changeSign;
+      const escapedName = idx.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    // 1. 방향 검사: 지수명 주변 텍스트에 상승/하락 키워드 검색
-    const escapedName = idx.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const contextRegex = new RegExp(`${escapedName}[^.。\\n]{0,60}`, "gi");
-    let contextMatch: RegExpExecArray | null;
-    while ((contextMatch = contextRegex.exec(reportText)) !== null) {
-      const ctx = contextMatch[0];
-      const mentionsUp = /상승|반등|강세|호조|올랐|오름|증가/.test(ctx);
-      const mentionsDown = /하락|약세|조정|후퇴|떨어|내렸|감소/.test(ctx);
-      if (mentionsUp && !idx.isUp) {
-        checks.push({
-          field: `${idx.name} 방향 기호`,
-          passed: false,
-          original: `리포트에서 "${idx.name}" 상승으로 서술됨`,
-          expected: `실데이터: ${idx.name} 하락 (${idx.change})`,
-          deduction: 50,
-        });
-        break;
+      const contextRegex = new RegExp(`${escapedName}[^.。\\n]{0,60}`, "gi");
+      let contextMatch: RegExpExecArray | null;
+      while ((contextMatch = contextRegex.exec(text)) !== null) {
+        const ctx = contextMatch[0];
+        const mentionsUp = /상승|반등|강세|호조|올랐|오름|증가/.test(ctx);
+        const mentionsDown = /하락|약세|조정|후퇴|떨어|내렸|감소/.test(ctx);
+        if (mentionsUp && !idx.isUp) {
+          errors.push(`${idx.name}: 리포트 상승 서술 ↔ 실데이터 하락 (${idx.change})`);
+          break;
+        }
+        if (mentionsDown && idx.isUp) {
+          errors.push(`${idx.name}: 리포트 하락 서술 ↔ 실데이터 상승 (${idx.change})`);
+          break;
+        }
       }
-      if (mentionsDown && idx.isUp) {
-        checks.push({
-          field: `${idx.name} 방향 기호`,
-          passed: false,
-          original: `리포트에서 "${idx.name}" 하락으로 서술됨`,
-          expected: `실데이터: ${idx.name} 상승 (${idx.change})`,
-          deduction: 50,
-        });
+
+      const numericRegex = new RegExp(
+        `${escapedName}[^.。\\n]{0,80}?([+-]?\\d+\\.\\d+)\\s*%|([+-]?\\d+\\.\\d+)\\s*%[^.。\\n]{0,80}?${escapedName}`,
+        "gi"
+      );
+      let numMatch: RegExpExecArray | null;
+      while ((numMatch = numericRegex.exec(text)) !== null) {
+        const rawVal = numMatch[1] ?? numMatch[2] ?? "";
+        if (!rawVal) continue;
+        const mentionedPct = parseFloat(rawVal);
+        const absDiff = Math.abs(mentionedPct - Math.abs(actualChangePct));
+        if (absDiff >= 0.05) {
+          errors.push(`${idx.name}: 리포트 ${mentionedPct > 0 ? "+" : ""}${mentionedPct}% ↔ 실데이터 ${idx.change} (오차 ${absDiff.toFixed(2)}%p)`);
+        }
         break;
       }
     }
 
-    // 2. 수치 검사: 지수명 근처 퍼센트 숫자 추출 → 절대차 0.05% 이상 → Fail
-    const numericRegex = new RegExp(
-      `${escapedName}[^.。\\n]{0,80}?([+-]?\\d+\\.\\d+)\\s*%|([+-]?\\d+\\.\\d+)\\s*%[^.。\\n]{0,80}?${escapedName}`,
-      "gi"
-    );
-    let numMatch: RegExpExecArray | null;
-    while ((numMatch = numericRegex.exec(reportText)) !== null) {
-      const rawVal = numMatch[1] ?? numMatch[2] ?? "";
-      if (!rawVal) continue;
-      const mentionedPct = parseFloat(rawVal);
-      const absDiff = Math.abs(mentionedPct - Math.abs(actualChangePct));
-      const passed = absDiff < 0.05;
-      checks.push({
-        field: `${idx.name} 수치 (${rawVal}%)`,
-        passed,
-        original: passed ? "" : `리포트: ${mentionedPct > 0 ? "+" : ""}${mentionedPct}%`,
-        expected: `실데이터: ${idx.change} (허용오차: ±0.05%)`,
-        deduction: passed ? 0 : 20,
-      });
-      break; // 첫 번째 언급만 검사
-    }
+    results.push({
+      articleIndex: i,
+      status: errors.length > 0 ? "numerical_error" : "verified",
+      errors,
+    });
   }
 
-  return checks;
+  return results;
 }
 
-/** 점수 계산: (정확_항목 / 전체_항목) * 100, 가중 감점 적용 */
-function calculateScore(checks: CheckItem[]): number {
-  if (checks.length === 0) return 100;
-  const passed = checks.filter((c) => c.passed).length;
-  const baseScore = (passed / checks.length) * 100;
-  const totalDeduction = checks.filter((c) => !c.passed).reduce((s, c) => s + c.deduction, 0);
-  const deductionRatio = Math.min(50, totalDeduction / checks.length);
-  return Math.max(0, Math.min(100, Math.round(baseScore - deductionRatio)));
+/** RSS 기사 기준 신뢰도: (수치 언급 기사 중 검증 통과 / 전체 수치 언급 기사) * 100 */
+function calculateArticleMatchPercent(articleResults: ArticleAuditResult[]): number {
+  const withNumericMention = articleResults.length;
+  if (withNumericMention === 0) return 100;
+  const verified = articleResults.filter((r) => r.status === "verified").length;
+  return Math.round((verified / withNumericMention) * 100);
 }
 
 /**
- * [데이터 검증] 2단계 정밀 검증
- * - Step 0 (TypeScript): 상승/하락 종목 방향 프로그래매틱 검사
- * - Step 1 (GPT-4o Auditor): 텍스트에서 수치 추출 → TypeScript가 실데이터와 직접 비교
- * - Step 2 (Claude Fixer): 불일치 목록 받아 해당 문장 재작성
+ * [데이터 검증] RSS 기사만 검증. keyIssues 등 AI 가상 데이터는 점수 산출에서 제외.
+ * - headlineArticles 각 기사 수치 검증 → verified | numerical_error 분류
+ * - 수치 오류 기사는 별도 섹션으로 분리 표시
  */
 export async function runDataVerification(data: MarketSummaryData): Promise<DataVerificationResult> {
-  const indicesRef = data.indices.map((i) => `${i.name}: ${i.value} (${i.change}, isUp=${i.isUp})`).join("\n");
-
-  // ── Step 0: TypeScript 직접 방향 검사 ──
-  const moverChecks = checkMoverDirections(data);
-
-  // ── Step 1: 순수 TypeScript 산술 검증 (GPT 없음) ──
-  const numericChecks = auditNumericMentions(data);
-
-  const allChecks = [...moverChecks, ...numericChecks];
-  const failedChecks = allChecks.filter((c) => !c.passed);
-  const matchPercent = calculateScore(allChecks);
-  const corrections = failedChecks.map((c) => ({
-    field: c.field,
-    original: c.original,
-    corrected: c.expected,
-  }));
-
   const finalData: MarketSummaryData = { ...data };
   finalData.indices = data.indices;
   finalData.indicesSources = data.indicesSources;
   finalData.moversSources = data.moversSources;
 
-  // ── Step 2: Claude 3.5 Sonnet - 오류 목록 기반 재작성 ──
-  if (failedChecks.length > 0) {
-    const claudePrompt = `## 역할
-금융 시황 교정 AI. 아래 '오류 목록'에 있는 항목만 수정하라. 나머지는 원문 그대로 유지.
+  // ── RSS 기사만 검증 (keyIssues 미포함) ──
+  const articleResults = auditHeadlineArticles(data);
+  const matchPercent = calculateArticleMatchPercent(articleResults);
+  const numericalErrorIndices = articleResults
+    .filter((r) => r.status === "numerical_error")
+    .map((r) => r.articleIndex);
+  const articleErrorDetails = articleResults
+    .filter((r) => r.errors.length > 0)
+    .map((r) => ({ index: r.articleIndex, errors: r.errors }));
 
-## 실데이터 (절대 기준)
-${indicesRef}
+  const corrections = articleErrorDetails.flatMap((d) =>
+    d.errors.map((e) => ({
+      field: `기사[${d.index}] ${(data.headlineArticles ?? [])[d.index]?.title?.slice(0, 30) ?? ""}...`,
+      original: e,
+      corrected: "실데이터와 일치하지 않음",
+    }))
+  );
 
-## 발견된 오류 목록 (GPT-4o Auditor + TypeScript 직접 비교 결과)
-${failedChecks.map((c, i) => `${i + 1}. [${c.field}]\n   현재: ${c.original}\n   필요: ${c.expected}`).join("\n")}
-
-## 교정 규칙
-- 수치 > 0 (상승) → '상승·반등·강세·호조'만 사용
-- 수치 < 0 (하락) → '하락·약세·조정·후퇴'만 사용
-- 오류 항목만 최소 수정. 다른 부분 건드리지 마라.
-- 문체 유지: 개조식·명사형 종결. totalAssessment만 서술형·존댓말 허용.
-
-## 교정 대상 원문
-- totalAssessment: ${(data.totalAssessment ?? "").slice(0, 600)}
-- keyIssues: ${JSON.stringify(data.keyIssues.slice(0, 10).map((k) => ({ title: k.title, body: (k.body ?? "").slice(0, 250) })))}
-- headlineArticles summaries: ${JSON.stringify((data.headlineArticles ?? []).slice(0, 12).map((h) => ({ idx: (data.headlineArticles ?? []).indexOf(h), summary: (h.summary ?? "").slice(0, 250) })))}
-- moversUp: ${JSON.stringify(data.moversUp.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate, isUp: true, reason: (m.reason ?? "").slice(0, 200) })))}
-- moversDown: ${JSON.stringify(data.moversDown.map((m) => ({ name: m.name, ticker: m.ticker, changeRate: m.changeRate, isUp: false, reason: (m.reason ?? "").slice(0, 200) })))}
-
-## 출력 JSON (반드시 유효한 JSON만)
-{
-  "correctedTotalAssessment": "교정본 또는 원문 그대로",
-  "correctedKeyIssues": [{ "title": "...", "body": "..." }],
-  "correctedHeadlineArticleSummaries": { "0": "교정된 요약", "1": "교정된 요약" },
-  "correctedMoversUp": [{ "name": "...", "ticker": "...", "changeRate": "...", "isUp": true, "reason": "교정본" }],
-  "correctedMoversDown": [{ "name": "...", "ticker": "...", "changeRate": "...", "isUp": false, "reason": "교정본" }]
-}`;
-    try {
-      const raw2 = await callClaude(claudePrompt, "claude-3-5-sonnet-20241022");
-      const jMatch = (raw2.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [])[1]?.trim() ?? raw2;
-      const m2 = jMatch.match(/\{[\s\S]*\}/);
-      if (m2) {
-        const j2 = JSON.parse(m2[0]) as {
-          correctedTotalAssessment?: string;
-          correctedKeyIssues?: { title: string; body: string }[];
-          correctedHeadlineArticleSummaries?: Record<string, string>;
-          correctedMoversUp?: { name: string; ticker: string; changeRate: string; isUp: boolean; reason: string }[];
-          correctedMoversDown?: { name: string; ticker: string; changeRate: string; isUp: boolean; reason: string }[];
-        };
-        if (j2.correctedTotalAssessment) finalData.totalAssessment = j2.correctedTotalAssessment;
-        if (j2.correctedKeyIssues?.length) finalData.keyIssues = j2.correctedKeyIssues;
-        if (j2.correctedHeadlineArticleSummaries && finalData.headlineArticles) {
-          finalData.headlineArticles = finalData.headlineArticles.map((h, idx) => ({
-            ...h,
-            summary: j2.correctedHeadlineArticleSummaries?.[String(idx)] ?? h.summary,
-          }));
-        }
-        if (j2.correctedMoversUp?.length) finalData.moversUp = j2.correctedMoversUp;
-        if (j2.correctedMoversDown?.length) finalData.moversDown = j2.correctedMoversDown;
-      }
-    } catch {
-      // Claude 실패 시 원본 유지
-    }
+  if (finalData.headlineArticles) {
+    finalData.headlineArticles = finalData.headlineArticles.map((h, i) => ({
+      ...h,
+      verificationStatus: numericalErrorIndices.includes(i) ? "numerical_error" : "verified",
+      verificationErrors: articleResults[i]?.errors,
+    }));
   }
 
   finalData.verificationResult = {
     matchPercent,
-    correctedCount: failedChecks.length,
+    correctedCount: numericalErrorIndices.length,
     isVerified: true,
     corrections,
+    numericalErrorArticleIndices: numericalErrorIndices,
+    articleErrorDetails,
   };
 
-  return { matchPercent, correctedCount: failedChecks.length, correctedData: finalData };
+  return { matchPercent, correctedCount: numericalErrorIndices.length, correctedData: finalData };
 }
 
 /** 유튜브 영상 제목·설명 기반 시황 요약용 프롬프트 */
@@ -884,8 +771,7 @@ ${description.slice(0, 8000)}
   · 명사형 종결: 문장 끝은 명사 또는 명사형 어미(-음, -기, -함, -됨)로만 맺음.
   · 금지어: ~다, ~습니다, ~요 등 서술형·경어체 사용 금지. (totalAssessment는 예외)
 - 간결성: 수식어·감정 표현 배제, 사실·핵심 데이터 위주 압축.
-- keyIssues: title 1줄, body 개조식·명사형 종결. body는 3줄 이상.
-- totalAssessment: 아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.
+- totalAssessment: 아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평. (keyIssues 폐기)
 
 ### JSON 형식
 {
@@ -896,10 +782,6 @@ ${description.slice(0, 8000)}
     { "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }
   ],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
-  "keyIssues": [
-    { "title": "1줄 제목", "body": "항목1 (명사형 종결)\\n항목2 (명사형 종결)\\n항목3 이상 (명사형 종결)" }
-  ],
-  "keyIssuesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
   "stockMoversLabel": "M7 및 반도체주 등락율",
   "moversUp": [],
   "moversDown": [],
@@ -1003,17 +885,13 @@ export function flexibleToMarketSummary(flex: FlexibleVideoSummary): MarketSumma
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
   const dateStr = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")} (${weekDays[now.getDay()]})`;
 
-  const keyIssues = flex.content
-    ? [{ title: "유튜브 시황 요약", body: flex.content }]
-    : [];
-
   return {
     date: dateStr,
     regionLabel: "해외 시황 요약",
-    totalAssessment: flex.content?.slice(0, 200) ?? "",
+    totalAssessment: flex.content?.slice(0, 600) ?? "",
     indices: [],
     indicesSources: [],
-    keyIssues,
+    keyIssues: [],
     keyIssuesSources: [],
     stockMoversLabel: "",
     moversUp: [],
@@ -1046,8 +924,6 @@ ${items}
   "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",
   "indices": [{ "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }],
   "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
-  "keyIssues": [{ "title": "1줄 제목", "body": "항목 (명사형 종결)" }],
-  "keyIssuesSources": [],
   "stockMoversLabel": "M7 및 반도체주 등락율",
   "moversUp": [],
   "moversDown": [],

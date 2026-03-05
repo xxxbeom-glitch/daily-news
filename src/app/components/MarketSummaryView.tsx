@@ -4,7 +4,6 @@ import type {
   MarketSummaryData,
   IndexData,
   IssueItem,
-  HeadlineArticle,
 } from "../data/marketSummary";
 import type { Article } from "../data/newsSources";
 import { runDataVerification } from "../utils/aiSummary";
@@ -111,13 +110,15 @@ export function MarketSummaryView({
     }
   };
 
-  const verifyBadge = data.verificationResult?.isVerified
-    ? `데이터 검증 완료 (실제 데이터 일치율: ${data.verificationResult.matchPercent}%)`
-    : null;
+  const matchPercent = data.verificationResult?.matchPercent ?? null;
+  const verificationResult = data.verificationResult;
 
   const header = (
     <div className="flex items-center justify-between px-[17px] pt-[26px] pb-[26px] border-b border-dashed border-white/10">
       <div>
+        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.5 }} className="text-emerald-400/90 mb-1">
+          실시간 데이터 일치율: {verificationResult?.isVerified ? `${matchPercent ?? 0}%` : "— (미검증)"}
+        </div>
         <div style={{ fontSize: 11, lineHeight: 1.5 }} className="text-white/90">
           {formatDisplayDate(data.date)}
         </div>
@@ -159,10 +160,20 @@ export function MarketSummaryView({
         {header}
         <div className="px-5 py-0 pb-6">
 
-          {/* 검증 완료 배지 */}
-          {verifyBadge && (
-            <div className="mt-[18px] px-4 py-2.5 rounded-[8px] bg-emerald-500/10 border border-emerald-500/25">
-              <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-emerald-400">✅ {verifyBadge}</span>
+          {/* 일치율 < 100% 시 오류 기사 목록 */}
+          {verificationResult?.isVerified && (matchPercent ?? 100) < 100 && verificationResult.articleErrorDetails && verificationResult.articleErrorDetails.length > 0 && (
+            <div className="mt-[18px] px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
+              <div style={{ fontSize: 13, fontWeight: 600 }} className="text-amber-400 mb-2">⚠️ 수치 불일치 기사 목록</div>
+              <ul className="space-y-1 text-amber-400/90" style={{ fontSize: 12 }}>
+                {verificationResult.articleErrorDetails.map((d, i) => {
+                  const art = data.headlineArticles?.[d.index];
+                  return (
+                    <li key={i}>
+                      [{art?.sourceName}] {art?.title?.slice(0, 40)}... — {d.errors.join("; ")}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 
@@ -197,66 +208,87 @@ export function MarketSummaryView({
             </div>
           )}
 
-          {/* 실시간 주요 언론사별 기사 (RSS 원문 직결) */}
-          <BlockTitle emoji="📰">실시간 주요 언론사별 기사</BlockTitle>
+          {/* 실시간 검증 뉴스 (RSS 1:1 직결, keyIssues 폐기) */}
+          <BlockTitle emoji="📰">실시간 검증 뉴스</BlockTitle>
           {data.headlineArticles && data.headlineArticles.length > 0 ? (
-            <div className="mt-[14px] space-y-[18px]">
-              {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
-                <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
-                  <div className="flex items-center gap-2 mb-[5px]">
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em" }} className="text-[#618EFF]/90">
-                      {item.sourceName}
-                    </span>
-                    <span style={{ fontSize: 10 }} className="text-white/20">RSS</span>
+            <>
+              <div className="mt-[14px] space-y-[18px]">
+                {data.headlineArticles
+                  .map((item, i) => ({ item, i }))
+                  .filter(({ item }) => item.verificationStatus !== "numerical_error")
+                  .map(({ item, i }) => (
+                    <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
+                      <div className="flex items-center gap-2 mb-[5px]">
+                        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em" }} className="text-[#618EFF]/90">
+                          {item.sourceName}
+                        </span>
+                        <span style={{ fontSize: 10 }} className="text-white/20">RSS</span>
+                        <span
+                          style={{ fontSize: 10 }}
+                          className={
+                            item.verificationStatus === "verified"
+                              ? "text-emerald-400/90 font-medium"
+                              : "text-amber-400/80 font-medium"
+                          }
+                        >
+                          {item.verificationStatus === "verified" ? "✓ 검증 완료" : "미검증"}
+                        </span>
+                      </div>
+                      {item.url ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 14, fontWeight: 500, ...lineStyle }}
+                          className="text-white/95 hover:text-white hover:underline transition-colors block"
+                        >
+                          {item.title}
+                        </a>
+                      ) : (
+                        <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                          {item.title}
+                        </div>
+                      )}
+                      {item.summary && item.summary !== "(본문 미수집)" && (
+                        <div style={{ fontSize: 13, ...lineStyle }} className="text-white/50 mt-[6px]">
+                          {item.summary}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+              {data.headlineArticles.some((a) => a.verificationStatus === "numerical_error") && (
+                <>
+                  <BlockTitle emoji="⚠️">수치 오류 기사</BlockTitle>
+                  <div className="mt-[14px] space-y-[18px]">
+                    {data.headlineArticles
+                      .map((item, i) => ({ item, i }))
+                      .filter(({ item }) => item.verificationStatus === "numerical_error")
+                      .map(({ item, i }) => (
+                        <div key={i} className="border-l-2 border-amber-500/40 pl-3 opacity-80">
+                          <div className="flex items-center gap-2 mb-[5px]">
+                            <span style={{ fontSize: 11, fontWeight: 700 }} className="text-amber-400/90">{item.sourceName}</span>
+                            <span style={{ fontSize: 10 }} className="text-amber-400/60">수치 불일치</span>
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/80">{item.title}</div>
+                          {item.verificationErrors && item.verificationErrors.length > 0 && (
+                            <div style={{ fontSize: 12 }} className="text-amber-400/70 mt-1">
+                              {item.verificationErrors.join(" | ")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                  {item.url ? (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 14, fontWeight: 500, ...lineStyle }}
-                      className="text-white/95 hover:text-white hover:underline transition-colors block"
-                    >
-                      {item.title}
-                    </a>
-                  ) : (
-                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                      {item.title}
-                    </div>
-                  )}
-                  {item.summary && item.summary !== "(본문 미수집)" && (
-                    <div style={{ fontSize: 13, ...lineStyle }} className="text-white/50 mt-[6px]">
-                      {item.summary}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : data.noHeadlineArticlesMessage ? (
+                </>
+              )}
+            </>
+          ) : (
             <div className="mt-[14px] px-4 py-3 rounded-[8px] bg-white/5 border border-white/8">
-              {data.noHeadlineArticlesMessage.split("\n").map((line, i) => (
+              {(data.noHeadlineArticlesMessage ?? "수집된 RSS 기사가 없습니다.").split("\n").map((line, i) => (
                 <div key={i} style={{ fontSize: i === 0 ? 14 : 12, ...lineStyle }} className={i === 0 ? "text-white/50" : "text-white/30 mt-1"}>
                   {line}
                 </div>
               ))}
-            </div>
-          ) : (
-            <div className="mt-[14px] space-y-3">
-              {data.keyIssues.slice(0, 10).map((item: IssueItem, i: number) => (
-                <div key={i}>
-                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                    {item.title}
-                  </div>
-                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">
-                    {item.body}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {data.keyIssuesSources.length > 0 && (
-            <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
-              출처: {data.keyIssuesSources.map((s) => s.outlet).join(", ")}
             </div>
           )}
 
@@ -354,9 +386,19 @@ export function MarketSummaryView({
     <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
       {header}
       <div className="px-5 py-0 pb-6">
-        {verifyBadge && (
-          <div className="mt-[18px] px-4 py-2.5 rounded-[8px] bg-emerald-500/10 border border-emerald-500/25">
-            <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-emerald-400">✅ {verifyBadge}</span>
+        {verificationResult?.isVerified && (matchPercent ?? 100) < 100 && verificationResult.articleErrorDetails && verificationResult.articleErrorDetails.length > 0 && (
+          <div className="mt-[18px] px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
+            <div style={{ fontSize: 13, fontWeight: 600 }} className="text-amber-400 mb-2">⚠️ 수치 불일치 기사 목록</div>
+            <ul className="space-y-1 text-amber-400/90" style={{ fontSize: 12 }}>
+              {verificationResult.articleErrorDetails.map((d, i) => {
+                const art = data.headlineArticles?.[d.index];
+                return (
+                  <li key={i}>
+                    [{art?.sourceName}] {art?.title?.slice(0, 40)}... — {d.errors.join("; ")}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
         <div className="mt-[22px] pt-[22px] pb-0 first:mt-0 first:pt-[22px] first:pb-0 border-t border-dashed border-white/10 first:border-t-0">
@@ -387,78 +429,73 @@ export function MarketSummaryView({
           </div>
         )}
 
-        {/* RSS 기사가 있으면 실시간 기사, 없으면 AI 요약 */}
+        {/* 실시간 검증 뉴스 (RSS 1:1 직결) */}
+        <BlockTitle emoji="📰">실시간 검증 뉴스</BlockTitle>
         {data.headlineArticles && data.headlineArticles.length > 0 ? (
           <>
-            <BlockTitle emoji="📰">실시간 주요 언론사별 기사</BlockTitle>
             <div className="mt-[14px] space-y-[18px]">
-              {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
-                <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
-                  <div className="flex items-center gap-2 mb-[5px]">
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em" }} className="text-[#618EFF]/90">
-                      {item.sourceName}
-                    </span>
-                    <span style={{ fontSize: 10 }} className="text-white/20">RSS</span>
+              {data.headlineArticles
+                .map((item, i) => ({ item, i }))
+                .filter(({ item }) => item.verificationStatus !== "numerical_error")
+                .map(({ item, i }) => (
+                  <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
+                    <div className="flex items-center gap-2 mb-[5px]">
+                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em" }} className="text-[#618EFF]/90">
+                        {item.sourceName}
+                      </span>
+                      <span style={{ fontSize: 10 }} className="text-white/20">RSS</span>
+                      <span
+                        style={{ fontSize: 10 }}
+                        className={
+                          item.verificationStatus === "verified"
+                            ? "text-emerald-400/90 font-medium"
+                            : "text-amber-400/80 font-medium"
+                        }
+                      >
+                        {item.verificationStatus === "verified" ? "✓ 검증 완료" : "미검증"}
+                      </span>
+                    </div>
+                    {item.url ? (
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95 hover:text-white hover:underline transition-colors block">
+                        {item.title}
+                      </a>
+                    ) : (
+                      <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">{item.title}</div>
+                    )}
+                    {item.summary && item.summary !== "(본문 미수집)" && (
+                      <div style={{ fontSize: 13, ...lineStyle }} className="text-white/50 mt-[6px]">{item.summary}</div>
+                    )}
                   </div>
-                  {item.url ? (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 14, fontWeight: 500, ...lineStyle }}
-                      className="text-white/95 hover:text-white hover:underline transition-colors block"
-                    >
-                      {item.title}
-                    </a>
-                  ) : (
-                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                      {item.title}
-                    </div>
-                  )}
-                  {item.summary && item.summary !== "(본문 미수집)" && (
-                    <div style={{ fontSize: 13, ...lineStyle }} className="text-white/50 mt-[6px]">
-                      {item.summary}
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
             </div>
-          </>
-        ) : data.noHeadlineArticlesMessage ? (
-          <>
-            <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
-            <div className="mt-[14px] px-4 py-3 rounded-[8px] bg-white/5 border border-white/8">
-              {data.noHeadlineArticlesMessage.split("\n").map((line, i) => (
-                <div key={i} style={{ fontSize: i === 0 ? 14 : 12, ...lineStyle }} className={i === 0 ? "text-white/50" : "text-white/30 mt-1"}>
-                  {line}
+            {data.headlineArticles.some((a) => a.verificationStatus === "numerical_error") && (
+              <>
+                <BlockTitle emoji="⚠️">수치 오류 기사</BlockTitle>
+                <div className="mt-[14px] space-y-[18px]">
+                  {data.headlineArticles
+                    .map((item, i) => ({ item, i }))
+                    .filter(({ item }) => item.verificationStatus === "numerical_error")
+                    .map(({ item, i }) => (
+                      <div key={i} className="border-l-2 border-amber-500/40 pl-3 opacity-80">
+                        <div className="flex items-center gap-2 mb-[5px]">
+                          <span style={{ fontSize: 11, fontWeight: 700 }} className="text-amber-400/90">{item.sourceName}</span>
+                          <span style={{ fontSize: 10 }} className="text-amber-400/60">수치 불일치</span>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/80">{item.title}</div>
+                        {item.verificationErrors && item.verificationErrors.length > 0 && (
+                          <div style={{ fontSize: 12 }} className="text-amber-400/70 mt-1">{item.verificationErrors.join(" | ")}</div>
+                        )}
+                      </div>
+                    ))}
                 </div>
-              ))}
-            </div>
-            <div className="mt-[14px] space-y-3">
-              {data.keyIssues.slice(0, 12).map((item: IssueItem, i: number) => (
-                <div key={i}>
-                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">{item.title}</div>
-                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">{item.body}</div>
-                </div>
-              ))}
-            </div>
+              </>
+            )}
           </>
         ) : (
-          <>
-            <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
-            <div className="mt-[14px] space-y-3">
-              {data.keyIssues.slice(0, 12).map((item: IssueItem, i: number) => (
-                <div key={i}>
-                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">{item.title}</div>
-                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">{item.body}</div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        {data.keyIssuesSources.length > 0 && !(data.headlineArticles && data.headlineArticles.length > 0) && (
-          <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
-            출처: {data.keyIssuesSources.map((s) => s.outlet).join(", ")}
+          <div className="mt-[14px] px-4 py-3 rounded-[8px] bg-white/5 border border-white/8">
+            {(data.noHeadlineArticlesMessage ?? "수집된 RSS 기사가 없습니다.").split("\n").map((line, i) => (
+              <div key={i} style={{ fontSize: i === 0 ? 14 : 12, ...lineStyle }} className={i === 0 ? "text-white/50" : "text-white/30 mt-1"}>{line}</div>
+            ))}
           </div>
         )}
 

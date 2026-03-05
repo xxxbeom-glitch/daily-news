@@ -32,12 +32,19 @@ export interface SourceRef {
   headline: string; // 기사 제목
 }
 
-/** 언론사별 독립 기사 (헤드라인 기사 섹션용) */
+/** 기사 검증 상태 */
+export type ArticleVerificationStatus = "unverified" | "verified" | "numerical_error";
+
+/** 언론사별 독립 기사 (실시간 검증 뉴스 섹션용) */
 export interface HeadlineArticle {
-  sourceName: string; // "한국경제"
-  title: string;      // 기사 원제목
-  summary: string;    // 3~4줄 핵심 요약 (개조식·명사형 종결)
+  sourceName: string;
+  title: string;
+  summary: string;
   url?: string;
+  /** 검증 전: unverified, 검증 후: verified | numerical_error */
+  verificationStatus?: ArticleVerificationStatus;
+  /** numerical_error일 때 오류 내역 */
+  verificationErrors?: string[];
 }
 
 // 국내 전용: 코스닥/코스피 각각 상승·하락 TOP3
@@ -82,11 +89,14 @@ export interface MarketSummaryData {
   noHeadlineArticlesMessage?: string;
   /** 데이터 검증 결과 */
   verificationResult?: {
-    matchPercent: number;       // 0~100
-    correctedCount: number;     // 교정된 항목 수
+    matchPercent: number;       // 0~100 (RSS 기사 기준만 산출)
+    correctedCount: number;
     isVerified: boolean;
-    /** 교정 전후 상세 목록 */
     corrections?: { field: string; original: string; corrected: string }[];
+    /** 수치 오류 기사 인덱스 목록 (화면에서 분리 표시) */
+    numericalErrorArticleIndices?: number[];
+    /** 수치 오류 기사별 오류 내역 */
+    articleErrorDetails?: { index: number; errors: string[] }[];
   };
 }
 
