@@ -74,11 +74,11 @@ export async function runMarketSummaryPipeline(
   let data: MarketSummaryData;
   let actualModel: "gemini" | "gpt" = selectedModel;
   try {
-      data = await generateMarketSummary({
+    data = await generateMarketSummary({
       articles: articlePayload,
       isInternational,
-      model: "claude",
-      modelId: "claude-3-5-sonnet-20241022",
+      model: "gemini",
+      modelId: "gemini-3.1-pro-preview",
       interestMemory: interestMemory || undefined,
       moversSeed,
     });
@@ -106,7 +106,7 @@ export async function runMarketSummaryPipeline(
     try {
       data = await verifyAndCorrectMarketSummary(data, {
         model: "gemini",
-        modelId: "gemini-3.1-pro-preview",
+        modelId: "gemini-2.5-pro",
       });
     } catch {
       /* 2차 검증 실패 시 원본 유지 */

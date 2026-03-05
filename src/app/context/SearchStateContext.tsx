@@ -15,6 +15,8 @@ interface SearchStateContextValue {
   setIsLoading: (v: boolean) => void;
   loadStep: number;
   setLoadStep: (v: number) => void;
+  loadStepDetail: string | null;
+  setLoadStepDetail: (v: string | null) => void;
   loadProgress: number;
   setLoadProgress: (v: number | ((p: number) => number)) => void;
   fetchError: string | null;
@@ -38,6 +40,7 @@ export function SearchStateProvider({ children }: { children: ReactNode }) {
   }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
+  const [loadStepDetail, setLoadStepDetail] = useState<string | null>(null);
   const [loadProgress, setLoadProgress] = useState(0);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchInfo, setFetchInfo] = useState<string | null>(null);
@@ -55,6 +58,8 @@ export function SearchStateProvider({ children }: { children: ReactNode }) {
     setIsLoading,
     loadStep,
     setLoadStep,
+    loadStepDetail,
+    setLoadStepDetail,
     loadProgress,
     setLoadProgress,
     fetchError,

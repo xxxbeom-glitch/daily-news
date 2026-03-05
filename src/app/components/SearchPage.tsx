@@ -21,16 +21,19 @@ import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
 import { appLog } from "../utils/appLogger";
 
 const LOAD_STEPS: Record<number, string> = {
-  0: "RSS 피드 수집 중…",
-  1: "기사 필터링 중…",
-  2: "고품질 기사 선별 중…",
-  3: "시황 리포트 생성 중…",
+  0: "RSS 기사 수집 중입니다",
+  1: "기사 선별 중입니다",
+  2: "AI 1차 요약 중입니다",
+  3: "AI 2차 검증 중입니다",
 };
 
-function getLoadStepLabel(step: number, model: "gemini" | "gpt") {
-  if (step <= 2) return LOAD_STEPS[step];
-  if (step === 3) return (model === "gemini" ? "Gemini AI" : "ChatGPT") + " 분석·요약 중…";
-  return "시황 리포트 생성 중…";
+/** 단계별 예상 소요 시간 (초) */
+const STEP_ESTIMATES = [12, 3, 35, 10];
+
+function getLoadStepLabel(step: number, stepDetail: string | null): string {
+  const base = LOAD_STEPS[step] ?? "진행 중입니다";
+  if (stepDetail) return `${base} (${stepDetail})`;
+  return base;
 }
 
 export function SearchPage() {
@@ -48,6 +51,8 @@ export function SearchPage() {
     setIsLoading,
     loadStep,
     setLoadStep,
+    loadStepDetail,
+    setLoadStepDetail,
     loadProgress,
     setLoadProgress,
     fetchError,
@@ -98,39 +103,42 @@ export function SearchPage() {
     });
   }, [selectedModel, summaryInternational, summaryDomestic, summaryModel]);
 
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
-  const elapsedStartRef = useRef<number>(0);
+  const [remainingEstSec, setRemainingEstSec] = useState(0);
+  const pipelineStartRef = useRef<number>(0);
+  const stepStartRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!isLoading || loadStep !== 3) {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-      return;
-    }
-    progressIntervalRef.current = setInterval(() => {
-      setLoadProgress((p) => Math.min(p + 3, 88));
-    }, 1500);
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    };
-  }, [isLoading, loadStep]);
+    if (!isLoading) return;
+    const t = Date.now();
+    pipelineStartRef.current = t;
+    stepStartRef.current = t;
+  }, [isLoading]);
 
   useEffect(() => {
-    if (!isLoading) {
-      setElapsedSec(0);
-      return;
-    }
-    elapsedStartRef.current = Date.now();
-    const tick = () => {
-      const sec = Math.floor((Date.now() - elapsedStartRef.current) / 1000);
-      setElapsedSec(sec);
-    };
+    if (!isLoading) return;
+    stepStartRef.current = Date.now();
+  }, [loadStep]);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const tick = () => setElapsedSec(Math.floor((Date.now() - pipelineStartRef.current) / 1000));
+    tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const tick = () => {
+      const sum = STEP_ESTIMATES.slice(loadStep).reduce((a, b) => a + b, 0);
+      const elapsed = (Date.now() - stepStartRef.current) / 1000;
+      setRemainingEstSec(Math.max(0, Math.ceil(sum - elapsed)));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isLoading, loadStep]);
 
   const runPipeline = useCallback(
     async (isInternational: boolean): Promise<MarketSummaryData | null> => {
@@ -138,12 +146,22 @@ export function SearchPage() {
       const sourceIds = isInternational ? selectedSources.international : selectedSources.domestic;
       if (sourceList.length === 0) return null;
 
+      setLoadStep(0);
+      setLoadStepDetail(null);
+      setLoadProgress(5);
       const { articles: rawArticles, error: rssError } = await fetchRssFeeds({
         sources: sourceList,
-        onProgress: () => {},
+        onProgress: (fetched, total) => {
+          setLoadStep(0);
+          setLoadStepDetail(`${fetched}/${total}`);
+          setLoadProgress(5 + Math.round((fetched / total) * 20));
+        },
       });
       if (rssError) throw new Error(rssError);
 
+      setLoadStep(1);
+      setLoadStepDetail(null);
+      setLoadProgress(30);
       const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
       const interestKeywords = parseInterestKeywords(interestMemory);
       const { articles: filtered } = filterArticlesByRangeTieredWithMin(
@@ -177,14 +195,17 @@ export function SearchPage() {
         body: a.body,
       }));
 
+      setLoadStep(2);
+      setLoadStepDetail(null);
+      setLoadProgress(45);
       let data: MarketSummaryData;
       let actualModel: "gemini" | "gpt" = selectedModel;
       try {
         data = await generateMarketSummary({
           articles: articlePayload,
           isInternational,
-          model: "claude",
-          modelId: "claude-3-5-sonnet-20241022",
+          model: "gemini",
+          modelId: "gemini-3.1-pro-preview",
           interestMemory: interestMemory || undefined,
           moversSeed,
         });
@@ -208,11 +229,14 @@ export function SearchPage() {
 
       await enrichMarketData(data, isInternational, { preserveMovers: !!moversSeed });
 
+      setLoadStep(3);
+      setLoadStepDetail(null);
+      setLoadProgress(85);
       if ((data.indices?.length ?? 0) > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0) {
         try {
           data = await verifyAndCorrectMarketSummary(data, {
             model: "gemini",
-            modelId: "gemini-3.1-pro-preview",
+            modelId: "gemini-2.5-pro",
           });
         } catch {
           /* 2차 검증 실패 시 원본 유지 */
@@ -273,6 +297,9 @@ export function SearchPage() {
       selectedSources,
       selectedModel,
       addSession,
+      setLoadStep,
+      setLoadStepDetail,
+      setLoadProgress,
     ]
   );
 
@@ -284,6 +311,7 @@ export function SearchPage() {
     setFetchError(null);
     setFetchInfo(null);
     setLoadStep(0);
+    setLoadStepDetail(null);
     setLoadProgress(0);
     setElapsedSec(0);
     const startMs = Date.now();
@@ -293,9 +321,6 @@ export function SearchPage() {
     let fallbackMsg: string | null = null;
 
     try {
-      setLoadStep(0);
-      setLoadProgress(10);
-
       const tasks: { isInternational: boolean }[] = [];
       if (regionFilter === "both") {
         if (hasIntlSources) tasks.push({ isInternational: true });
@@ -317,17 +342,6 @@ export function SearchPage() {
         setIsLoading(false);
         return;
       }
-
-      setLoadStep(1);
-      setLoadProgress(25);
-      await new Promise((r) => setTimeout(r, 200));
-
-      setLoadStep(2);
-      setLoadProgress(40);
-      await new Promise((r) => setTimeout(r, 200));
-
-      setLoadStep(3);
-      setLoadProgress(52);
 
       let intlOk = false;
       let domOk = false;
@@ -425,13 +439,15 @@ export function SearchPage() {
         {isLoading && (
           <div className="bg-white/5 border border-white/8 rounded-[10px] px-5 py-6 text-center">
             <div style={{ fontSize: 14 }} className="text-white/80">
-              {getLoadStepLabel(loadStep, selectedModel)}
+              {getLoadStepLabel(loadStep, loadStepDetail)}
             </div>
             <div style={{ fontSize: 18, fontWeight: 600 }} className="text-white/90 mt-1">
-              {loadProgress}% · {elapsedSec}초
+              {loadProgress}%
             </div>
-            <div style={{ fontSize: 12 }} className="text-white/40 mt-2">
-              RSS 수집 → 기사 선별 → AI 분석 순으로 진행 중입니다
+            <div
+              style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }}
+            >
+              예상 남은 시간 약 {remainingEstSec}초
             </div>
           </div>
         )}
@@ -480,7 +496,7 @@ export function SearchPage() {
           {isLoading ? (
             <>
               <RefreshCw size={18} className="animate-spin" />
-              {getLoadStepLabel(loadStep, selectedModel)}
+              {getLoadStepLabel(loadStep, loadStepDetail)}
               <span className="tabular-nums" style={{ opacity: 0.9 }}>
                 ({elapsedSec}초)
               </span>
