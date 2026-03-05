@@ -493,9 +493,9 @@ ${description.slice(0, 8000)}
   return content;
 }
 
-/** 자유 구성 요약용 - 타이틀/섹션 구애 없이 AI가 영상 내용에 맞게 구성 */
+/** 자유 구성 요약용 - AI가 제목·구성 전부 알아서 결정 */
 export interface FlexibleVideoSummary {
-  sections: { title: string; body: string }[];
+  content: string; // AI가 만든 요약 전체 (제목·구성 포함)
 }
 
 function buildPromptFromVideosFlexible(videos: { title: string; description: string }[]): string {
@@ -506,25 +506,25 @@ function buildPromptFromVideosFlexible(videos: { title: string; description: str
 ${items}
 
 ## 요청
-위 유튜브 영상들의 제목과 설명을 바탕으로 미국 시황 요약을 작성해주세요.
+위 유튜브 영상들의 제목과 설명을 바탕으로 **글로벌 마켓 데일리 수준의 상세 시황 리포트**를 작성해주세요.
 
-### 필수 원칙: 충실·풍부하게 추출
-- **설명 텍스트에서 추출 가능한 모든 유의미한 정보를 포함**할 것. 함축·생략 절대 금지.
-- 타임스탬프(00:00 형식), 챕터 제목, 해시태그, 기업명·티커, 지수 수치, % 등락률, 이벤트 일정 등 **숫자·이름·키워드가 있으면 반드시 반영**.
-- 각 섹션 body: **최소 4~6줄 이상**. 1~2문장 수준의 짧은 요약 금지. 한 줄에 하나의 포인트씩 나열.
-- 동일 내용을 여러 섹션에 반복하지 말 것. 각 섹션은 서로 다른 관점/주제로 분리.
+### 참고 형식 (이 수준의 풍부함·구성으로 작성)
+- 상단: 날짜(요일) + "글로벌 마켓 데일리" 등 제목
+- 1. 시장 총평: 당일 장세를 2~3문단으로 서술. 지수 등락(다우, 나스닥, S&P500, KOSPI 등) 구체적 % 포함
+- 2. 핵심 이슈: ①②③로 소제목 나누고, 각 섹터·테마별로 기업명·티커·등락률·맥락 상세히. "AMD -17% 폭락"처럼 숫자 명시
+- 3. 매크로 및 기타 이슈: 고용, 환율, 이벤트 등
+- 종합 요약: 마무리 문단
 
-### 규칙
-- 문체: 개조식, 명사형 종결(-음, -기, -함, -됨). 문두 불릿·기호 금지. 사실 위주.
-- **섹션 구성은 완전 자유.** 고정 타이틀에 구애받지 말고, 영상에서 다루는 내용에 맞게 4~10개 정도의 섹션으로 나누어 주세요.
-- 영상에 없는 정보는 추측하지 말고 생략. 하지만 **있는 정보는 빠짐없이** 포함.
+### 원칙
+- **함축·생략 금지.** 짧게 요약하지 말고, 설명에서 나온 내용을 풍부하게 풀어서 서술.
+- 기업명(티커), 등락률(%), 지수 수치, 타임스탬프·챕터·해시태그 등 **숫자·이름 빠짐없이** 반영.
+- 중요한 구절은 **굵게** 표시 가능.
+- 문체: 서술형·개조식 혼용 OK. 간결한 나열보다는 맥락·흐름이 드러나게.
+- 영상에 없는 정보는 추측하지 말 것.
 
-### 출력 형식 (이 JSON 구조만 지켜주세요)
+### 출력 형식
 {
-  "sections": [
-    { "title": "섹션 제목", "body": "내용 (4줄 이상, 개조식·명사형. 줄바꿈으로 구분)" },
-    { "title": "...", "body": "..." }
-  ]
+  "content": "전체 리포트 텍스트 (위 참고 형식 수준으로 상세·풍부하게. 줄바꿈으로 구분)"
 }
 반드시 유효한 JSON만 출력하세요.`;
 }
@@ -535,12 +535,9 @@ function parseFlexibleSummary(jsonStr: string): FlexibleVideoSummary {
   if (codeMatch) raw = codeMatch[1].trim();
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (jsonMatch) raw = jsonMatch[0];
-  const parsed = JSON.parse(raw) as { sections?: Array<{ title?: string; body?: string }> };
-  const sections = (parsed.sections ?? []).map((s) => ({
-    title: String(s?.title ?? "").trim() || "요약",
-    body: String(s?.body ?? "").trim(),
-  })).filter((s) => s.body.length > 0);
-  return { sections };
+  const parsed = JSON.parse(raw) as { content?: string };
+  const content = String(parsed?.content ?? "").trim();
+  return { content };
 }
 
 /**
@@ -570,15 +567,14 @@ export function flexibleToMarketSummary(flex: FlexibleVideoSummary): MarketSumma
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
   const dateStr = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")} (${weekDays[now.getDay()]})`;
 
-  const keyIssues = flex.sections.map((s) => ({
-    title: s.title,
-    body: s.body,
-  }));
+  const keyIssues = flex.content
+    ? [{ title: "유튜브 시황 요약", body: flex.content }]
+    : [];
 
   return {
     date: dateStr,
     regionLabel: "해외 시황 요약",
-    totalAssessment: flex.sections[0]?.body?.slice(0, 200) ?? "",
+    totalAssessment: flex.content?.slice(0, 200) ?? "",
     indices: [],
     indicesSources: [],
     keyIssues,
