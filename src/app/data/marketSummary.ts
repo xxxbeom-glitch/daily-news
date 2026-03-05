@@ -78,11 +78,15 @@ export interface MarketSummaryData {
   earningsSources?: SourceRef[];
   /** 언론사별 독립 기사 목록 (헤드라인 기사 섹션) */
   headlineArticles?: HeadlineArticle[];
+  /** 헤드라인 기사 없음 메시지 */
+  noHeadlineArticlesMessage?: string;
   /** 데이터 검증 결과 */
   verificationResult?: {
     matchPercent: number;       // 0~100
     correctedCount: number;     // 교정된 항목 수
     isVerified: boolean;
+    /** 교정 전후 상세 목록 */
+    corrections?: { field: string; original: string; corrected: string }[];
   };
 }
 

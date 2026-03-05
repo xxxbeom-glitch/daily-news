@@ -197,42 +197,43 @@ export function MarketSummaryView({
             </div>
           )}
 
-          {/* 주요 헤드라인 기사 (언론사별 독립 나열) */}
+          {/* 실시간 주요 언론사별 기사 */}
+          <BlockTitle emoji="📋">실시간 주요 언론사별 기사</BlockTitle>
           {data.headlineArticles && data.headlineArticles.length > 0 ? (
-            <>
-              <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
-              <div className="mt-[14px] space-y-4">
-                {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
-                  <div key={i} className="border-l-2 border-white/10 pl-3">
-                    <div style={{ fontSize: 12, fontWeight: 600, ...lineStyle }} className="text-[#618EFF]/80 mb-[4px]">
-                      {item.sourceName}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-[6px]">
-                      {item.summary}
-                    </div>
+            <div className="mt-[14px] space-y-4">
+              {data.headlineArticles.map((item: HeadlineArticle, i: number) => (
+                <div key={i} className="border-l-2 border-white/10 pl-3">
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }} className="text-[#618EFF]/80 mb-[4px] uppercase">
+                    {item.sourceName}
                   </div>
-                ))}
-              </div>
-            </>
+                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-[6px]">
+                    {item.summary}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : data.noHeadlineArticlesMessage ? (
+            <div className="mt-[14px] px-4 py-3 rounded-[8px] bg-white/5 border border-white/8">
+              <span style={{ fontSize: 14, ...lineStyle }} className="text-white/40">
+                {data.noHeadlineArticlesMessage}
+              </span>
+            </div>
           ) : (
-            <>
-              <BlockTitle emoji="📋">주요 헤드라인 기사</BlockTitle>
-              <div className="mt-[14px] space-y-3">
-                {data.keyIssues.slice(0, 10).map((item: IssueItem, i: number) => (
-                  <div key={i}>
-                    <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">
-                      {item.body}
-                    </div>
+            <div className="mt-[14px] space-y-3">
+              {data.keyIssues.slice(0, 10).map((item: IssueItem, i: number) => (
+                <div key={i}>
+                  <div style={{ fontSize: 14, fontWeight: 500, ...lineStyle }} className="text-white/95">
+                    {item.title}
                   </div>
-                ))}
-              </div>
-            </>
+                  <div style={{ fontSize: 14, ...lineStyle }} className="text-white/60 mt-2">
+                    {item.body}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
           {data.keyIssuesSources.length > 0 && (
             <div style={{ fontSize: 13, ...lineStyle }} className="text-white/40 mt-[16px] mb-[22px]">
@@ -294,10 +295,36 @@ export function MarketSummaryView({
             </>
           )}
 
-          {/* 검증 경고 메시지 */}
-          {verifyMsg && (
-            <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
-              <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-amber-400">{verifyMsg}</span>
+          {/* 검증 경고 + 교정 전후 상세 */}
+          {verifyState === "done" && data.verificationResult && (
+            <>
+              {verifyMsg && (
+                <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
+                  <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-amber-400">{verifyMsg}</span>
+                </div>
+              )}
+              {data.verificationResult.corrections && data.verificationResult.corrections.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {data.verificationResult.corrections.map((c, i) => (
+                    <div key={i} className="px-3 py-2 rounded-[6px] bg-white/3 border border-white/6">
+                      <div style={{ fontSize: 11, fontWeight: 600 }} className="text-white/40 mb-[4px]">{c.field}</div>
+                      {c.original && (
+                        <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-red-400/80">
+                          수정 전: {c.original}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-emerald-400/80">
+                        기준값: {c.corrected}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          {verifyState === "error" && verifyMsg && (
+            <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-red-500/10 border border-red-500/25">
+              <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-red-400">{verifyMsg}</span>
             </div>
           )}
 
@@ -366,9 +393,29 @@ export function MarketSummaryView({
 
         {/* 실적발표 이슈 - hidden */}
 
-        {verifyMsg && (
-          <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
-            <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-amber-400">{verifyMsg}</span>
+        {verifyState === "done" && data.verificationResult && (
+          <>
+            {verifyMsg && (
+              <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25">
+                <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-amber-400">{verifyMsg}</span>
+              </div>
+            )}
+            {data.verificationResult.corrections && data.verificationResult.corrections.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {data.verificationResult.corrections.map((c, i) => (
+                  <div key={i} className="px-3 py-2 rounded-[6px] bg-white/3 border border-white/6">
+                    <div style={{ fontSize: 11, fontWeight: 600 }} className="text-white/40 mb-[4px]">{c.field}</div>
+                    {c.original && <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-red-400/80">수정 전: {c.original}</div>}
+                    <div style={{ fontSize: 12, lineHeight: 1.5 }} className="text-emerald-400/80">기준값: {c.corrected}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {verifyState === "error" && verifyMsg && (
+          <div className="mt-4 px-4 py-2.5 rounded-[8px] bg-red-500/10 border border-red-500/25">
+            <span style={{ fontSize: 13, lineHeight: 1.5 }} className="text-red-400">{verifyMsg}</span>
           </div>
         )}
         <UsedArticlesSection articles={articles} />
