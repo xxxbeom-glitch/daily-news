@@ -274,7 +274,7 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
   return data;
 }
 
-const CLAUDE_MODELS = ["claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"];
+const CLAUDE_MODELS = ["claude-opus-4-6", "claude-opus-4-5-20251101", "claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"];
 
 function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY"): string {
   let key = (import.meta.env[name] as string) ?? "";
@@ -728,12 +728,14 @@ ${text}
 
 /**
  * 리포트 전체 내용을 한눈에 파악할 수 있는 요약 생성 (사용자 요약하기 버튼 클릭 시)
+ * Claude Opus 4.6 사용
  */
 export async function summarizeReportContent(reportText: string): Promise<string> {
   const text = String(reportText ?? "").trim().slice(0, 15000);
   if (!text) return "";
 
   const prompt = `아래는 금융·경제 리포트의 본문입니다. 전체 내용을 3~5문장으로 핵심만 요약해주세요. 한글로, 사실 위주. 리포트에 없는 내용은 추가하지 마세요.
+문단을 나누어 짜임새 있게 정리해주세요. 따옴표(")로 감싸거나 인용 형식으로 출력하지 마세요. 순수한 요약 텍스트만 출력하세요.
 
 ## 리포트 본문
 ${text}
@@ -742,12 +744,16 @@ ${text}
 위 리포트 전체를 읽고 어떤 내용인지 요약해주세요. JSON이 아닌 일반 텍스트로만 출력하세요.`;
 
   try {
-    return await callGemini(prompt, "gemini-2.5-flash");
+    return await callClaude(prompt, "claude-opus-4-6");
   } catch {
     try {
-      return await callOpenAI(prompt, "gpt-4o-mini");
+      return await callClaude(prompt, "claude-opus-4-5-20251101");
     } catch {
-      return "";
+      try {
+        return await callGemini(prompt, "gemini-2.5-flash");
+      } catch {
+        return "";
+      }
     }
   }
 }

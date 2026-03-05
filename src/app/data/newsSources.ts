@@ -29,6 +29,8 @@ export interface ArchiveSession {
   /** 생성된 시황 요약 데이터 (표시용) */
   marketSummary?: MarketSummaryData;
   aiModel?: "gemini" | "gpt";
+  /** AI 요약 (요약하기 버튼 클릭 후 고정 저장) */
+  aiSummary?: string;
 }
 
 /** 구글뉴스 RSS URL 생성 - 국내 (site:로 언론사 지정) */

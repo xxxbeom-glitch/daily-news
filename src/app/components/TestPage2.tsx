@@ -159,7 +159,7 @@ export function TestPage2() {
         const title =
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
           (now.getHours() < 12 ? "오전" : "오후") +
-          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 한국 뉴스`;
+          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
         addSession({
           id: `session-${Date.now()}-kr`,
           title,
@@ -214,7 +214,7 @@ export function TestPage2() {
         const title =
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
           (now.getHours() < 12 ? "오전" : "오후") +
-          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 글로벌 마켓 데일리`;
+          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
         addSession({
           id: `session-${Date.now()}-gmd`,
           title,

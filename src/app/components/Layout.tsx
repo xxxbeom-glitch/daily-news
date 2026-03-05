@@ -81,7 +81,7 @@ export function Layout() {
         <MarketScheduleProvider>
           <KeywordNewsProvider>
             <HeaderContent />
-          <main className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+          <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <Outlet />
           </main>
           </KeywordNewsProvider>

@@ -133,7 +133,7 @@ export async function runMarketSummaryPipeline(
   const title =
     `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
     (now.getHours() < 12 ? "오전" : "오후") +
-    ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · ${data.regionLabel}`;
+    ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
 
   const articlesForSession: Article[] =
     filtered.length > 0

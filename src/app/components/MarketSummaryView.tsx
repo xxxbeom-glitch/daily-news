@@ -112,28 +112,64 @@ function UsedArticlesSection({ articles }: { articles?: Article[] }) {
   );
 }
 
+function stripLeadingTrailingQuotes(text: string): string {
+  return String(text ?? "").replace(/^["""'']+|["""'']+$/g, "").trim();
+}
+
 export function MarketSummaryView({
   data: initialData,
   aiModel,
   articles,
   displayDate,
+  sessionId,
+  initialAiSummary,
+  onAiSummarySaved,
 }: {
   data: MarketSummaryData;
   aiModel: "gemini" | "gpt";
   articles?: Article[];
   displayDate?: string;
+  sessionId?: string;
+  initialAiSummary?: string | null;
+  onAiSummarySaved?: (text: string) => void;
 }) {
   const data = initialData;
   const isHeadlineMode = data.regionLabel.includes("한국경제") || data.regionLabel.includes("글로벌 마켓");
   const isInternational = data.regionLabel.includes("해외") || data.regionLabel.includes("글로벌");
   const containerRef = useRef<HTMLDivElement>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const [aiSummaryText, setAiSummaryText] = useState<string | null>(null);
+  const [aiSummaryText, setAiSummaryText] = useState<string | null>(initialAiSummary ?? null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSummaryTypingIndex, setAiSummaryTypingIndex] = useState(0);
+  const aiSummaryFullRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (initialAiSummary != null) {
+      setAiSummaryText(initialAiSummary);
+      setAiSummaryTypingIndex(initialAiSummary.length);
+      aiSummaryFullRef.current = initialAiSummary;
+    } else {
+      setAiSummaryText(null);
+      setAiSummaryTypingIndex(0);
+      aiSummaryFullRef.current = null;
+    }
+  }, [sessionId, initialAiSummary]);
+
+  useEffect(() => {
+    const full = aiSummaryFullRef.current;
+    if (!full || aiSummaryTypingIndex >= full.length) return;
+    const interval = setInterval(() => {
+      setAiSummaryTypingIndex((prev) => {
+        if (prev >= full.length) return prev;
+        return prev + 1;
+      });
+    }, 24);
+    return () => clearInterval(interval);
+  }, [aiSummaryTypingIndex]);
 
   const dateToShow = displayDate ?? data.date;
   const header = (
-    <div className="flex items-center justify-between px-[17px] pt-[26px] pb-[26px] border-b border-dashed border-white/10">
+    <div className="flex items-center justify-between px-[17px] pt-[20px] pb-[20px] border-b border-dashed border-white/10">
       <div>
         <div style={{ fontSize: 11, lineHeight: 1.5 }} className="text-white/90">
           {formatDisplayDate(dateToShow)}
@@ -220,7 +256,11 @@ export function MarketSummaryView({
       setAiSummaryLoading(true);
       try {
         const result = await summarizeReportContent(reportTextForSummary);
-        setAiSummaryText(result || "요약을 생성하지 못했습니다.");
+        const stripped = stripLeadingTrailingQuotes(result || "요약을 생성하지 못했습니다.");
+        aiSummaryFullRef.current = stripped;
+        setAiSummaryText(stripped);
+        setAiSummaryTypingIndex(0);
+        onAiSummarySaved?.(stripped);
       } finally {
         setAiSummaryLoading(false);
       }
@@ -237,11 +277,17 @@ export function MarketSummaryView({
             </>
           )}
           <div className="mt-[40px]">
-            <div>
+            <div className="py-4 border-t border-b border-dashed border-white/10">
               <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white mb-3">AI 요약</div>
               {aiSummaryText !== null ? (
-                <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-wrap">
-                  {aiSummaryText}
+                <div style={{ fontSize: 14, lineHeight: 1.75, fontWeight: 500 }} className="text-white/80">
+                  {(aiSummaryTypingIndex < aiSummaryText.length ? aiSummaryText.slice(0, aiSummaryTypingIndex) : aiSummaryText)
+                    .split(/\n\n+/)
+                    .map((para, j) => (
+                      <p key={j} className={j > 0 ? "mt-4" : ""}>
+                        {para}
+                      </p>
+                    ))}
                 </div>
               ) : aiSummaryLoading ? (
                 <div style={{ fontSize: 14 }} className="text-white/50">요약 중...</div>
@@ -249,7 +295,7 @@ export function MarketSummaryView({
                 <button
                   type="button"
                   onClick={handleSummarize}
-                  className="px-4 py-2 rounded-[8px] border border-white/15 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  className="w-full py-3 rounded-[8px] border border-white/15 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
                   style={{ fontSize: 13 }}
                 >
                   요약하기
@@ -259,16 +305,16 @@ export function MarketSummaryView({
             {items.map((item, i) => (
               <div
                 key={i}
-                className="pt-[22px] mt-[22px] border-t border-dashed border-white/10"
+                className="pt-4 mt-4 border-t border-dashed border-white/10"
               >
-                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
+                <div style={{ fontSize: 16, lineHeight: 1.5 }} className="text-white font-semibold">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
                 <div className="mt-[8px] space-y-[10px]">
                   {bodyParagraphs(item.body ?? "").map((para, j) => (
                     <div key={j} className="flex gap-2 items-start">
                       <span style={bulletStyle} className="bg-white/50 block shrink-0" />
-                      <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line flex-1">
+                      <div style={{ fontSize: 14, lineHeight: 1.6, fontWeight: 500 }} className="text-white/80 whitespace-pre-line flex-1 font-medium">
                         {para}
                       </div>
                     </div>

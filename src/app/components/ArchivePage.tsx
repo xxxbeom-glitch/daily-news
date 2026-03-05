@@ -10,7 +10,7 @@ import { MarketSummaryView } from "./MarketSummaryView";
 const CONFIRM_MS = 2500;
 
 export function ArchivePage() {
-  const { sessions, deleteSession } = useArchive();
+  const { sessions, deleteSession, updateSession } = useArchive();
   const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
   const { hideMarket } = useAdminSettings();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -93,13 +93,13 @@ export function ArchivePage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
-      <div className="flex items-stretch gap-0 mb-4 shrink-0">
+      <div className="flex items-stretch gap-0 mb-4 shrink-0 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
         {/* AI요약 아티클 드롭다운 */}
         <div ref={dropdownRef} className="relative flex-1 min-w-0 flex">
           <button
             type="button"
             onClick={() => setDropdownOpen((o) => !o)}
-            className="w-full flex items-center justify-between gap-2 px-4 h-10 rounded-l-[10px] rounded-r-none border border-white/10 border-r-0 bg-white/5 text-left"
+            className="w-full flex items-center justify-between gap-2 px-4 h-10 bg-transparent text-left"
             style={{ fontSize: 12 }}
           >
             <span className="text-white/90 truncate">
@@ -165,8 +165,8 @@ export function ArchivePage() {
         )}
         </div>
 
-        {/* 국가 탭 - 드롭다운과 동일 스타일, active: text-white, inactive: opacity-40 */}
-        <div className="flex shrink-0 h-10 rounded-r-[10px] rounded-l-none border border-white/10 border-l-0 bg-white/5 overflow-hidden">
+        {/* 국가 탭 */}
+        <div className="flex shrink-0 h-10 overflow-hidden">
           <button
             type="button"
             onClick={() => setIsInternational(false)}
@@ -205,9 +205,12 @@ export function ArchivePage() {
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <MarketSummaryView
             key={selectedSession.id}
+            sessionId={selectedSession.id}
             data={selectedSession.marketSummary}
             aiModel={selectedSession.aiModel ?? "gemini"}
             articles={selectedSession.articles}
+            initialAiSummary={selectedSession.aiSummary}
+            onAiSummarySaved={(text) => updateSession(selectedSession.id, { aiSummary: text })}
             displayDate={
               (selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") ||
                 selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓")) &&

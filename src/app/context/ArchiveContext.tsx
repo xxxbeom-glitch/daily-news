@@ -14,6 +14,7 @@ const STORAGE_KEY = "newsbrief_archives";
 interface ArchiveContextValue {
   sessions: ArchiveSession[];
   addSession: (session: ArchiveSession) => void;
+  updateSession: (id: string, patch: Partial<ArchiveSession>) => void;
   deleteSession: (id: string) => void;
   clearAllSessions: () => void;
 }
@@ -57,6 +58,19 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     [syncAddSession]
   );
 
+  const updateSession = useCallback(
+    (id: string, patch: Partial<ArchiveSession>) => {
+      setSessions((prev) => {
+        const session = prev.find((s) => s.id === id);
+        if (!session) return prev;
+        const updated = { ...session, ...patch };
+        syncAddSession(updated);
+        return prev.map((s) => (s.id === id ? updated : s));
+      });
+    },
+    [syncAddSession]
+  );
+
   const deleteSession = useCallback(
     (id: string) => {
       setSessions((prev) => prev.filter((s) => s.id !== id));
@@ -70,7 +84,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ArchiveContext.Provider value={{ sessions, addSession, deleteSession, clearAllSessions }}>
+    <ArchiveContext.Provider value={{ sessions, addSession, updateSession, deleteSession, clearAllSessions }}>
       {children}
     </ArchiveContext.Provider>
   );
