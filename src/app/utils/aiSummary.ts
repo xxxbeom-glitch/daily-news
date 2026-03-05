@@ -421,6 +421,7 @@ PDF 구성 (키움증권 등):
 
 /** Global Market Daily PDF 유저 프롬프트 */
 const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily PDF에서 추출한 텍스트입니다.
+[PDF 1], [PDF 2] 등 여러 PDF가 있는 경우: 두 PDF의 내용을 **통합**하여 하나의 JSON으로 출력하세요. 지수/통화/상품은 최신 PDF 우선 또는 중복 제거 후 병합. keyIssues(News Brief)는 두 PDF의 뉴스를 모두 포함.
 
 **반드시 다음 모두 추출하세요:**
 

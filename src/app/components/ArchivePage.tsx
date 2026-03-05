@@ -162,7 +162,10 @@ export function ArchivePage() {
             모닝뉴스가 숨김 처리되어 있습니다.
           </p>
         </div>
-      ) : selectedSession?.marketSummary && (Array.isArray(selectedSession.marketSummary?.indices) || (selectedSession.marketSummary?.keyIssues?.length > 0)) ? (
+      ) : selectedSession?.marketSummary && (Array.isArray(selectedSession.marketSummary?.indices) && selectedSession.marketSummary.indices.length > 0
+          || Array.isArray(selectedSession.marketSummary?.currencies) && selectedSession.marketSummary.currencies.length > 0
+          || Array.isArray(selectedSession.marketSummary?.commodities) && selectedSession.marketSummary.commodities.length > 0
+          || (selectedSession.marketSummary?.keyIssues?.length ?? 0) > 0) ? (
         <div className="flex-1 min-h-0 overflow-y-auto">
           <MarketSummaryView
             key={selectedSession.id}
