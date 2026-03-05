@@ -118,7 +118,7 @@ export function MarketSummaryView({
   displayDate,
 }: {
   data: MarketSummaryData;
-  aiModel: "gemini" | "gpt";
+  aiModel: "gemini" | "gpt" | "claude";
   articles?: Article[];
   displayDate?: string;
 }) {

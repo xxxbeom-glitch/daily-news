@@ -88,7 +88,7 @@ export async function runMarketSummaryPipeline(
 
   const selectedModel = getSelectedModel();
   let data: MarketSummaryData;
-  let actualModel: "gemini" | "gpt" = selectedModel;
+  let actualModel: "gemini" | "gpt" | "claude" = selectedModel;
   try {
     data = await generateMarketSummary({
       articles: articlePayload,

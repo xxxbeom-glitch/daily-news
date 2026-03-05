@@ -15,7 +15,6 @@ const SELECTED_MODEL_ID_KEY = "newsbrief_selected_model_id";
 export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
 
 /** 지원 모델 ID (provider 구분용) */
-const GEMINI_PREFIX = "gemini-";
 const GPT_PREFIX = "gpt-";
 const CLAUDE_PREFIX = "claude-";
 

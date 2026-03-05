@@ -1205,18 +1205,23 @@ function parseFlexibleSummary(jsonStr: string): FlexibleVideoSummary {
  */
 export async function generateFlexibleVideoSummaryFromVideos(
   videos: { title: string; description: string }[],
-  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+  opts?: { model?: "gemini" | "gpt" | "claude"; modelId?: string }
 ): Promise<FlexibleVideoSummary> {
   if (videos.length === 0) throw new Error("선택된 영상이 없습니다.");
   const model = opts?.model ?? "gemini";
   const modelId = opts?.modelId;
   const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const useClaude = modelId ? CLAUDE_MODELS.includes(modelId) : model === "claude";
 
   const prompt = buildPromptFromVideosFlexible(videos);
-  const rawResponse = useGemini
-    ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
-    : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
-
+  let rawResponse: string;
+  if (useGemini) {
+    rawResponse = await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined);
+  } else if (useClaude) {
+    rawResponse = await callClaude(prompt, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
+  } else {
+    rawResponse = await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+  }
   return parseFlexibleSummary(rawResponse);
 }
 
