@@ -298,7 +298,9 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
   return data;
 }
 
-function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY"): string {
+const CLAUDE_MODELS = ["claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"];
+
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY"): string {
   let key = (import.meta.env[name] as string) ?? "";
   key = key.trim().replace(/^["']|["']$/g, "");
   return key;
@@ -351,6 +353,44 @@ async function callGemini(prompt: string, modelId?: string): Promise<string> {
     }
   }
   throw lastError ?? new Error("Gemini API 호출 실패");
+}
+
+async function callClaude(prompt: string, modelId?: string): Promise<string> {
+  const key = getApiKey("VITE_ANTHROPIC_API_KEY");
+  if (!key) {
+    throw new Error("Claude API 키가 설정되지 않았습니다. .env에 VITE_ANTHROPIC_API_KEY를 추가해주세요.");
+  }
+  const model = modelId && CLAUDE_MODELS.includes(modelId) ? modelId : CLAUDE_MODELS[0];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 8192,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`);
+    }
+    const json = (await res.json()) as { content?: Array<{ type?: string; text?: string }> };
+    const text = json?.content?.[0]?.text ?? "";
+    if (!text) throw new Error("Claude가 응답을 생성하지 못했습니다.");
+    return text;
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
 }
 
 const OPENAI_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"];
@@ -501,19 +541,22 @@ ${moversDownStr || "(없음)"}
  */
 export async function verifyAndCorrectMarketSummary(
   data: MarketSummaryData,
-  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+  opts?: { model?: "gemini" | "gpt" | "claude"; modelId?: string }
 ): Promise<MarketSummaryData> {
   if (!data.indices?.length && !data.moversUp?.length && !data.moversDown?.length) {
     return data;
   }
-  const model = opts?.model ?? "gemini";
+  const model = opts?.model ?? "claude";
   const modelId = opts?.modelId;
-  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const useClaude = model === "claude" || (modelId && CLAUDE_MODELS.includes(modelId));
+  const useGemini = !useClaude && (modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini");
   const prompt = buildVerificationPrompt(data);
   try {
-    const rawResponse = useGemini
-      ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
-      : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+    const rawResponse = useClaude
+      ? await callClaude(prompt, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : CLAUDE_MODELS[0])
+      : useGemini
+        ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
+        : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
     const isInternational = (data.regionLabel ?? "").includes("해외");
     const corrected = parseAndNormalize(rawResponse, isInternational);
     corrected.indices = data.indices;

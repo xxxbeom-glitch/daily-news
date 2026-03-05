@@ -60,8 +60,9 @@ export function SearchPage() {
   const selectedSources = getSelectedSources();
   const hasIntlSources = selectedSources.international.length > 0;
   const hasDomesticSources = selectedSources.domestic.length > 0;
-  const hasSources =
-    (regionFilter === "both" && (hasIntlSources || hasDomesticSources)) ||
+  const hasAnySource = hasIntlSources || hasDomesticSources;
+  const hasSourcesForFilter =
+    (regionFilter === "both" && hasAnySource) ||
     (regionFilter === "us" && hasIntlSources) ||
     (regionFilter === "kr" && hasDomesticSources);
 
@@ -186,7 +187,8 @@ export function SearchPage() {
         data = await generateMarketSummary({
           articles: articlePayload,
           isInternational,
-          model: selectedModel,
+          model: "gemini",
+          modelId: "gemini-2.5-flash",
           interestMemory: interestMemory || undefined,
           moversSeed,
         });
@@ -196,7 +198,8 @@ export function SearchPage() {
           data = await generateMarketSummary({
             articles: articlePayload,
             isInternational,
-            model: otherModel,
+            model: "gemini",
+            modelId: "gemini-2.5-flash",
             interestMemory: interestMemory || undefined,
             moversSeed,
           });
@@ -212,7 +215,10 @@ export function SearchPage() {
 
       if ((data.indices?.length ?? 0) > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0) {
         try {
-          data = await verifyAndCorrectMarketSummary(data, { model: actualModel });
+          data = await verifyAndCorrectMarketSummary(data, {
+            model: "claude",
+            modelId: "claude-3-5-sonnet-20241022",
+          });
         } catch {
           /* 2차 검증 실패 시 원본 유지 */
         }
@@ -306,7 +312,13 @@ export function SearchPage() {
       }
 
       if (tasks.length === 0) {
-        setFetchError("선택된 언론사가 없습니다. 설정에서 언론사를 선택해주세요.");
+        const msg =
+          regionFilter === "kr"
+            ? "한국 시장 뉴스를 가져오려면 설정 > 국내 언론사를 선택해주세요."
+            : regionFilter === "us"
+              ? "미국 시황을 가져오려면 설정 > 해외 시황 RSS를 선택해주세요."
+              : "선택된 언론사가 없습니다. 설정에서 언론사를 선택해주세요.";
+        setFetchError(msg);
         setIsLoading(false);
         return;
       }
@@ -378,7 +390,7 @@ export function SearchPage() {
       setIsLoading(false);
     }
   }, [
-    hasSources,
+    hasAnySource,
     hasIntlSources,
     hasDomesticSources,
     regionFilter,
@@ -462,9 +474,9 @@ export function SearchPage() {
         <button
           type="button"
           onClick={handleFetch}
-          disabled={!hasSources || isLoading}
+          disabled={!hasAnySource || isLoading}
           className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
-            !hasSources || isLoading
+            !hasAnySource || isLoading
               ? "bg-white/5 text-white/30 cursor-not-allowed"
               : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
           }`}
