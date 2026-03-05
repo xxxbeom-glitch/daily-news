@@ -417,7 +417,7 @@ export async function fetchIndices(isInternational: boolean): Promise<FetchIndic
   return { indices, source: finnhubSource };
 }
 
-/** 헤더 티커용 전용 심볼 (Finnhub만 사용 - CORS/Yahoo 우회로 빠른 로딩) */
+/** 헤더 티커용 전용 심볼 (Finnhub 폴백용) */
 const HEADER_TICKER_SYMBOLS = [
   { symbol: "SPY", name: "S&P500" },
   { symbol: "QQQ", name: "나스닥" },
@@ -428,8 +428,20 @@ const HEADER_TICKER_SYMBOLS = [
   { symbol: "229720.KQ", name: "코스닥" },
 ];
 
-/** 헤더 티커용: Finnhub 7건 병렬 조회 (약 1~2초), 실패 시 기존 fetchIndices 경로 fallback */
+const HEADER_TICKER_ORDER = ["S&P500", "나스닥", "다우존스", "금", "은", "코스피", "코스닥"];
+
+/** 헤더 티커용: Yahoo Finance 1차, 실패 시 Finnhub 폴백 */
 export async function fetchHeaderTickerIndices(): Promise<IndexData[]> {
+  const [yahooIntl, yahooDom] = await Promise.all([
+    fetchYahooInternationalIndices(),
+    fetchYahooIndices(),
+  ]);
+  const byName = new Map<string, IndexData>();
+  for (const i of yahooIntl ?? []) byName.set(i.name, i);
+  for (const i of yahooDom ?? []) byName.set(i.name, i);
+  const fromYahoo = HEADER_TICKER_ORDER.filter((n) => byName.has(n)).map((n) => byName.get(n)!);
+  if (fromYahoo.length >= 5) return fromYahoo;
+
   const key = getFinnhubKey();
   if (key) {
     const results = await Promise.all(
@@ -447,17 +459,15 @@ export async function fetchHeaderTickerIndices(): Promise<IndexData[]> {
         isUp: r.change >= 0,
       }));
     if (fast.length >= 5) {
-      const order = ["S&P500", "나스닥", "다우존스", "금", "은", "코스피", "코스닥"];
-      const byName = new Map(fast.map((i) => [i.name, i]));
-      return order.filter((n) => byName.has(n)).map((n) => byName.get(n)!);
+      const byNameFinnhub = new Map(fast.map((i) => [i.name, i]));
+      return HEADER_TICKER_ORDER.filter((n) => byNameFinnhub.has(n)).map((n) => byNameFinnhub.get(n)!);
     }
   }
   const [intl, dom] = await Promise.all([fetchIndices(true), fetchIndices(false)]);
-  const order = ["S&P500", "나스닥", "다우존스", "금", "은", "코스피", "코스닥"];
-  const byName = new Map<string, IndexData>();
+  byName.clear();
   for (const i of intl.indices) byName.set(i.name, i);
   for (const i of dom.indices) byName.set(i.name, i);
-  return order
+  return HEADER_TICKER_ORDER
     .filter((name) => byName.has(name))
     .map((name) => byName.get(name)!);
 }
