@@ -21,12 +21,20 @@ interface ArchiveContextValue {
 
 const ArchiveContext = createContext<ArchiveContextValue | null>(null);
 
+function normalizeSessionTitle(title: string): string {
+  return title.replace(/\s*·\s*(한국 뉴스|해외 시황|글로벌 마켓 데일리|유튜브 시황|한국 시장 뉴스|해외 시황 요약|한국경제 헤드라인)\s*$/, " · 리포트");
+}
+
 function loadSessions(): ArchiveSession[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ArchiveSession[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((s) => ({
+      ...s,
+      title: normalizeSessionTitle(s.title ?? ""),
+    }));
   } catch {
     return [];
   }
@@ -44,7 +52,7 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
     const handler = (e: Event) => {
       const ev = e as CustomEvent<ArchiveSession[]>;
       if (ev.detail === undefined || !Array.isArray(ev.detail)) return;
-      setSessions(ev.detail);
+      setSessions(ev.detail.map((s) => ({ ...s, title: normalizeSessionTitle(s.title ?? "") })));
     };
     window.addEventListener("newsbrief_sessions_loaded", handler);
     return () => window.removeEventListener("newsbrief_sessions_loaded", handler);

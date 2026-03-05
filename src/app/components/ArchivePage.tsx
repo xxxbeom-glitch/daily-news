@@ -10,7 +10,7 @@ import { MarketSummaryView } from "./MarketSummaryView";
 const CONFIRM_MS = 2500;
 
 export function ArchivePage() {
-  const { sessions, deleteSession, updateSession } = useArchive();
+  const { sessions, deleteSession } = useArchive();
   const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
   const { hideMarket } = useAdminSettings();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -205,12 +205,9 @@ export function ArchivePage() {
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <MarketSummaryView
             key={selectedSession.id}
-            sessionId={selectedSession.id}
             data={selectedSession.marketSummary}
             aiModel={selectedSession.aiModel ?? "gemini"}
             articles={selectedSession.articles}
-            initialAiSummary={selectedSession.aiSummary}
-            onAiSummarySaved={(text) => updateSession(selectedSession.id, { aiSummary: text })}
             displayDate={
               (selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") ||
                 selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓")) &&
