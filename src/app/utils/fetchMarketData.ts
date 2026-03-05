@@ -756,3 +756,86 @@ export async function fetchDashboardData(): Promise<DashboardItem[]> {
     .map((r) => r.value)
     .filter((v): v is DashboardItem => v != null);
 }
+
+export type ChartRange = "1d" | "5d" | "1mo" | "5m" | "15m" | "1h";
+
+const CHART_RANGE_CONFIG: Record<ChartRange, { interval: string; range: string }> = {
+  "1d": { interval: "1d", range: "5d" },
+  "5d": { interval: "1d", range: "1mo" },
+  "1mo": { interval: "1mo", range: "1y" },
+  "5m": { interval: "5m", range: "1d" },
+  "15m": { interval: "15m", range: "5d" },
+  "1h": { interval: "1h", range: "5d" },
+};
+
+export interface ChartDataPoint {
+  time: string;
+  /** Unix timestamp in seconds (for lightweight-charts) */
+  timestamp?: number;
+  value: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+}
+
+export async function fetchVooChartData(range: ChartRange): Promise<ChartDataPoint[]> {
+  const { interval, range: rangeParam } = CHART_RANGE_CONFIG[range];
+  const url = `${YAHOO_CHART}/VOO?interval=${interval}&range=${rangeParam}`;
+  let text: string;
+  if (import.meta.env.DEV) {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    text = await res.text();
+  } else {
+    const r = await fetchViaCorsProxy(url, { timeoutMs: 10000 });
+    if (!r.ok || !r.text) return [];
+    text = r.text;
+  }
+  try {
+    const json = JSON.parse(text) as {
+      chart?: {
+        result?: Array<{
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{ open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[] }>;
+          };
+          adjclose?: Array<{ adjclose?: (number | null)[] }>;
+        }>;
+      };
+    };
+    const result = json?.chart?.result?.[0];
+    if (!result) return [];
+    const timestamps = result.timestamp ?? [];
+    const quote = result.indicators?.quote?.[0];
+    const opens = quote?.open ?? [];
+    const highs = quote?.high ?? [];
+    const lows = quote?.low ?? [];
+    const closes = quote?.close ?? [];
+    const out: ChartDataPoint[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const ts = timestamps[i];
+      const open = opens[i] ?? closes[i];
+      const high = highs[i] ?? closes[i];
+      const low = lows[i] ?? closes[i];
+      const close = closes[i];
+      if (close == null) continue;
+      const date = new Date(ts * 1000);
+      const timeStr = interval === "1mo" || interval === "1d"
+        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+      out.push({
+        time: timeStr,
+        timestamp: ts,
+        value: close,
+        open: open ?? close,
+        high: high ?? close,
+        low: low ?? close,
+        close,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
