@@ -5,7 +5,7 @@
 
 import type { ArchiveSession } from "../data/newsSources";
 import type { MarketSummaryData } from "../data/marketSummary";
-import { domesticSources, internationalSources } from "../data/newsSources";
+import { domesticSources, internationalSources, isDomesticSourceId, matchesDomesticForOverseasSummary } from "../data/newsSources";
 import { mockMarketSummaryInternational, mockMarketSummaryDomestic } from "../data/marketSummary";
 import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, getSelectedModel, parseInterestKeywords } from "../utils/persistState";
 import { fetchRssFeeds, filterArticlesByRangeTieredWithMin } from "../utils/fetchRssFeeds";
@@ -22,10 +22,10 @@ export async function runMarketSummaryPipeline(
 ): Promise<MarketSummaryData | null> {
   const { addSession } = options;
   const selectedSources = getSelectedSources();
-  const sourceList = isInternational
-    ? internationalSources.filter((s) => selectedSources.international.includes(s.id))
-    : domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
-  const sourceIds = isInternational ? selectedSources.international : selectedSources.domestic;
+  const intlList = internationalSources.filter((s) => selectedSources.international.includes(s.id));
+  const domList = domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
+  const sourceList = isInternational ? [...intlList, ...domList] : domList;
+  const sourceIds = isInternational ? [...selectedSources.international, ...selectedSources.domestic] : selectedSources.domestic;
   if (sourceList.length === 0) return null;
 
   const startMs = Date.now();
@@ -37,10 +37,18 @@ export async function runMarketSummaryPipeline(
   });
   if (rssError) throw new Error(rssError);
 
+  let articlesForFilter = rawArticles;
+  if (isInternational && domList.length > 0) {
+    articlesForFilter = rawArticles.filter((a) => {
+      if (!isDomesticSourceId(a.sourceId)) return true;
+      return matchesDomesticForOverseasSummary(a.title, a.body);
+    });
+  }
+
   const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
   const interestKeywords = parseInterestKeywords(interestMemory);
   const { articles: filtered } = filterArticlesByRangeTieredWithMin(
-    rawArticles,
+    articlesForFilter,
     (byRange) =>
       filterHighQualityNews(byRange, {
         watchlist: [],

@@ -57,6 +57,27 @@ export const domesticSources: NewsSource[] = [
   { id: "yna_economy", name: "연합뉴스 경제", rssUrl: "https://www.yna.co.kr/rss/economy.xml" },
 ];
 
+/** 국내 언론사 기사가 해외 시황에 반영되려면 이 키워드 중 1개 이상 포함 */
+export const DOMESTIC_OVERSEAS_MARKET_KEYWORDS = [
+  "뉴욕증시",
+  "나스닥",
+  "S&P500",
+  "장을 마쳤다",
+  "뉴욕증권거래소",
+  "NYSE",
+  "시황",
+];
+
+export function isDomesticSourceId(id: string): boolean {
+  return domesticSources.some((s) => s.id === id);
+}
+
+/** 국내 기사가 해외 시황용으로 사용 가능한지 (키워드 매칭) */
+export function matchesDomesticForOverseasSummary(title: string, body?: string): boolean {
+  const text = `${title} ${body ?? ""}`;
+  return DOMESTIC_OVERSEAS_MARKET_KEYWORDS.some((kw) => text.includes(kw));
+}
+
 // 해외 시황 (장 마감 후 리포트 위주 - CNBC·MarketWatch·Seeking Alpha 직접 RSS)
 export const internationalSources: NewsSource[] = [
   { id: "rss_cnbc_finance", name: "CNBC Finance", rssUrl: "https://www.cnbc.com/id/10000664/device/rss/rss.html" },

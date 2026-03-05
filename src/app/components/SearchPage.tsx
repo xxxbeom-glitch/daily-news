@@ -16,6 +16,7 @@ import {
   fetchRssFeeds,
   filterArticlesByRangeTieredWithMin,
 } from "../utils/fetchRssFeeds";
+import { isDomesticSourceId, matchesDomesticForOverseasSummary } from "../data/newsSources";
 import { filterHighQualityNews } from "../utils/filterHighQualityNews";
 import { enrichMarketData, fetchTopMovers } from "../utils/fetchMarketData";
 import { appLog } from "../utils/appLogger";
@@ -142,8 +143,12 @@ export function SearchPage() {
 
   const runPipeline = useCallback(
     async (isInternational: boolean): Promise<MarketSummaryData | null> => {
-      const sourceList = isInternational ? intlSourceList : domesticSourceList;
-      const sourceIds = isInternational ? selectedSources.international : selectedSources.domestic;
+      const sourceList = isInternational
+        ? [...intlSourceList, ...domesticSourceList]
+        : domesticSourceList;
+      const sourceIds = isInternational
+        ? [...selectedSources.international, ...selectedSources.domestic]
+        : selectedSources.domestic;
       if (sourceList.length === 0) return null;
 
       setLoadStep(0);
@@ -159,13 +164,21 @@ export function SearchPage() {
       });
       if (rssError) throw new Error(rssError);
 
+      let articlesForFilter = rawArticles;
+      if (isInternational && domesticSourceList.length > 0) {
+        articlesForFilter = rawArticles.filter((a) => {
+          if (!isDomesticSourceId(a.sourceId)) return true;
+          return matchesDomesticForOverseasSummary(a.title, a.body);
+        });
+      }
+
       setLoadStep(1);
       setLoadStepDetail(null);
       setLoadProgress(30);
       const interestMemory = isInternational ? getInterestMemoryInternational() : getInterestMemoryDomestic();
       const interestKeywords = parseInterestKeywords(interestMemory);
       const { articles: filtered } = filterArticlesByRangeTieredWithMin(
-        rawArticles,
+        articlesForFilter,
         (byRange) =>
           filterHighQualityNews(byRange, {
             watchlist: [],
@@ -322,10 +335,11 @@ export function SearchPage() {
 
     try {
       const tasks: { isInternational: boolean }[] = [];
+      const canRunOverseas = hasIntlSources || hasDomesticSources;
       if (regionFilter === "both") {
-        if (hasIntlSources) tasks.push({ isInternational: true });
+        if (hasIntlSources || hasDomesticSources) tasks.push({ isInternational: true });
         if (hasDomesticSources) tasks.push({ isInternational: false });
-      } else if (regionFilter === "us" && hasIntlSources) {
+      } else if (regionFilter === "us" && canRunOverseas) {
         tasks.push({ isInternational: true });
       } else if (regionFilter === "kr" && hasDomesticSources) {
         tasks.push({ isInternational: false });
@@ -336,7 +350,7 @@ export function SearchPage() {
           regionFilter === "kr"
             ? "한국 시장 뉴스를 가져오려면 설정 > 국내 언론사를 선택해주세요."
             : regionFilter === "us"
-              ? "미국 시황을 가져오려면 설정 > 해외 시황 RSS를 선택해주세요."
+              ? "미국 시황을 가져오려면 설정 > 해외 시황 RSS 또는 국내 언론사를 선택해주세요."
               : "선택된 언론사가 없습니다. 설정에서 언론사를 선택해주세요.";
         setFetchError(msg);
         setIsLoading(false);
@@ -373,7 +387,7 @@ export function SearchPage() {
         if (intlData) {
           setSummaryInternational(intlData);
           intlOk = true;
-        } else if (hasIntlSources) errors.push("해외 기사가 없어 해외 시황을 생성하지 못했습니다.");
+        } else if (canRunOverseas) errors.push("해외 기사가 없어 해외 시황을 생성하지 못했습니다.");
         if (domData) {
           setSummaryDomestic(domData);
           domOk = true;

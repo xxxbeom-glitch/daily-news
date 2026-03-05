@@ -73,9 +73,10 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
       const selectedSources = getSelectedSources();
       const hasIntl = internationalSources.filter((s) => selectedSources.international.includes(s.id)).length > 0;
       const hasDomestic = domesticSources.filter((s) => selectedSources.domestic.includes(s.id)).length > 0;
+      const canRunOverseas = hasIntl || hasDomestic;
 
       const sched = getSchedule();
-      if (hasIntl && isInWindow(sched.usHour, sched.usMinute) && getRanKey("us") !== today && !shouldSkipUsSummary()) {
+      if (canRunOverseas && isInWindow(sched.usHour, sched.usMinute) && getRanKey("us") !== today && !shouldSkipUsSummary()) {
         runningRef.current = true;
         setRanKey("us");
         runMarketSummaryPipeline(true, { addSession })

@@ -584,7 +584,12 @@ export function SettingsPage() {
           </div>
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4">
-            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>국내 언론사</div>
+            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
+              국내 언론사
+              <span className="text-white/30 ml-1" style={{ fontSize: 11, fontWeight: 400 }}>
+                (해외 시황: 뉴욕증시·나스닥·S&P500 등 포함 기사 반영)
+              </span>
+            </div>
             <div className="divide-y divide-white/6 mb-4">
             {domesticSources.map((s) => {
               const status = sourceStatus[s.id] ?? "ok";
