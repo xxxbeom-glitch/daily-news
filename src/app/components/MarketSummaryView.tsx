@@ -223,7 +223,7 @@ export function MarketSummaryView({
           )}
           <div className="mt-[22px] space-y-[26px] pr-1">
             {dedupeKeyIssues(data.keyIssues).map((item, i) => (
-              <div key={i} className="rounded-[10px] border border-white/8 bg-white/5 overflow-hidden flex flex-col max-h-[min(40vh,320px)]">
+              <div key={i} className="rounded-[10px] border border-white/8 bg-white/5 overflow-hidden flex flex-col max-h-[min(75vh,560px)]">
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white p-4 pb-0 shrink-0">
                   {(item.title ?? "").replace(/^\s*■\s*/, "")}
                 </div>
