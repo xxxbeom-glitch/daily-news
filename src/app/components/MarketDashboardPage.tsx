@@ -4,6 +4,7 @@ import { createChart, CandlestickSeries } from "lightweight-charts";
 import {
   fetchDashboardData,
   fetchChartData,
+  CAROUSEL_GROUPS,
   type DashboardItem,
   type ChartDataPoint,
 } from "../utils/fetchMarketData";
@@ -99,7 +100,7 @@ function DashboardCard({ item }: { item: DashboardItem }) {
   }, [item.symbol]);
 
   return (
-    <div className="rounded-[10px] border border-white/10 bg-white/5 px-4 py-3">
+    <div className="rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 w-full">
       <div style={{ fontSize: 12 }} className="text-white/60 mb-1">
         {item.name}
       </div>
@@ -171,14 +172,12 @@ export function MarketDashboardPage() {
     loadData(true);
   };
 
+  const itemMap = new Map(items.map((i) => [i.symbol, i]));
+  const cardWidth = "calc(50vw - 42px)";
+
   if (loading && items.length === 0) {
     return (
       <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <h1 className="text-white font-semibold" style={{ fontSize: 16 }}>
-            오늘의 시장
-          </h1>
-        </div>
         <p className="text-white/50">데이터 로딩 중…</p>
       </div>
     );
@@ -187,46 +186,61 @@ export function MarketDashboardPage() {
   if (error && items.length === 0) {
     return (
       <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-        <h1 className="text-white font-semibold mb-4" style={{ fontSize: 16 }}>
-          오늘의 시장
-        </h1>
         <p className="text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-full px-4 pt-5 pb-16 relative">
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <h1 className="text-white font-semibold" style={{ fontSize: 16 }}>
-          오늘의 시장
-        </h1>
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="absolute right-4 top-5 p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-          title="새로고침"
-        >
-          <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-        </button>
-      </div>
-      {lastUpdated != null && (
-        <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white mb-4">
-          Updated: {formatUpdated(lastUpdated)}
-        </p>
-      )}
-      <div className="grid grid-cols-2 gap-3">
-        {items.map((item, i) => (
-          <DashboardCard key={`${item.symbol}-${item.name}-${i}`} item={item} />
-        ))}
+    <div className="flex flex-col min-h-full px-4 pt-5 pb-16">
+      <div className="space-y-4">
+        {CAROUSEL_GROUPS.map((symbols, gIdx) => {
+          const groupItems = symbols
+            .map((s) => itemMap.get(s))
+            .filter((i): i is DashboardItem => i != null);
+          if (groupItems.length === 0) return null;
+          return (
+            <div
+              key={gIdx}
+              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scroll-smooth"
+              style={{ scrollSnapType: "x proximity" }}
+            >
+              {groupItems.map((item, i) => (
+                <div
+                  key={item.symbol}
+                  style={{ scrollSnapAlign: "start", minWidth: cardWidth, maxWidth: cardWidth }}
+                >
+                  <DashboardCard item={item} />
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
       {items.length === 0 && (
         <p className="text-white/50 text-sm mt-4">표시할 데이터가 없습니다.</p>
       )}
-      <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white mt-6 mb-8">
-        출처: Yahoo Finance
-      </p>
+      <div className="mt-6 mb-8 space-y-1">
+        <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white">
+          출처: Yahoo Finance
+        </p>
+        <div className="flex items-center gap-2">
+          {lastUpdated != null && (
+            <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white">
+              Updated: {formatUpdated(lastUpdated)}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+            title="새로고침"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

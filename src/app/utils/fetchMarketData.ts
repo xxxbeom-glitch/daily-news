@@ -683,6 +683,16 @@ export const DASHBOARD_SYMBOLS = {
   ],
 } as const;
 
+/** 캐러셀 표시용 그룹 (순서: S&P500·나스닥·다우 / 금·은·WTI / 코스피·코스닥·코스피200 / 원달러·달러인덱스 / VOO·QQQ·VRT·ASTS·RKLB / 삼성전자) */
+export const CAROUSEL_GROUPS: string[][] = [
+  ["^GSPC", "^IXIC", "^DJI"],
+  ["GC=F", "SI=F", "CL=F"],
+  ["^KS11", "^KQ11", "^KS200"],
+  ["USDKRW=X", "DX-Y.NYB"],
+  ["VOO", "QQQ", "VRT", "ASTS", "RKLB"],
+  ["005930.KS"],
+];
+
 export interface DashboardItem {
   symbol: string;
   name: string;

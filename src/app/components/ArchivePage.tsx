@@ -162,18 +162,20 @@ export function ArchivePage() {
           <button
             type="button"
             onClick={() => setIsInternational(false)}
-            className={`flex-1 min-w-[52px] py-2.5 text-sm font-medium transition-colors ${
+            className={`flex-1 min-w-[52px] py-3 font-medium transition-colors ${
               !isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
             }`}
+            style={{ fontSize: 13 }}
           >
             한국
           </button>
           <button
             type="button"
             onClick={() => setIsInternational(true)}
-            className={`flex-1 min-w-[52px] py-2.5 text-sm font-medium transition-colors border-l border-white/10 ${
+            className={`flex-1 min-w-[52px] py-3 font-medium transition-colors border-l border-white/10 ${
               isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
             }`}
+            style={{ fontSize: 13 }}
           >
             미국
           </button>
