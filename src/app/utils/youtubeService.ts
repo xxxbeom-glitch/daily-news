@@ -120,7 +120,7 @@ async function fetchCheckinNewYorkVideos(
     return [];
   }
 
-  const channelTitle = channelRes.items[0].snippet?.title ?? "채널K 글로벌 by 키움증권";
+  const channelTitle = channelRes.items?.[0]?.snippet?.title ?? "채널K 글로벌 by 키움증권";
 
   // 2. 채널의 플레이리스트 목록
   const playlistParams = new URLSearchParams({
