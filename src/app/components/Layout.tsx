@@ -33,7 +33,7 @@ function HeaderContent() {
               to="/market"
               className={`pb-2 text-sm transition-colors ${
                 location.pathname === "/market"
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}
             >
@@ -43,7 +43,7 @@ function HeaderContent() {
               to="/"
               className={`pb-2 text-sm transition-colors ${
                 location.pathname === "/" || location.pathname === ""
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}
             >
@@ -53,7 +53,7 @@ function HeaderContent() {
               to="/test2"
               className={`pb-2 text-sm transition-colors ${
                 location.pathname === "/test2"
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}
             >
@@ -63,7 +63,7 @@ function HeaderContent() {
               to="/settings"
               className={`pb-2 text-sm transition-colors ${
                 location.pathname === "/settings" || location.pathname.startsWith("/settings/")
-                  ? "text-white font-semibold border-b-2 border-white -mb-[1px]"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}
             >
