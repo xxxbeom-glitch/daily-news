@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
 import { searchYouTubeMarketVideos, type YouTubeMarketVideo } from "../utils/youtubeService";
-import { generateMarketSummaryFromVideos } from "../utils/aiSummary";
+import {
+  generateFlexibleVideoSummaryFromVideos,
+  flexibleToMarketSummary,
+  type FlexibleVideoSummary,
+} from "../utils/aiSummary";
 import { getSelectedModel } from "../utils/persistState";
-import { MarketSummaryView } from "./MarketSummaryView";
+import { FlexibleSummaryView } from "./FlexibleSummaryView";
 import { useArchive } from "../context/ArchiveContext";
 import type { Article } from "../data/newsSources";
 
@@ -28,7 +32,7 @@ export function TestPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryData, setSummaryData] = useState<Parameters<typeof MarketSummaryView>[0]["data"] | null>(null);
+  const [summaryData, setSummaryData] = useState<FlexibleVideoSummary | null>(null);
   const [selectedModel, setSelectedModel] = useState<"gemini" | "gpt">("gemini");
 
   useEffect(() => {
@@ -67,7 +71,7 @@ export function TestPage() {
     try {
       const model = getSelectedModel();
       setSelectedModel(model);
-      const data = await generateMarketSummaryFromVideos(
+      const data = await generateFlexibleVideoSummaryFromVideos(
         selected.map((v) => ({ title: v.title, description: v.description })),
         { model }
       );
@@ -78,6 +82,8 @@ export function TestPage() {
         `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
         (now.getHours() < 12 ? "오전" : "오후") +
         ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 유튜브 시황`;
+
+      const marketData = flexibleToMarketSummary(data);
 
       const articlesForSession: Article[] = selected.map((v, i) => ({
         id: `yt-${v.id}-${i}`,
@@ -99,7 +105,7 @@ export function TestPage() {
         isInternational: true,
         sources: ["youtube"],
         articles: articlesForSession,
-        marketSummary: data,
+        marketSummary: marketData,
         aiModel: model,
       });
     } catch (e) {
@@ -165,11 +171,7 @@ export function TestPage() {
               오늘의 시황(미국시황)에 추가되었습니다.
             </p>
             <div className="overflow-y-auto max-h-[60vh]">
-              <MarketSummaryView
-                data={summaryData}
-                aiModel={selectedModel}
-                articles={[]}
-              />
+              <FlexibleSummaryView data={summaryData} />
             </div>
             <button
               type="button"

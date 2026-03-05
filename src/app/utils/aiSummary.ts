@@ -493,7 +493,104 @@ ${description.slice(0, 8000)}
   return content;
 }
 
-/** 선택 영상들 제목·설명을 종합하여 미국 시황 요약 (오늘의 시황 추가용) */
+/** 자유 구성 요약용 - 타이틀/섹션 구애 없이 AI가 영상 내용에 맞게 구성 */
+export interface FlexibleVideoSummary {
+  sections: { title: string; body: string }[];
+}
+
+function buildPromptFromVideosFlexible(videos: { title: string; description: string }[]): string {
+  const items = videos
+    .map((v, i) => `### 영상 ${i + 1}\n제목: ${v.title}\n\n설명:\n${(v.description || "").slice(0, 4000)}`)
+    .join("\n\n");
+  return `## 유튜브 시황 영상들
+${items}
+
+## 요청
+위 유튜브 영상들의 제목과 설명을 바탕으로 미국 시황 요약을 작성해주세요.
+
+### 규칙
+- 문체: 개조식, 명사형 종결(-음, -기, -함, -됨). 문두 불릿·기호 금지. 간결하고 사실 위주.
+- **섹션 구성은 완전 자유.** "오늘의 시황 총평", "대표지수", "국제 정세 이슈" 같은 고정 타이틀에 구애받지 말고, 영상에서 다루는 내용에 맞게 스스로 섹션을 나누어 주세요.
+  · 예시: "간밤 증시 개요", "주요 지수 동향", "핵심 이슈", "종목·섹터 동향", "오늘의 시장 포인트" 등 영상 흐름에 맞는 제목 사용
+  · 섹션 수·제목·순서 모두 자유. 3~8개 정도의 섹션으로 구성하면 됨.
+- 각 섹션 body: 여러 줄 가능. 줄바꿈으로 구분. 명사형 종결 유지.
+- 영상에 없는 정보는 추측하지 말고 생략 또는 "정보 없음" 등으로 표시.
+
+### 출력 형식 (이 JSON 구조만 지켜주세요)
+{
+  "sections": [
+    { "title": "영상 내용에 맞게 자유롭게 지은 섹션 제목", "body": "내용 (개조식, 명사형 종결. 여러 줄 가능)" },
+    { "title": "...", "body": "..." }
+  ]
+}
+반드시 유효한 JSON만 출력하세요.`;
+}
+
+function parseFlexibleSummary(jsonStr: string): FlexibleVideoSummary {
+  let raw = jsonStr.trim();
+  const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeMatch) raw = codeMatch[1].trim();
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) raw = jsonMatch[0];
+  const parsed = JSON.parse(raw) as { sections?: Array<{ title?: string; body?: string }> };
+  const sections = (parsed.sections ?? []).map((s) => ({
+    title: String(s?.title ?? "").trim() || "요약",
+    body: String(s?.body ?? "").trim(),
+  })).filter((s) => s.body.length > 0);
+  return { sections };
+}
+
+/**
+ * 유튜브 영상 요약 - 섹션 구성 자유 (고정 타이틀 없음)
+ * 영상 내용에 맞게 AI가 스스로 섹션을 나누어 요약
+ */
+export async function generateFlexibleVideoSummaryFromVideos(
+  videos: { title: string; description: string }[],
+  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+): Promise<FlexibleVideoSummary> {
+  if (videos.length === 0) throw new Error("선택된 영상이 없습니다.");
+  const model = opts?.model ?? "gemini";
+  const modelId = opts?.modelId;
+  const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+
+  const prompt = buildPromptFromVideosFlexible(videos);
+  const rawResponse = useGemini
+    ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
+    : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+
+  return parseFlexibleSummary(rawResponse);
+}
+
+/** FlexibleVideoSummary → MarketSummaryData (오늘의 시황 추가용 변환) */
+export function flexibleToMarketSummary(flex: FlexibleVideoSummary): MarketSummaryData {
+  const now = new Date();
+  const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+  const dateStr = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")} (${weekDays[now.getDay()]})`;
+
+  const keyIssues = flex.sections.map((s) => ({
+    title: s.title,
+    body: s.body,
+  }));
+
+  return {
+    date: dateStr,
+    regionLabel: "해외 시황 요약",
+    totalAssessment: flex.sections[0]?.body?.slice(0, 200) ?? "",
+    indices: [],
+    indicesSources: [],
+    keyIssues,
+    keyIssuesSources: [],
+    stockMoversLabel: "",
+    moversUp: [],
+    moversDown: [],
+    moversSources: [],
+    bigTechLabel: "",
+    bigTechIssues: [],
+    bigTechSources: [],
+  };
+}
+
+/** [레거시] 선택 영상들 제목·설명을 종합하여 미국 시황 요약 (고정 형식) */
 function buildPromptFromVideos(videos: { title: string; description: string }[]): string {
   const items = videos
     .map((v, i) => `### 영상 ${i + 1}\n제목: ${v.title}\n\n설명:\n${(v.description || "").slice(0, 4000)}`)
@@ -531,7 +628,7 @@ ${items}
 }
 
 /**
- * 선택된 유튜브 영상들을 종합하여 미국 시황 요약 생성 (오늘의 시황 추가용)
+ * [레거시] 선택된 유튜브 영상들을 고정 형식으로 시황 요약 생성
  */
 export async function generateMarketSummaryFromVideos(
   videos: { title: string; description: string }[],
