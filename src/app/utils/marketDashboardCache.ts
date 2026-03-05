@@ -73,6 +73,12 @@ export function shouldRefreshDashboard(): boolean {
   return loadDashboardCache() === null;
 }
 
+/** 대시보드 캐시 갱신 시각(ms). 없으면 null */
+export function getDashboardFetchedAt(): number | null {
+  const cached = loadDashboardCache();
+  return cached?.fetchedAt ?? null;
+}
+
 /** 차트 데이터 캐시 유효 여부 */
 function isChartCacheValid(fetchedAt: number): boolean {
   return fetchedAt >= getSlotStartMs();

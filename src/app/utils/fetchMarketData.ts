@@ -810,7 +810,7 @@ function parseChartJson(text: string, interval: string): ChartDataPoint[] {
       const close = closes[i];
       if (close == null) continue;
       const date = new Date(ts * 1000);
-      const timeStr = interval === "1mo" || interval === "1d"
+      const timeStr = interval === "1mo" || interval === "1d" || interval === "1wk"
         ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
       out.push({
@@ -829,9 +829,9 @@ function parseChartJson(text: string, interval: string): ChartDataPoint[] {
   }
 }
 
-/** 종목별 1일 캔들 차트 데이터 (interval=1d, range=5d) */
+/** 종목별 주간 캔들 차트 데이터 (interval=1wk, range=6mo) */
 export async function fetchChartData(symbol: string): Promise<ChartDataPoint[]> {
-  const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+  const url = `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=1wk&range=6mo`;
   let text: string;
   if (import.meta.env.DEV) {
     const res = await fetch(url);
@@ -842,7 +842,7 @@ export async function fetchChartData(symbol: string): Promise<ChartDataPoint[]> 
     if (!r.ok || !r.text) return [];
     text = r.text;
   }
-  return parseChartJson(text, "1d");
+  return parseChartJson(text, "1wk");
 }
 
 export async function fetchVooChartData(range: ChartRange): Promise<ChartDataPoint[]> {

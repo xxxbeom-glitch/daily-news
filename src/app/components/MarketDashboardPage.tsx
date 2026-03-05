@@ -7,7 +7,17 @@ import {
   type DashboardItem,
   type ChartDataPoint,
 } from "../utils/fetchMarketData";
-import { loadDashboardCache, saveDashboardCache, shouldRefreshDashboard, loadChartCache, saveChartCache } from "../utils/marketDashboardCache";
+import { loadDashboardCache, saveDashboardCache, shouldRefreshDashboard, loadChartCache, saveChartCache, getDashboardFetchedAt } from "../utils/marketDashboardCache";
+
+function formatUpdated(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}. ${m}. ${day} ${h}:${min}`;
+}
 
 function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +42,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
         horzLines: { color: "rgba(255,255,255,0.06)" },
       },
       rightPriceScale: { visible: false, borderVisible: false },
-      timeScale: { visible: false, borderVisible: false },
+      timeScale: { visible: false, borderVisible: false, rightBarOffset: 0 },
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
       lastValueVisible: false,
@@ -52,6 +62,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
       }));
     if (candleData.length > 0) {
       candleSeries.setData(candleData);
+      chart.timeScale().fitContent();
     }
     chartRef.current = chart;
     return () => {
@@ -116,6 +127,7 @@ export function MarketDashboardPage() {
     const cached = loadDashboardCache();
     return cached?.data ?? [];
   });
+  const [lastUpdated, setLastUpdated] = useState<number | null>(() => getDashboardFetchedAt());
   const [loading, setLoading] = useState(() => shouldRefreshDashboard() && items.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,6 +139,7 @@ export function MarketDashboardPage() {
       setItems(data);
       setError(null);
       saveDashboardCache(data);
+      setLastUpdated(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : "데이터 로드 실패");
     } finally {
@@ -139,6 +152,7 @@ export function MarketDashboardPage() {
     const cached = loadDashboardCache();
     if (cached?.data?.length) {
       setItems(cached.data);
+      setLastUpdated(cached.fetchedAt);
       setLoading(false);
       if (shouldRefreshDashboard()) {
         loadData(false);
@@ -179,8 +193,8 @@ export function MarketDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-full px-4 pt-5 pb-6">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="flex flex-col min-h-full px-4 pt-5 pb-6 relative">
+      <div className="flex items-center justify-between gap-2 mb-1">
         <h1 className="text-white font-semibold" style={{ fontSize: 16 }}>
           오늘의 시장
         </h1>
@@ -188,12 +202,17 @@ export function MarketDashboardPage() {
           type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="absolute right-4 top-5 p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
           title="새로고침"
         >
-          <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+          <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
         </button>
       </div>
+      {lastUpdated != null && (
+        <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white mb-4">
+          Updated: {formatUpdated(lastUpdated)}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3">
         {items.map((item, i) => (
           <DashboardCard key={`${item.symbol}-${item.name}-${i}`} item={item} />
@@ -202,6 +221,9 @@ export function MarketDashboardPage() {
       {items.length === 0 && (
         <p className="text-white/50 text-sm mt-4">표시할 데이터가 없습니다.</p>
       )}
+      <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white mt-6">
+        출처: Yahoo Finance
+      </p>
     </div>
   );
 }
