@@ -127,7 +127,7 @@ ${isInternational ? `{
   "earningsSources": [...]
 }` : `{
   "date": "YYYY-MM-DD 요요일",
-  "regionLabel": "국내 시황 요약",${includeTotalAssessment ? `
+  "regionLabel": "한국 시장 뉴스",${includeTotalAssessment ? `
   "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",` : ""}
   "indices": [
     { "name": "코스피", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true },
@@ -248,7 +248,12 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
   const totalAssessment = parsed.totalAssessment != null ? String(parsed.totalAssessment).trim() : undefined;
   const data: MarketSummaryData = {
     date: dateStr, // 항상 오늘 날짜
-    regionLabel: (parsed.regionLabel as string) || (isInternational ? "해외 시황 요약" : "국내 시황 요약"),
+    regionLabel: (() => {
+      const raw = (parsed.regionLabel as string) || (isInternational ? "해외 시황 요약" : "한국 시장 뉴스");
+      if (isInternational && (raw.includes("글로벌") || raw === "글로벌")) return "해외 시황 요약";
+      if (!isInternational && (raw.includes("국내") || raw.includes("시황"))) return "한국 시장 뉴스";
+      return raw;
+    })(),
     ...(totalAssessment ? { totalAssessment } : {}),
     indices: ensureIndexData((parsed.indices as IndexData[]) ?? []),
     indicesSources: ensureSourceRefs((parsed.indicesSources as SourceRef[]) ?? []),

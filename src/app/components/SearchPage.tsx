@@ -56,10 +56,14 @@ export function SearchPage() {
     setFetchInfo,
   } = useSearchState();
 
+  const [regionFilter, setRegionFilter] = useState<"both" | "us" | "kr">("both");
   const selectedSources = getSelectedSources();
   const hasIntlSources = selectedSources.international.length > 0;
   const hasDomesticSources = selectedSources.domestic.length > 0;
-  const hasSources = hasIntlSources || hasDomesticSources;
+  const hasSources =
+    (regionFilter === "both" && (hasIntlSources || hasDomesticSources)) ||
+    (regionFilter === "us" && hasIntlSources) ||
+    (regionFilter === "kr" && hasDomesticSources);
 
   const intlSourceList = internationalSources.filter((s) => selectedSources.international.includes(s.id));
   const domesticSourceList = domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
@@ -292,8 +296,14 @@ export function SearchPage() {
       setLoadProgress(10);
 
       const tasks: { isInternational: boolean }[] = [];
-      if (hasIntlSources) tasks.push({ isInternational: true });
-      if (hasDomesticSources) tasks.push({ isInternational: false });
+      if (regionFilter === "both") {
+        if (hasIntlSources) tasks.push({ isInternational: true });
+        if (hasDomesticSources) tasks.push({ isInternational: false });
+      } else if (regionFilter === "us" && hasIntlSources) {
+        tasks.push({ isInternational: true });
+      } else if (regionFilter === "kr" && hasDomesticSources) {
+        tasks.push({ isInternational: false });
+      }
 
       if (tasks.length === 0) {
         setFetchError("선택된 언론사가 없습니다. 설정에서 언론사를 선택해주세요.");
@@ -371,6 +381,7 @@ export function SearchPage() {
     hasSources,
     hasIntlSources,
     hasDomesticSources,
+    regionFilter,
     selectedModel,
     runPipeline,
     setIsLoading,
@@ -384,6 +395,26 @@ export function SearchPage() {
   return (
     <div className="flex flex-col min-h-full">
       <div className="flex-1 px-4 pt-5 space-y-4 pb-[200px]">
+        <div className="flex gap-2">
+          {[
+            { key: "both" as const, label: "전체" },
+            { key: "us" as const, label: "🇺🇸 미국" },
+            { key: "kr" as const, label: "🇰🇷 한국" },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setRegionFilter(key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                regionFilter === key
+                  ? "bg-[#618EFF] text-white"
+                  : "bg-white/10 text-white/70 hover:bg-white/15"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {isLoading && (
           <div className="bg-white/5 border border-white/8 rounded-[10px] px-5 py-6 text-center">
             <div style={{ fontSize: 14 }} className="text-white/80">
@@ -409,10 +440,10 @@ export function SearchPage() {
           </div>
         )}
 
-        {summaryInternational !== null && !isLoading && !fetchError && (
+        {summaryInternational !== null && !isLoading && !fetchError && (regionFilter === "both" || regionFilter === "us") && (
           <MarketSummaryView data={summaryInternational} aiModel={summaryModel} />
         )}
-        {summaryDomestic !== null && !isLoading && !fetchError && (
+        {summaryDomestic !== null && !isLoading && !fetchError && (regionFilter === "both" || regionFilter === "kr") && (
           <MarketSummaryView data={summaryDomestic} aiModel={summaryModel} />
         )}
 

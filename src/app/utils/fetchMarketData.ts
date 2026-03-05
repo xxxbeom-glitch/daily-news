@@ -20,13 +20,13 @@ const DOMESTIC_YAHOO_INDICES = [
   { symbol: "^KS200", name: "코스피 200" },
 ];
 
-/** 해외 대표지수 (Yahoo Finance 고정) */
+/** 해외 대표지수 (Yahoo Finance 고정 - 금/은은 COMEX 선물=현물 기준가) */
 const INTERNATIONAL_YAHOO_INDICES = [
   { symbol: "^GSPC", name: "S&P500" },
   { symbol: "^IXIC", name: "나스닥" },
   { symbol: "^DJI", name: "다우존스" },
-  { symbol: "GLD", name: "금" },
-  { symbol: "SLV", name: "은" },
+  { symbol: "GC=F", name: "금" },   // COMEX 골드 선물(현물 기준)
+  { symbol: "SI=F", name: "은" },   // COMEX 실버 선물(현물 기준)
 ];
 
 interface FinnhubEarningsItem {

@@ -147,7 +147,7 @@ export const mockMarketSummaryInternational: MarketSummaryData = {
 // Mock 시황 데이터 - 국내 (코스닥·코스피 양식)
 export const mockMarketSummaryDomestic: MarketSummaryData = {
   date: "2026. 03. 04 (수)",
-  regionLabel: "국내 시황 요약",
+  regionLabel: "한국 시장 뉴스",
   indices: [
     { name: "코스피", value: "2,734.52", change: "-0.24%", changeAbs: "▼6.58", isUp: false },
     { name: "코스닥", value: "875.32", change: "+0.41%", changeAbs: "▲3.57", isUp: true },
