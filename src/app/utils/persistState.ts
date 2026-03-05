@@ -9,9 +9,15 @@ const SELECTED_SOURCES_KEY = "newsbrief_selected_sources";
 const INTEREST_MEMORY_DOMESTIC_KEY = "newsbrief_interest_memory_domestic";
 const INTEREST_MEMORY_INTERNATIONAL_KEY = "newsbrief_interest_memory_international";
 const SELECTED_MODEL_KEY = "newsbrief_selected_model";
+const SELECTED_MODEL_ID_KEY = "newsbrief_selected_model_id";
 
 /** 설정에서 모델 저장 시 디스패치되는 이벤트 (SearchStateContext 동기화용) */
 export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
+
+/** 지원 모델 ID (provider 구분용) */
+const GEMINI_PREFIX = "gemini-";
+const GPT_PREFIX = "gpt-";
+const CLAUDE_PREFIX = "claude-";
 
 export const DEFAULT_DOMESTIC_SOURCES = ["gn_hankyung", "rss_mk_headline", "rss_mk_economy", "rss_mk_stock", "gn_sbs", "yna_economy"];
 export const DEFAULT_INTERNATIONAL_SOURCES = [
@@ -92,19 +98,38 @@ export function setInterestMemoryInternational(text: string): void {
   } catch {}
 }
 
-export function getSelectedModel(): "gemini" | "gpt" {
-  try {
-    const v = localStorage.getItem(SELECTED_MODEL_KEY);
-    return v === "gpt" ? "gpt" : "gemini";
-  } catch {
-    return "gemini";
-  }
+export function getSelectedModel(): "gemini" | "gpt" | "claude" {
+  const id = getSelectedModelId();
+  if (id.startsWith(CLAUDE_PREFIX)) return "claude";
+  if (id.startsWith(GPT_PREFIX)) return "gpt";
+  return "gemini";
 }
 
-export function setSelectedModel(model: "gemini" | "gpt"): void {
+export function setSelectedModel(model: "gemini" | "gpt" | "claude"): void {
   try {
     localStorage.setItem(SELECTED_MODEL_KEY, model);
     window.dispatchEvent(new CustomEvent(SELECTED_MODEL_CHANGED_EVENT, { detail: model }));
+  } catch {}
+}
+
+/** 구체적 모델 ID (예: gemini-2.5-flash, gpt-4o-mini, claude-opus-4-6) */
+export function getSelectedModelId(): string {
+  try {
+    const v = localStorage.getItem(SELECTED_MODEL_ID_KEY);
+    if (v && typeof v === "string" && v.trim()) return v.trim();
+    const legacy = localStorage.getItem(SELECTED_MODEL_KEY);
+    return legacy === "gpt" ? "gpt-4o-mini" : "gemini-2.5-flash";
+  } catch {
+    return "gemini-2.5-flash";
+  }
+}
+
+export function setSelectedModelId(modelId: string): void {
+  try {
+    localStorage.setItem(SELECTED_MODEL_ID_KEY, modelId.trim());
+    const model = modelId.startsWith(CLAUDE_PREFIX) ? "claude" : modelId.startsWith(GPT_PREFIX) ? "gpt" : "gemini";
+    setSelectedModel(model);
+    window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
   } catch {}
 }
 
@@ -120,7 +145,7 @@ export function parseInterestKeywords(memory: string): string[] {
 
 export interface PersistedSearchState {
   selectedSources?: { domestic: string[]; international: string[] };
-  selectedModel: "gemini" | "gpt";
+  selectedModel: "gemini" | "gpt" | "claude";
   sourcesExpanded?: boolean;
   summaryInternational?: unknown;
   summaryDomestic?: unknown;
@@ -157,7 +182,7 @@ export function loadSearchState(): PersistedSearchState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedSearchState;
     if (!parsed) return null;
-    if (parsed.selectedModel && parsed.selectedModel !== "gemini" && parsed.selectedModel !== "gpt") return null;
+    if (parsed.selectedModel && parsed.selectedModel !== "gemini" && parsed.selectedModel !== "gpt" && parsed.selectedModel !== "claude") return null;
     return parsed;
   } catch {
     return null;

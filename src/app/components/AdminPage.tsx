@@ -195,7 +195,8 @@ export function AdminPage() {
         </div>
       </section>
 
-      {/* 3. 오늘의 뉴스 보이기 */}
+      {/* 3. 오늘의 뉴스 보이기 - 숨김 */}
+      {false && (
       <section className={sectionClass}>
         <h3 className={labelClass}>오늘의 뉴스 탭 표시</h3>
         <div className="flex items-center gap-3">
@@ -211,8 +212,10 @@ export function AdminPage() {
           <span className="text-white/50 text-sm">{showNewsTab ? "탭이 표시됩니다" : "탭이 숨겨집니다"}</span>
         </div>
       </section>
+      )}
 
-      {/* 4. M7·반도체 종목 */}
+      {/* 4. M7·반도체 종목 - 숨김 */}
+      {false && (
       <section className={sectionClass}>
         <h3 className={labelClass}>M7 및 반도체주 등락율 종목</h3>
         <p className="text-white/50 text-xs mb-2">형식: TICKER:기업명 (한 줄에 하나)</p>
@@ -231,8 +234,10 @@ export function AdminPage() {
           저장
         </button>
       </section>
+      )}
 
-      {/* 5. 앱 로그 저장소 */}
+      {/* 5. 앱 로그 저장소 - 숨김 */}
+      {false && (
       <section className={sectionClass}>
         <h3 className={labelClass}>앱 로그 데이터 저장소</h3>
         <p className="text-white/50 text-xs mb-2">앱 내 이벤트 기록 (AI 파싱용 JSONL)</p>
@@ -268,8 +273,10 @@ export function AdminPage() {
           </button>
         </div>
       </section>
+      )}
 
-      {/* 6. 자동생성 시간 */}
+      {/* 6. 자동생성 시간 - 숨김 */}
+      {false && (
       <section className={sectionClass}>
         <h3 className={labelClass}>자동 생성 시간 (KST)</h3>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -326,6 +333,7 @@ export function AdminPage() {
           저장
         </button>
       </section>
+      )}
     </div>
   );
 }

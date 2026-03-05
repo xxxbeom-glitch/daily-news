@@ -21,7 +21,7 @@ function formatUpdated(ms: number): string {
   return `${y}. ${m}. ${day} ${h}:${min}`;
 }
 
-function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
+function CandlestickChart({ data, height = 40 }: { data: ChartDataPoint[]; height?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
 
@@ -33,7 +33,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
     }
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: 80,
+      height,
       layout: {
         background: { color: "transparent" },
         textColor: "#94a3b8",
@@ -76,10 +76,13 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
       chart.remove();
       chartRef.current = null;
     };
-  }, [data]);
+  }, [data, height]);
 
-  return <div ref={containerRef} className="w-full" style={{ height: 80 }} />;
+  return <div ref={containerRef} className="w-full shrink-0" style={{ height }} />;
 }
+
+const CARD_HEIGHT = 48;
+const CHART_HEIGHT = 40;
 
 function DashboardCard({ item }: { item: DashboardItem }) {
   const [chartData, setChartData] = useState<ChartDataPoint[]>(() => loadChartCache(item.symbol) ?? []);
@@ -103,26 +106,33 @@ function DashboardCard({ item }: { item: DashboardItem }) {
   }, [item.symbol]);
 
   return (
-    <div className="rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 w-full">
-      <div style={{ fontSize: 12 }} className="text-white/60 mb-1">
-        {item.name}
+    <div
+      className="flex items-center gap-4 w-full rounded-[8px] border border-white/10 bg-white/5 px-3 pointer-events-none overflow-hidden"
+      style={{ height: CARD_HEIGHT }}
+    >
+      <div className="flex flex-col justify-center min-w-0 shrink-0" style={{ width: "45%" }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }} className="text-white truncate">
+          {item.name}
+        </div>
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span style={{ fontSize: 14, fontWeight: 500 }} className="text-white/90">
+            {item.value}
+          </span>
+          <span
+            style={{ fontSize: 12 }}
+            className={item.isUp ? "text-emerald-400" : "text-red-400"}
+          >
+            {item.change}
+          </span>
+        </div>
       </div>
-      <div className="flex items-baseline gap-[6px] mb-2">
-        <span style={{ fontSize: 15, fontWeight: 600 }} className="text-white">
-          {item.value}
-        </span>
-        <span
-          style={{ fontSize: 13 }}
-          className={item.isUp ? "text-emerald-400" : "text-red-400"}
-        >
-          {item.change}
-        </span>
-      </div>
-      <div className="min-h-[80px] mt-[26px] pointer-events-none">
+      <div className="flex-1 min-w-0 h-full flex items-center" style={{ width: "55%" }}>
         {chartData.length > 0 ? (
-          <CandlestickChart data={chartData} />
+          <CandlestickChart data={chartData} height={CHART_HEIGHT} />
         ) : (
-          <div className="h-[80px] flex items-center justify-center text-white/30 text-xs">로딩 중…</div>
+          <div className="w-full flex items-center justify-center text-white/25 text-xs" style={{ height: CHART_HEIGHT }}>
+            …
+          </div>
         )}
       </div>
     </div>
@@ -195,7 +205,7 @@ export function MarketDashboardPage() {
 
   return (
     <div className="flex flex-col min-h-full px-4 pt-5 pb-16">
-      <div className="flex flex-col" style={{ gap: 26 }}>
+      <div className="flex flex-col w-full overflow-y-auto" style={{ gap: 16 }}>
         {CAROUSEL_GROUPS.map((symbols, gIdx) => {
           const groupItems = symbols
             .map((s) => itemMap.get(s))
@@ -203,23 +213,16 @@ export function MarketDashboardPage() {
           if (groupItems.length === 0) return null;
           const title = CAROUSEL_TITLES[gIdx] ?? "";
           return (
-            <div key={gIdx} className="flex flex-col min-w-0">
+            <div key={gIdx} className="flex flex-col w-full" style={{ gap: 8 }}>
               <div
                 className="text-white font-semibold"
-                style={{ fontSize: 15, padding: 1, marginBottom: 10 }}
+                style={{ fontSize: 14, padding: 1 }}
               >
                 {title}
               </div>
-              <div
-                className="flex items-start gap-3 overflow-x-auto scrollbar-hide scroll-smooth"
-                style={{ scrollSnapType: "x proximity" }}
-              >
+              <div className="flex flex-col w-full" style={{ gap: 4 }}>
                 {groupItems.map((item) => (
-                  <div
-                    key={item.symbol}
-                    className="flex-shrink-0 flex"
-                    style={{ scrollSnapAlign: "start", width: "calc(50vw - 42px)", minWidth: "calc(50vw - 42px)" }}
-                  >
+                  <div key={item.symbol} className="w-full">
                     <DashboardCard item={item} />
                   </div>
                 ))}

@@ -32,6 +32,7 @@ import {
   setInterestMemoryDomestic,
   setInterestMemoryInternational,
   setSelectedModel,
+  setSelectedModelId,
   saveArchiveState,
   saveSearchState,
   loadArchiveState,
@@ -63,7 +64,8 @@ interface FirebaseContextValue {
     selectedSources?: SelectedSourcesState;
     interestMemoryDomestic?: string;
     interestMemoryInternational?: string;
-    selectedModel?: "gemini" | "gpt";
+    selectedModel?: "gemini" | "gpt" | "claude";
+    selectedModelId?: string;
   }) => Promise<void>;
   syncAdmin: () => Promise<void>;
   syncMeta: (archiveState: PersistedArchiveState, searchState: PersistedSearchState | null) => Promise<void>;
@@ -126,6 +128,14 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
           setInterestMemoryDomestic(settings.interestMemoryDomestic || "");
           setInterestMemoryInternational(settings.interestMemoryInternational || "");
           if (settings.selectedModel) setSelectedModel(settings.selectedModel);
+          if (settings.selectedModelId) {
+            setSelectedModelId(settings.selectedModelId);
+          } else if (settings.selectedModel) {
+            const defaultId =
+              settings.selectedModel === "gpt" ? "gpt-4o-mini" :
+              settings.selectedModel === "claude" ? "claude-opus-4-6" : "gemini-2.5-flash";
+            setSelectedModelId(defaultId);
+          }
         }
         if (admin) {
           setAdminHideMarket(admin.hideMarket);
@@ -157,7 +167,8 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       selectedSources?: SelectedSourcesState;
       interestMemoryDomestic?: string;
       interestMemoryInternational?: string;
-      selectedModel?: "gemini" | "gpt";
+      selectedModel?: "gemini" | "gpt" | "claude";
+      selectedModelId?: string;
     }) => {
       if (!uid) return;
       const {
@@ -165,12 +176,14 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         getInterestMemoryDomestic,
         getInterestMemoryInternational,
         getSelectedModel,
+        getSelectedModelId,
       } = await import("../utils/persistState");
       await saveSettingsToDb(uid, {
         selectedSources: state.selectedSources ?? getSelectedSources(),
         interestMemoryDomestic: state.interestMemoryDomestic ?? getInterestMemoryDomestic(),
         interestMemoryInternational: state.interestMemoryInternational ?? getInterestMemoryInternational(),
         selectedModel: state.selectedModel ?? getSelectedModel(),
+        selectedModelId: state.selectedModelId ?? getSelectedModelId(),
       });
     },
     [uid]

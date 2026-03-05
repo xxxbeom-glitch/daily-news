@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Paperclip } from "lucide-react";
 import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
-import { getSelectedModel } from "../utils/persistState";
+import { getSelectedModel, getSelectedModelId } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
 import { fetchArticleContent } from "../utils/articleReader";
 import { extractTextFromPdf } from "../utils/pdfExtract";
@@ -151,9 +151,10 @@ export function TestPage2() {
 
       try {
         const model = getSelectedModel();
+        const modelId = getSelectedModelId();
         const data = await generateMarketSummaryFromUploadedData(
           { text: finalText || "", images: hasImages ? images : undefined },
-          { model, modelId: undefined }
+          { model, modelId }
         );
         const now = new Date();
         const title =
@@ -206,9 +207,10 @@ export function TestPage2() {
           .map((p, i) => `[PDF ${i + 1}] ${p.name}\n\n${p.text}`)
           .join("\n\n---\n\n");
         const model = getSelectedModel();
+        const modelId = getSelectedModelId();
         const data = await generateGlobalMarketDailyFromPdf(combinedText, {
           model,
-          modelId: undefined,
+          modelId,
         });
         const now = new Date();
         const title =

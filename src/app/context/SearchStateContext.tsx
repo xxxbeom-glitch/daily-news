@@ -11,10 +11,10 @@ interface SearchStateContextValue {
   summaryDomestic: MarketSummaryData | null;
   setSummaryInternational: (s: MarketSummaryData | null) => void;
   setSummaryDomestic: (s: MarketSummaryData | null) => void;
-  summaryModel: "gemini" | "gpt";
-  setSummaryModel: (m: "gemini" | "gpt") => void;
-  selectedModel: "gemini" | "gpt";
-  setSelectedModel: (m: "gemini" | "gpt") => void;
+  summaryModel: "gemini" | "gpt" | "claude";
+  setSummaryModel: (m: "gemini" | "gpt" | "claude") => void;
+  selectedModel: "gemini" | "gpt" | "claude";
+  setSelectedModel: (m: "gemini" | "gpt" | "claude") => void;
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;
   loadStep: number;
@@ -35,8 +35,8 @@ export function SearchStateProvider({ children }: { children: ReactNode }) {
   const [searchArticles, setSearchArticles] = useState<RawRssArticle[]>([]);
   const [summaryInternational, setSummaryInternational] = useState<MarketSummaryData | null>(null);
   const [summaryDomestic, setSummaryDomestic] = useState<MarketSummaryData | null>(null);
-  const [summaryModel, setSummaryModel] = useState<"gemini" | "gpt">("gemini");
-  const [selectedModel, setSelectedModel] = useState<"gemini" | "gpt">(() => getSelectedModel());
+  const [summaryModel, setSummaryModel] = useState<"gemini" | "gpt" | "claude">("gemini");
+  const [selectedModel, setSelectedModel] = useState<"gemini" | "gpt" | "claude">(() => getSelectedModel());
 
   useEffect(() => {
     const handler = () => setSelectedModel(getSelectedModel());

@@ -12,7 +12,8 @@ export interface FirestoreSettings {
   selectedSources: { domestic: string[]; international: string[] };
   interestMemoryDomestic: string;
   interestMemoryInternational: string;
-  selectedModel: "gemini" | "gpt";
+  selectedModel: "gemini" | "gpt" | "claude";
+  selectedModelId?: string;
 }
 
 export interface FirestoreAdmin {

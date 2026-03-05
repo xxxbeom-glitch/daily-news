@@ -14,7 +14,7 @@ export interface Article {
   publishedAt: string; // ISO8601
   url: string;
   summary: string;
-  aiModel: "gemini" | "gpt";
+  aiModel: "gemini" | "gpt" | "claude";
   category: string;
   isInternational: boolean;
 }
@@ -28,7 +28,7 @@ export interface ArchiveSession {
   articles: Article[];
   /** 생성된 시황 요약 데이터 (표시용) */
   marketSummary?: MarketSummaryData;
-  aiModel?: "gemini" | "gpt";
+  aiModel?: "gemini" | "gpt" | "claude";
   /** AI 요약 (요약하기 버튼 클릭 후 고정 저장) */
   aiSummary?: string;
 }

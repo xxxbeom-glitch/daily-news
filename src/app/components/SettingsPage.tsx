@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
-import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational, getSelectedModel, setSelectedModel } from "../utils/persistState";
+import { getSelectedSources, setSelectedSources, getInterestMemoryDomestic, setInterestMemoryDomestic, getInterestMemoryInternational, setInterestMemoryInternational, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
+import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
 import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
@@ -13,35 +14,6 @@ const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
 const RSS_CHECK_TIMEOUT_MS = 10000;
-
-function getFinnhubKey(): string {
-  let key = (import.meta.env.VITE_FINNHUB_API_KEY as string) ?? "";
-  return key.trim().replace(/^["']|["']$/g, "");
-}
-
-function getDataGoKrKey(): string {
-  let key = (import.meta.env.VITE_DATA_GO_KR_SERVICE_KEY as string) ?? "";
-  return key.trim().replace(/^["']|["']$/g, "");
-}
-
-async function checkFinnhubNews(): Promise<boolean> {
-  const key = getFinnhubKey();
-  if (!key) return false;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), RSS_CHECK_TIMEOUT_MS);
-  try {
-    const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${key}`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return false;
-    const data = (await res.json()) as unknown[];
-    return Array.isArray(data) && data.length > 0;
-  } catch {
-    clearTimeout(timeout);
-    return false;
-  }
-}
 
 async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
   const useRss2Json = (sourceId ?? "").startsWith("gn_") || (sourceId ?? "").startsWith("rss_") || sourceId === "yna_economy";
@@ -58,7 +30,7 @@ async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
   return false;
 }
 
-function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY"): string {
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY"): string {
   let key = (import.meta.env[name] as string) ?? "";
   return key.trim().replace(/^["']|["']$/g, "");
 }
@@ -79,6 +51,40 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     if (res.ok) return { ok: true };
     const err = await res.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
     const msg = err?.error?.message ?? err?.message ?? `HTTP ${res.status}`;
+    return { ok: false, message: msg };
+  } catch (e) {
+    clearTimeout(timeout);
+    const msg = e instanceof Error ? e.message : "연결 실패";
+    return { ok: false, message: msg };
+  }
+}
+
+async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getApiKey("VITE_ANTHROPIC_API_KEY");
+  if (!key) {
+    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 추가)" };
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 5,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    if (res.ok) return { ok: true };
+    const msg = data?.error?.message || `HTTP ${res.status}`;
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
@@ -123,71 +129,6 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   }
 }
 
-async function checkDataGoKrIndexApi(): Promise<{ ok: boolean; message?: string }> {
-  const key = getDataGoKrKey();
-  if (!key) return { ok: false, message: "API 키 미설정 (VITE_DATA_GO_KR_SERVICE_KEY)" };
-  const d = new Date();
-  const basDt = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const url = `/api/data-go-kr/1160100/service/GetMarketIndexInfoService/getStockMarketIndex?serviceKey=${encodeURIComponent(key)}&numOfRows=5&pageNo=1&resultType=json&basDt=${basDt}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
-    const text = await res.text();
-    if (text.trimStart().startsWith("<")) {
-      return { ok: false, message: "HTML 응답 수신 (프록시 미적용·경로 확인 필요. vercel.json rewrite 적용 여부 확인)" };
-    }
-    const json = JSON.parse(text) as { response?: { body?: { items?: unknown } } };
-    const items = json?.response?.body?.items;
-    return { ok: !!items };
-  } catch (e) {
-    clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "연결 실패";
-    if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token '<'")) {
-      return { ok: false, message: "HTML 응답 수신 (프록시 미적용. 개발: Vite proxy / 프로덕션: vercel.json rewrite 확인)" };
-    }
-    return { ok: false, message: msg };
-  }
-}
-
-async function checkDataGoKrStockApi(): Promise<{ ok: boolean; message?: string }> {
-  const key = getDataGoKrKey();
-  if (!key) return { ok: false, message: "API 키 미설정 (VITE_DATA_GO_KR_SERVICE_KEY)" };
-  const d = new Date();
-  const basDt = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const url = `/api/data-go-kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo?serviceKey=${encodeURIComponent(key)}&numOfRows=5&pageNo=1&resultType=json&basDt=${basDt}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
-    const text = await res.text();
-    if (text.trimStart().startsWith("<")) {
-      return { ok: false, message: "HTML 응답 수신 (프록시 미적용·경로 확인 필요. vercel.json rewrite 적용 여부 확인)" };
-    }
-    const json = JSON.parse(text) as { response?: { body?: { items?: unknown } } };
-    const items = json?.response?.body?.items;
-    return { ok: !!items };
-  } catch (e) {
-    clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "연결 실패";
-    if (msg.includes("<!DOCTYPE") || msg.includes("Unexpected token '<'")) {
-      return { ok: false, message: "HTML 응답 수신 (프록시 미적용. 개발: Vite proxy / 프로덕션: vercel.json rewrite 확인)" };
-    }
-    return { ok: false, message: msg };
-  }
-}
-
-async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
-  const key = getFinnhubKey();
-  if (!key) return { ok: false, message: "API 키 미설정 (VITE_FINNHUB_API_KEY)" };
-  const ok = await checkFinnhubNews();
-  return { ok, message: ok ? undefined : "뉴스·시세 API 연결 실패" };
-}
-
 async function checkConnectionStatus(
   sources: { id: string; rssUrl: string }[]
 ): Promise<{
@@ -195,27 +136,22 @@ async function checkConnectionStatus(
   apiStatus: {
     gpt: "ok" | "error";
     gemini: "ok" | "error";
-    finnhub: "ok" | "error";
-    dataGoKrIndex: "ok" | "error";
-    dataGoKrStock: "ok" | "error";
+    anthropic: "ok" | "error";
     errorMessage: string;
   };
 }> {
-  const [sourceResults, geminiResult, gptResult, finnhubResult, dataGoKrIndexResult, dataGoKrStockResult] = await Promise.all([
+  const [sourceResults, geminiResult, gptResult, anthropicResult] = await Promise.all([
     Promise.all(
-      sources.map(async (s) => {
-        const ok =
-          s.id === "finnhub"
-            ? await checkFinnhubNews()
-            : await checkRssFeed(s.rssUrl, s.id);
-        return [s.id, ok ? "ok" as const : "error" as const] as const;
-      })
+      sources
+        .filter((s) => s.id !== "finnhub")
+        .map(async (s) => {
+          const ok = await checkRssFeed(s.rssUrl, s.id);
+          return [s.id, ok ? "ok" as const : "error" as const] as const;
+        })
     ),
     checkGeminiApi(),
     checkOpenAIApi(),
-    checkFinnhubApi(),
-    checkDataGoKrIndexApi(),
-    checkDataGoKrStockApi(),
+    checkAnthropicApi(),
   ]);
 
   const sourceStatus = Object.fromEntries(sourceResults);
@@ -230,9 +166,7 @@ async function checkConnectionStatus(
   const errors: string[] = [];
   if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
   if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
-  if (!finnhubResult.ok) errors.push(`Finnhub: ${translateError(finnhubResult.message)}`);
-  if (!dataGoKrIndexResult.ok) errors.push(`공공데이터(지수): ${translateError(dataGoKrIndexResult.message)}`);
-  if (!dataGoKrStockResult.ok) errors.push(`공공데이터(주식): ${translateError(dataGoKrStockResult.message)}`);
+  if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
   if (errors.length === 0) errors.push("모든 API 연결 정상");
 
   return {
@@ -240,9 +174,7 @@ async function checkConnectionStatus(
     apiStatus: {
       gpt: gptResult.ok ? "ok" : "error",
       gemini: geminiResult.ok ? "ok" : "error",
-      finnhub: finnhubResult.ok ? "ok" : "error",
-      dataGoKrIndex: dataGoKrIndexResult.ok ? "ok" : "error",
-      dataGoKrStock: dataGoKrStockResult.ok ? "ok" : "error",
+      anthropic: anthropicResult.ok ? "ok" : "error",
       errorMessage: errors.join(" / "),
     },
   };
@@ -271,9 +203,7 @@ export function SettingsPage() {
   const [apiStatus, setApiStatus] = useState({
     gpt: "error" as "ok" | "error",
     gemini: "ok" as "ok" | "error",
-    finnhub: "error" as "ok" | "error",
-    dataGoKrIndex: "error" as "ok" | "error",
-    dataGoKrStock: "error" as "ok" | "error",
+    anthropic: "error" as "ok" | "error",
     errorMessage: "API 연결 상태 확인 중…",
   });
   const [isChecking, setIsChecking] = useState(false);
@@ -281,14 +211,27 @@ export function SettingsPage() {
   const [selectedSourceIds, setSelectedSourceIds] = useState<{ domestic: string[]; international: string[] }>(() =>
     getSelectedSources()
   );
-  const [selectedModel, setSelectedModelState] = useState<"gemini" | "gpt">(() => getSelectedModel());
+  const [selectedModelId, setSelectedModelIdState] = useState<string>(() => getSelectedModelId());
 
-  const handleSetSelectedModel = (model: "gemini" | "gpt") => {
-    setSelectedModelState(model);
+  useEffect(() => {
+    const handler = () => setSelectedModelIdState(getSelectedModelId());
+    window.addEventListener(SELECTED_MODEL_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(SELECTED_MODEL_CHANGED_EVENT, handler);
+  }, []);
+
+  const handleSetSelectedModelId = (modelId: string) => {
+    setSelectedModelIdState(modelId);
   };
 
   const handleSaveSelectedModel = () => {
-    setSelectedModel(selectedModel);
+    setSelectedModelId(selectedModelId);
+  };
+
+  const getModelLabel = (id: string): string => {
+    if (id.startsWith("gemini-")) return `Gemini (${id})`;
+    if (id.startsWith("claude-")) return `Claude (${id})`;
+    if (id.startsWith("gpt-")) return `ChatGPT (${id})`;
+    return id;
   };
 
   const allSources = useMemo(
@@ -460,8 +403,8 @@ export function SettingsPage() {
             style={{ fontSize: 14, fontWeight: 600 }}
           >
             <span>AI 엔진</span>
-            <span className="flex items-center gap-2 text-white/60 font-normal">
-              {selectedModel === "gemini" ? "Gemini" : "Chat GPT"}
+            <span className="flex items-center gap-2 text-white/60 font-normal truncate max-w-[60%]">
+              {getModelLabel(selectedModelId)}
               <ChevronDown
                 size={16}
                 className={`transition-transform shrink-0 ${aiEngineExpanded ? "rotate-180" : ""}`}
@@ -469,28 +412,43 @@ export function SettingsPage() {
             </span>
           </button>
           {aiEngineExpanded && (
-            <div className="px-4 pb-4 pt-4 border-t border-white/6 divide-y divide-white/6">
-              <label className="flex items-center gap-3 py-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="ai-engine"
-                  checked={selectedModel === "gemini"}
-                  onChange={() => handleSetSelectedModel("gemini")}
-                  className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
-                />
-                <span style={{ fontSize: 14 }} className="text-white/90">Gemini</span>
-                <span style={{ fontSize: 12 }} className="text-white/40">기본값</span>
-              </label>
-              <label className="flex items-center gap-3 py-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="ai-engine"
-                  checked={selectedModel === "gpt"}
-                  onChange={() => handleSetSelectedModel("gpt")}
-                  className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
-                />
-                <span style={{ fontSize: 14 }} className="text-white/90">Chat GPT</span>
-              </label>
+            <div className="px-4 pb-4 pt-4 border-t border-white/6 divide-y divide-white/6 max-h-[280px] overflow-y-auto">
+              {GEMINI_MODELS.map((id) => (
+                <label key={id} className="flex items-center gap-3 py-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ai-engine"
+                    checked={selectedModelId === id}
+                    onChange={() => handleSetSelectedModelId(id)}
+                    className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                  />
+                  <span style={{ fontSize: 14 }} className="text-white/90">{getModelLabel(id)}</span>
+                </label>
+              ))}
+              {CLAUDE_MODELS.map((id) => (
+                <label key={id} className="flex items-center gap-3 py-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ai-engine"
+                    checked={selectedModelId === id}
+                    onChange={() => handleSetSelectedModelId(id)}
+                    className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                  />
+                  <span style={{ fontSize: 14 }} className="text-white/90">{getModelLabel(id)}</span>
+                </label>
+              ))}
+              {OPENAI_MODELS.map((id) => (
+                <label key={id} className="flex items-center gap-3 py-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ai-engine"
+                    checked={selectedModelId === id}
+                    onChange={() => handleSetSelectedModelId(id)}
+                    className="w-4 h-4 border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                  />
+                  <span style={{ fontSize: 14 }} className="text-white/90">{getModelLabel(id)}</span>
+                </label>
+              ))}
               <button
                 type="button"
                 onClick={handleSaveSelectedModel}
@@ -555,7 +513,8 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 언론사 연결상태 */}
+      {/* 언론사 연결상태 - 숨김 */}
+      {false && (
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -642,6 +601,7 @@ export function SettingsPage() {
           )}
         </div>
       </section>
+      )}
 
       {/* API 연결상태 */}
       <section className="mb-4">
@@ -672,15 +632,10 @@ export function SettingsPage() {
           </div>
           {apiExpanded && (
           <div className="border-t border-white/6 divide-y divide-white/6 px-4 pb-4 pt-4">
-          <div style={{ fontSize: 11 }} className="text-white/30 mb-2">
-            Gemini / ChatGPT / Finnhub / 공공데이터(지수·주식)
-          </div>
           {[
-            { key: "gpt" as const, label: "ChatGPT", icon: Cpu },
             { key: "gemini" as const, label: "Gemini", icon: Sparkles },
-            { key: "finnhub" as const, label: "Finnhub", icon: null },
-            { key: "dataGoKrIndex" as const, label: "공공데이터 지수시세", icon: null },
-            { key: "dataGoKrStock" as const, label: "공공데이터 주식시세", icon: null },
+            { key: "anthropic" as const, label: "Claude", icon: null },
+            { key: "gpt" as const, label: "ChatGPT", icon: Cpu },
           ].map(({ key, label, icon: Icon }) => (
             <div key={key} className="flex items-center justify-between py-3">
               <div className="flex items-center gap-2">
@@ -704,19 +659,16 @@ export function SettingsPage() {
           ))}
           <div className="pt-2">
             <div style={{ fontSize: 12 }} className="text-white/40 mb-1">
-              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.finnhub === "ok" && apiStatus.dataGoKrIndex === "ok" && apiStatus.dataGoKrStock === "ok" ? "상태" : "오류내용"} :
+              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "상태" : "오류내용"} :
             </div>
             <div
               className="rounded-[8px] bg-white/5 border border-white/8 px-3 py-2"
               style={{ fontSize: 13, lineHeight: 1.5 }}
             >
-              <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.finnhub === "ok" && apiStatus.dataGoKrIndex === "ok" && apiStatus.dataGoKrStock === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
+              <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
                 {apiStatus.errorMessage}
               </span>
             </div>
-            <p style={{ fontSize: 12 }} className="text-white/35 mt-2">
-              ※ 공공데이터는 개발 서버(Vite 프록시)에서만 연결. 프로덕션 빌드 시 백엔드 프록시 필요.
-            </p>
           </div>
           </div>
           )}

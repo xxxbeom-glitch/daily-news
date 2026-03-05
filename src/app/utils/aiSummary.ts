@@ -444,7 +444,7 @@ export interface UploadedDataInput {
 }
 
 export interface GenerateFromUploadedOptions {
-  model?: "gemini" | "gpt";
+  model?: "gemini" | "gpt" | "claude";
   modelId?: string;
 }
 
@@ -464,6 +464,7 @@ export async function generateMarketSummaryFromUploadedData(
   const model = opts?.model ?? "gemini";
   const modelId = opts?.modelId;
   const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const useClaude = modelId ? CLAUDE_MODELS.includes(modelId) : model === "claude";
 
   if (!useGemini && (images?.length ?? 0) > 0) {
     throw new Error("이미지 분석은 Gemini 모델만 지원합니다. 설정에서 Gemini를 선택해주세요.");
@@ -485,6 +486,9 @@ export async function generateMarketSummaryFromUploadedData(
       systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
       parts,
     });
+  } else if (useClaude) {
+    const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
+    rawResponse = await callClaude(prompt, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
   } else {
     const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
     rawResponse = await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
@@ -508,18 +512,25 @@ export async function generateGlobalMarketDailyFromPdf(
   const model = opts?.model ?? "gemini";
   const modelId = opts?.modelId;
   const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const useClaude = modelId ? CLAUDE_MODELS.includes(modelId) : model === "claude";
 
   const fullUserPrompt = `${GLOBAL_MARKET_DAILY_USER_PROMPT}\n\n## PDF 추출 텍스트\n\n${text}`;
+  const systemPrompt = GLOBAL_MARKET_DAILY_SYSTEM_PROMPT;
 
-  const rawResponse = useGemini
-    ? await callGeminiWithOptions(fullUserPrompt, {
-        modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
-        systemInstruction: GLOBAL_MARKET_DAILY_SYSTEM_PROMPT,
-      })
-    : await callOpenAI(
-        `${GLOBAL_MARKET_DAILY_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`,
-        modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined
-      );
+  let rawResponse: string;
+  if (useGemini) {
+    rawResponse = await callGeminiWithOptions(fullUserPrompt, {
+      modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
+      systemInstruction: systemPrompt,
+    });
+  } else if (useClaude) {
+    rawResponse = await callClaude(`${systemPrompt}\n\n---\n\n${fullUserPrompt}`, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
+  } else {
+    rawResponse = await callOpenAI(
+      `${systemPrompt}\n\n---\n\n${fullUserPrompt}`,
+      modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined
+    );
+  }
 
   return parseGlobalMarketDaily(rawResponse);
 }
