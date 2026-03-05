@@ -45,6 +45,8 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
       },
       rightPriceScale: { visible: false, borderVisible: false },
       timeScale: { visible: false, borderVisible: false, rightOffset: 0 },
+      handleScroll: false,
+      handleScale: false,
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
       lastValueVisible: false,
@@ -116,7 +118,7 @@ function DashboardCard({ item }: { item: DashboardItem }) {
           {item.change}
         </span>
       </div>
-      <div className="min-h-[80px] mt-[26px]">
+      <div className="min-h-[80px] mt-[26px] pointer-events-none">
         {chartData.length > 0 ? (
           <CandlestickChart data={chartData} />
         ) : (
@@ -202,11 +204,11 @@ export function MarketDashboardPage() {
           const title = CAROUSEL_TITLES[gIdx] ?? "";
           return (
             <div key={gIdx} className="flex flex-col min-w-0">
-              <div style={{ fontSize: 12 }} className="text-white/50 mb-2">
+              <div className="text-white font-semibold mb-2" style={{ fontSize: 16 }}>
                 {title}
               </div>
               <div
-                className="flex items-start gap-3 overflow-x-auto scrollbar-hide scroll-smooth -mx-4 px-4"
+                className={`flex items-start gap-3 overflow-x-auto scrollbar-hide scroll-smooth -mx-4 ${groupItems.length >= 3 ? "pl-0 pr-4" : "px-4"}`}
                 style={{ scrollSnapType: "x proximity" }}
               >
                 {groupItems.map((item) => (

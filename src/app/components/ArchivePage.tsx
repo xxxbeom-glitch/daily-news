@@ -98,7 +98,7 @@ export function ArchivePage() {
               {selectedSession
                 ? selectedSession.title
                 : filteredSessions.length === 0
-                  ? "저장된 시황이 없습니다"
+                  ? "저장된 리포트가 없습니다"
                   : "시황 요약 선택"}
             </span>
             <ChevronDown
@@ -157,13 +157,13 @@ export function ArchivePage() {
         )}
         </div>
 
-        {/* 국가 탭 (한 줄 합쳐서 반씩 active/inactive) */}
-        <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 overflow-hidden">
+        {/* 국가 탭 - 드롭다운과 동일 스타일, active: text-white, inactive: opacity-40 */}
+        <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
           <button
             type="button"
             onClick={() => setIsInternational(false)}
-            className={`flex-1 min-w-[52px] h-full flex items-center justify-center font-medium transition-colors ${
-              !isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
+            className={`flex-1 min-w-[52px] h-full flex items-center justify-center transition-colors border-r border-white/10 ${
+              !isInternational ? "text-white" : "opacity-40"
             }`}
             style={{ fontSize: 12 }}
           >
@@ -172,8 +172,8 @@ export function ArchivePage() {
           <button
             type="button"
             onClick={() => setIsInternational(true)}
-            className={`flex-1 min-w-[52px] h-full flex items-center justify-center font-medium transition-colors border-l border-white/10 ${
-              isInternational ? "bg-[#618EFF] text-white" : "bg-white/5 text-white/60 hover:bg-white/8"
+            className={`flex-1 min-w-[52px] h-full flex items-center justify-center transition-colors ${
+              isInternational ? "text-white" : "opacity-40"
             }`}
             style={{ fontSize: 12 }}
           >
@@ -223,7 +223,7 @@ export function ArchivePage() {
       ) : filteredSessions.length === 0 ? (
         <div className="flex-1 flex items-center justify-center py-12">
           <p style={{ fontSize: 14 }} className="text-white/40 text-center">
-            저장된 시황이 없습니다.
+            저장된 리포트가 없습니다.
           </p>
         </div>
       ) : null}

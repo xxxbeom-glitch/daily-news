@@ -250,8 +250,8 @@ export function TestPage2() {
     (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0)) || (tab === "us" && pdfs.length > 0);
 
   return (
-    <div className="flex flex-col min-h-full">
-      <div className="flex-1 px-4 pt-5 pb-[120px]" onPaste={handlePaste}>
+    <div className="flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-[120px]" onPaste={handlePaste}>
         <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
           {(images.length > 0 || pdfs.length > 0) && (
             <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
