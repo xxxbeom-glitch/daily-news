@@ -109,8 +109,7 @@ export function MarketSummaryView({
       (text ?? "")
         .split("\n")
         .map((line) => line.replace(/^\s*[-・]\s*/, "").trim())
-        .filter(Boolean)
-        .join("\n");
+        .filter(Boolean);
     return (
       <div ref={containerRef} className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
         {header}
@@ -121,8 +120,13 @@ export function MarketSummaryView({
                 <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {item.title}
                 </div>
-                <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[8px] whitespace-pre-line">
-                  {stripBullet(item.body ?? "")}
+                <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[8px] space-y-[4px]">
+                  {stripBullet(item.body ?? "").map((line, j) => (
+                    <div key={j} className="flex items-start gap-1.5">
+                      <span style={{ fontSize: 13 }} aria-hidden>✔️</span>
+                      <span className="flex-1">{line}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
