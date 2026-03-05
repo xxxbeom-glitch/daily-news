@@ -5,7 +5,6 @@ import {
   fetchDashboardData,
   fetchChartData,
   CAROUSEL_GROUPS,
-  CAROUSEL_TITLES,
   type DashboardItem,
   type ChartDataPoint,
 } from "../utils/fetchMarketData";
@@ -81,8 +80,8 @@ function CandlestickChart({ data, height = 40 }: { data: ChartDataPoint[]; heigh
   return <div ref={containerRef} className="w-full shrink-0" style={{ height }} />;
 }
 
-const CARD_HEIGHT = 48;
-const CHART_HEIGHT = 40;
+const CARD_HEIGHT = 64;
+const CHART_HEIGHT = 56;
 
 function DashboardCard({ item }: { item: DashboardItem }) {
   const [chartData, setChartData] = useState<ChartDataPoint[]>(() => loadChartCache(item.symbol) ?? []);
@@ -211,22 +210,13 @@ export function MarketDashboardPage() {
             .map((s) => itemMap.get(s))
             .filter((i): i is DashboardItem => i != null);
           if (groupItems.length === 0) return null;
-          const title = CAROUSEL_TITLES[gIdx] ?? "";
           return (
-            <div key={gIdx} className="flex flex-col w-full" style={{ gap: 8 }}>
-              <div
-                className="text-white font-semibold"
-                style={{ fontSize: 14, padding: 1 }}
-              >
-                {title}
-              </div>
-              <div className="flex flex-col w-full" style={{ gap: 4 }}>
-                {groupItems.map((item) => (
-                  <div key={item.symbol} className="w-full">
-                    <DashboardCard item={item} />
-                  </div>
-                ))}
-              </div>
+            <div key={gIdx} className="flex flex-col w-full" style={{ gap: 12 }}>
+              {groupItems.map((item) => (
+                <div key={item.symbol} className="w-full">
+                  <DashboardCard item={item} />
+                </div>
+              ))}
             </div>
           );
         })}
