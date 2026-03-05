@@ -117,12 +117,14 @@ export function MarketSummaryView({
         <div className="px-5 py-0 pb-6">
           <div className="mt-[22px] space-y-[22px]">
             {data.keyIssues.map((item, i) => (
-              <div key={i} className="border-l-2 border-[#618EFF]/30 pl-3">
-                <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
+              <div key={i}>
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.5 }} className="text-white">
                   {item.title}
                 </div>
-                <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[8px] whitespace-pre-line">
-                  {stripBullet(item.body ?? "")}
+                <div className="border-l-2 border-[#618EFF]/30 pl-3 mt-[8px]">
+                  <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 whitespace-pre-line">
+                    {stripBullet(item.body ?? "")}
+                  </div>
                 </div>
               </div>
             ))}

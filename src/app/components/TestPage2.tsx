@@ -4,9 +4,11 @@ import { generateMarketSummaryFromUploadedData } from "../utils/aiSummary";
 import { getSelectedModel } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
 import { fetchArticleContent } from "../utils/articleReader";
+import { extractTextFromPdf } from "../utils/pdfExtract";
 
-const ACCEPT_IMAGE = "image/png,image/jpeg,image/gif,image/webp,.pdf,.xlsx,.xls";
+const ACCEPT_FILE = "image/png,image/jpeg,image/gif,image/webp,application/pdf,.pdf,.xlsx,.xls";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const PDF_TYPE = "application/pdf";
 
 interface UploadedImage {
   data: string;
@@ -53,7 +55,7 @@ export function TestPage2() {
         };
         reader.readAsDataURL(file);
       } else {
-        resolve(`지원 형식: 이미지(PNG, JPEG, GIF, WebP). '${file.name}'은 현재 미지원.`);
+        resolve(`지원 형식: 이미지(PNG, JPEG, GIF, WebP), PDF. '${file.name}'은 현재 미지원.`);
       }
     });
   }, []);
@@ -62,12 +64,30 @@ export function TestPage2() {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files?.length) return;
+      setError(null);
       for (let i = 0; i < files.length; i++) {
-        const result = await processFile(files[i]);
-        if (result && typeof result === "object") {
-          addImageIfNotDuplicate(result);
-        } else if (typeof result === "string") {
-          setError(result);
+        const file = files[i];
+        if (file.type === PDF_TYPE || file.name?.toLowerCase().endsWith(".pdf")) {
+          setLoading(true);
+          try {
+            const text = await extractTextFromPdf(file);
+            if (text.trim()) {
+              setInputValue((prev) => (prev ? `${prev}\n\n---\n\n[PDF] ${file.name}\n\n${text}` : `[PDF] ${file.name}\n\n${text}`));
+            } else {
+              setError(`'${file.name}': 텍스트를 추출할 수 없습니다. (이미지 기반 PDF일 수 있음)`);
+            }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : `PDF 처리 실패: ${file.name}`);
+          } finally {
+            setLoading(false);
+          }
+        } else {
+          const result = await processFile(file);
+          if (result && typeof result === "object") {
+            addImageIfNotDuplicate(result);
+          } else if (typeof result === "string") {
+            setError(result);
+          }
         }
       }
       e.target.value = "";
@@ -207,7 +227,7 @@ export function TestPage2() {
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="기사 링크, 텍스트를 입력하거나 이미지를 붙여넣으세요. (Ctrl+V)"
+            placeholder="기사 링크, 텍스트, 이미지(Ctrl+V), PDF 첨부 가능"
             rows={5}
             className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
           />
@@ -220,14 +240,14 @@ export function TestPage2() {
             >
               <Paperclip size={18} />
             </button>
-            <span className="text-white/30 text-xs">이미지 붙여넣기 (Ctrl+V)</span>
+            <span className="text-white/30 text-xs">이미지(Ctrl+V) · PDF 첨부</span>
           </div>
         </div>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept={ACCEPT_IMAGE}
+          accept={ACCEPT_FILE}
           onChange={handleFileChange}
           multiple
           className="hidden"
