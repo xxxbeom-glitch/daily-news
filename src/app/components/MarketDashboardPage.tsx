@@ -42,7 +42,7 @@ function CandlestickChart({ data }: { data: ChartDataPoint[] }) {
         horzLines: { color: "rgba(255,255,255,0.06)" },
       },
       rightPriceScale: { visible: false, borderVisible: false },
-      timeScale: { visible: false, borderVisible: false, rightBarOffset: 0 },
+      timeScale: { visible: false, borderVisible: false, rightOffset: 0 },
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
       lastValueVisible: false,
@@ -193,7 +193,7 @@ export function MarketDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-full px-4 pt-5 pb-6 relative">
+    <div className="flex flex-col min-h-full px-4 pt-5 pb-16 relative">
       <div className="flex items-center justify-between gap-2 mb-1">
         <h1 className="text-white font-semibold" style={{ fontSize: 16 }}>
           오늘의 시장
@@ -221,7 +221,7 @@ export function MarketDashboardPage() {
       {items.length === 0 && (
         <p className="text-white/50 text-sm mt-4">표시할 데이터가 없습니다.</p>
       )}
-      <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white mt-6">
+      <p style={{ fontSize: 11, fontWeight: 400, opacity: 0.5 }} className="text-white mt-6 mb-8">
         출처: Yahoo Finance
       </p>
     </div>
