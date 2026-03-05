@@ -28,7 +28,7 @@ function HeaderContent() {
           {formatHeaderDate()}
         </span>
       </div>
-      <nav className="flex items-end gap-6 mx-4 mb-3 pb-1 border-b border-white/10">
+      <nav className="flex items-end gap-6 mx-4 mb-3 pb-1">
             <Link
               to="/market"
               className={`pb-2 text-sm transition-colors ${
