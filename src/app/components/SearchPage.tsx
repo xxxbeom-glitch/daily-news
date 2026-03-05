@@ -210,7 +210,7 @@ export function SearchPage() {
 
       await enrichMarketData(data, isInternational, { preserveMovers: !!moversSeed });
 
-      if (isInternational && (data.indices?.length > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0)) {
+      if ((data.indices?.length ?? 0) > 0 || (data.moversUp?.length ?? 0) + (data.moversDown?.length ?? 0) > 0) {
         try {
           data = await verifyAndCorrectMarketSummary(data, { model: actualModel });
         } catch {
