@@ -169,6 +169,15 @@ export function ArchivePage() {
             data={selectedSession.marketSummary}
             aiModel={selectedSession.aiModel ?? "gemini"}
             articles={selectedSession.articles}
+            displayDate={
+              selectedSession.marketSummary?.regionLabel?.includes?.("조간신문") && selectedSession.createdAt
+                ? (() => {
+                    const d = new Date(selectedSession.createdAt);
+                    const w = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+                    return `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, "0")}. ${String(d.getDate()).padStart(2, "0")} (${w})`;
+                  })()
+                : undefined
+            }
           />
         </div>
       ) : selectedSession ? (
