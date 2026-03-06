@@ -8,7 +8,6 @@ import { LoginPage } from "./components/LoginPage";
 import { TestPage } from "./components/TestPage";
 import { UploadPage } from "./components/UploadPage";
 import { MarketDashboardPage } from "./components/MarketDashboardPage";
-import { OverseasNewsPage } from "./components/OverseasNewsPage";
 import { ScrapPage } from "./components/ScrapPage";
 
 export const router = createBrowserRouter([
@@ -18,7 +17,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ReportPageWrapper /> },
       { path: "market", element: <MarketDashboardPage /> },
-      { path: "overseas-news", element: <OverseasNewsPage /> },
       { path: "search", element: <SearchPageWrapper /> },
       { path: "test", element: <TestPage /> },
       { path: "upload", element: <UploadPage /> },

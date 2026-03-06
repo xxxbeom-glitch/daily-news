@@ -647,7 +647,7 @@ export function SettingsPage() {
       {/* 기억할 관심사 - 숨김 */}
 
       {/* 언론사 연결상태 */}
-      <section className="mb-4">
+      {false && (<section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
             <button
@@ -754,7 +754,7 @@ export function SettingsPage() {
           </div>
           )}
         </div>
-      </section>
+      </section>)}
 
       {/* API 설정 */}
       <section className="mb-4">
@@ -918,7 +918,7 @@ export function SettingsPage() {
           <div className="px-4 py-3 border-b border-white/6">
             <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">데이터 동기화</p>
             <p style={{ fontSize: 12 }} className="text-white/50 mt-1">
-              취소취소취소 Firebase 새로고침전체 삭제새로고침. 취소취소전체 삭제? 전체 삭제? 전체 삭제전체 삭제취소취소
+              리포트를 Firebase에 동기화합니다. 동기화 후 다른 기기에서 불러올 수 있습니다.
             </p>
           </div>
           <div className="p-4 space-y-3">
@@ -961,7 +961,8 @@ export function SettingsPage() {
       </section>
 
       {/* 관리자 취소 */}
-      <section className="mb-4">
+      {false && (
+<section className="mb-4">
         <Link
           to="/settings/admin"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
@@ -972,6 +973,8 @@ export function SettingsPage() {
           </div>
         </Link>
       </section>
+)}
+
 
       {/* 취소 취소취소취소 (lightweight-charts attributionLogo 취소전체 삭제취소취소) */}
       <section className="mb-4">
