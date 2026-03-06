@@ -41,6 +41,32 @@ export async function uploadBase64ToCloudinary(
   return data.secure_url;
 }
 
+/**
+ * PDF 파일을 Cloudinary raw에 업로드하고 URL 반환
+ */
+export async function uploadPdfToCloudinary(file: File): Promise<string> {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+    throw new Error("Cloudinary 설정이 없습니다. (.env에 VITE_CLOUDINARY_* 확인)");
+  }
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`,
+    { method: "POST", body: formData }
+  );
+
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `Cloudinary PDF 업로드 실패 (${res.status})`);
+  }
+
+  const data = (await res.json()) as { secure_url?: string };
+  if (!data.secure_url) throw new Error("Cloudinary 응답에 URL이 없습니다.");
+  return data.secure_url;
+}
+
 /** URL 이미지를 fetch하여 base64로 변환 (AI API용) */
 export async function fetchUrlToBase64(url: string): Promise<{ data: string; mimeType: string }> {
   const res = await fetch(url);

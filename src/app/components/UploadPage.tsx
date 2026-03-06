@@ -9,6 +9,7 @@ import { extractTextFromPdf } from "../utils/pdfExtract";
 import {
   isCloudinaryEnabled,
   uploadBase64ToCloudinary,
+  uploadPdfToCloudinary,
   fetchUrlToBase64,
 } from "../utils/cloudinaryUpload";
 
@@ -27,6 +28,8 @@ type UploadedImage = { data?: string; mimeType?: string; name?: string; url?: st
 interface UploadedPdf {
   name: string;
   text: string;
+  /** Cloudinary URL (설정 시) */
+  url?: string;
 }
 
 function isDuplicateImage(images: UploadedImage[], newData: string): boolean {
@@ -146,8 +149,16 @@ export function UploadPage() {
           try {
             const text = await extractTextFromPdf(file);
             if (text.trim()) {
+              let url: string | undefined;
+              if (isCloudinaryEnabled()) {
+                try {
+                  url = await uploadPdfToCloudinary(file);
+                } catch {
+                  /* Cloudinary 실패 시 url 없이 진행 */
+                }
+              }
               setPdfs((prev) => {
-                const next = [...prev, { name: file.name, text: text.trim() }];
+                const next = [...prev, { name: file.name, text: text.trim(), url }];
                 return next.slice(-2);
               });
             } else {
@@ -362,7 +373,7 @@ export function UploadPage() {
             source: "글로벌 마켓 데일리",
             sourceId: "test2",
             publishedAt: now.toISOString(),
-            url: "",
+            url: p.url ?? "",
             summary: "",
             aiModel: model,
             category: "Economy" as const,
