@@ -308,6 +308,7 @@ async function callGeminiWithOptions(
     modelId?: string;
     systemInstruction?: string;
     parts?: GeminiPart[];
+    maxOutputTokens?: number;
   }
 ): Promise<string> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
@@ -331,7 +332,7 @@ async function callGeminiWithOptions(
         contents: [{ role: "user", parts: userParts }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 8192,
+          maxOutputTokens: opts?.maxOutputTokens ?? 8192,
           responseMimeType: "application/json",
         },
       };
@@ -372,14 +373,15 @@ const MORNING_HEADLINE_SYSTEM_PROMPT = `역할: 귀하는 한국경제 헤드라
 
 핵심 원칙:
 1. 외부 지식 차단: 업로드된 이미지·텍스트 내용만을 근거로 삼으십시오.
-2. 기사별·항목별 분리: 한 기사당 핵심 내용을 2~4개 항목으로 나누어 각각 keyIssues에 추가하세요. (예: 출시 계획·제품 특징·진출 전략·실적 전망 등 각각 별도 항목)
-3. 기사 제목: 원문에 있는 그대로 반드시 유지. 같은 기사에서 나온 항목들은 동일한 제목 사용.
-4. 기사 내용(각 항목): 한 항목당 하나의 핵심 내용만. 1~2문장으로 간결히. 명사형 종결(-음, -기, -함, -됨). 개조식. 문두에 하이픈(-), 불릿(•) 사용 금지.
-5. 한자 한글화: 美→미국, 中→중국 등 문맥에 맞는 한글로 치환.
-6. 섹션 분류: 각 항목을 기사 성격에 맞는 섹션으로 분류하세요. (경제, 증권, 정치, 사회, IT/과학, 부동산, 국제, 기타 중 하나)`;
+2. 모든 기사 추출: 이미지·텍스트에 있는 기사를 누락 없이 전부 추출하세요. 일부만 선택하지 마세요.
+3. 기사별·항목별 분리: 한 기사당 핵심 내용을 2~4개 항목으로 나누어 각각 keyIssues에 추가하세요. (예: 출시 계획·제품 특징·진출 전략·실적 전망 등 각각 별도 항목)
+4. 기사 제목: 원문에 있는 그대로 반드시 유지. 같은 기사에서 나온 항목들은 동일한 제목 사용.
+5. 기사 내용(각 항목): 한 항목당 하나의 핵심 내용만. 1~2문장으로 간결히. 명사형 종결(-음, -기, -함, -됨). 개조식. 문두에 하이픈(-), 불릿(•) 사용 금지.
+6. 한자 한글화: 美→미국, 中→중국 등 문맥에 맞는 한글로 치환.
+7. 섹션 분류: 각 항목을 기사 성격에 맞는 섹션으로 분류하세요. (경제, 증권, 정치, 사회, IT/과학, 부동산, 국제, 기타 중 하나)`;
 
 /** 테스트2용 유저 프롬프트: 한국경제 헤드라인 형식 */
-const MORNING_HEADLINE_USER_PROMPT = `업로드된 이미지·텍스트에서 기사를 추출하세요.
+const MORNING_HEADLINE_USER_PROMPT = `업로드된 이미지·텍스트에서 기사를 추출하세요. 모든 기사를 빠짐없이 추출하고, 일부만 선택하지 마세요.
 
 규칙:
 - 한 기사당 2~4개 항목으로 나누어 출력. (출시 계획·제품 특징·진출 전략·실적 전망 등 핵심 내용별로 분리)
@@ -486,7 +488,7 @@ export async function generateMarketSummaryFromUploadedData(
 
   const imageLimitNote =
     (images?.length ?? 0) >= 10
-      ? "\n\n[중요] 이미지가 많습니다. keyIssues는 전체 최대 25개로 제한하고, 각 항목 body는 1문장으로 간결히 하세요. 반드시 유효한 JSON만 출력하세요."
+      ? "\n\n[중요] 이미지가 많습니다. 모든 기사를 빠짐없이 추출하세요. keyIssues는 최대 60개까지 가능합니다. 각 항목 body는 1문장으로 간결히 하세요. 반드시 유효한 JSON만 출력하세요."
       : "";
   const fullUserPrompt = `${MORNING_HEADLINE_USER_PROMPT}${imageLimitNote}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
 
@@ -503,6 +505,7 @@ export async function generateMarketSummaryFromUploadedData(
         modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
         systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
         parts,
+        maxOutputTokens: (images?.length ?? 0) >= 10 ? 16384 : undefined,
       });
     } else if (useClaude) {
       const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
