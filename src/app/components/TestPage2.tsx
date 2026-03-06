@@ -11,6 +11,9 @@ type CountryTab = "kr" | "us";
 const ACCEPT_ALL = "image/png,image/jpeg,image/gif,image/webp,application/pdf,.pdf";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const PDF_TYPE = "application/pdf";
+const MAX_IMAGES = 20;
+const IMAGE_QUALITY = 0.7;
+const IMAGE_MAX_WIDTH = 1200;
 
 interface UploadedImage {
   data: string;
@@ -25,6 +28,53 @@ interface UploadedPdf {
 
 function isDuplicateImage(images: UploadedImage[], newData: string): boolean {
   return images.some((img) => img.data === newData);
+}
+
+/** 이미지를 70% 품질 JPEG로 압축 (API 용량 절감) */
+function compressImage(file: File): Promise<UploadedImage> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+      if (width > IMAGE_MAX_WIDTH) {
+        height = (height * IMAGE_MAX_WIDTH) / width;
+        width = IMAGE_MAX_WIDTH;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Compression failed"));
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.includes(",") ? result.split(",")[1] : result;
+            resolve({ data: base64 ?? "", mimeType: "image/jpeg", name: file.name });
+          };
+          reader.readAsDataURL(blob);
+        },
+        "image/jpeg",
+        IMAGE_QUALITY
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image load failed"));
+    };
+    img.src = url;
+  });
 }
 
 export function TestPage2() {
@@ -46,12 +96,20 @@ export function TestPage2() {
     setPdfs((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const addImageIfNotDuplicate = useCallback((img: UploadedImage) => {
-    setImages((prev) => {
-      if (isDuplicateImage(prev, img.data)) return prev;
-      return [...prev, img];
-    });
-  }, []);
+  const addImageIfNotDuplicate = useCallback(
+    (img: UploadedImage) => {
+      setImages((prev) => {
+        if (prev.length >= MAX_IMAGES) {
+          setError(`이미지는 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`);
+          return prev;
+        }
+        if (isDuplicateImage(prev, img.data)) return prev;
+        setError(null);
+        return [...prev, img];
+      });
+    },
+    []
+  );
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,15 +134,12 @@ export function TestPage2() {
             setError(err instanceof Error ? err.message : `PDF 처리 실패: ${file.name}`);
           }
         } else if (IMAGE_TYPES.includes(file.type)) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64 = result.includes(",") ? result.split(",")[1] : result;
-            if (base64) {
-              addImageIfNotDuplicate({ data: base64, mimeType: file.type, name: file.name });
-            }
-          };
-          reader.readAsDataURL(file);
+          try {
+            const compressed = await compressImage(file);
+            addImageIfNotDuplicate(compressed);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "이미지 압축 실패");
+          }
         }
       }
       e.target.value = "";
@@ -101,15 +156,9 @@ export function TestPage2() {
           e.preventDefault();
           const file = item.getAsFile();
           if (file) {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const result = reader.result as string;
-              const base64 = result.includes(",") ? result.split(",")[1] : result;
-              if (base64) {
-                addImageIfNotDuplicate({ data: base64, mimeType: file.type, name: file.name });
-              }
-            };
-            reader.readAsDataURL(file);
+            compressImage(file)
+              .then((compressed) => addImageIfNotDuplicate(compressed))
+              .catch((err) => setError(err instanceof Error ? err.message : "이미지 압축 실패"));
           }
           break;
         }
@@ -152,8 +201,9 @@ export function TestPage2() {
       try {
         const model = getSelectedModel();
         const modelId = getSelectedModelId();
+        const imagesToSend = hasImages ? images.slice(0, MAX_IMAGES) : undefined;
         const data = await generateMarketSummaryFromUploadedData(
-          { text: finalText || "", images: hasImages ? images : undefined },
+          { text: finalText || "", images: imagesToSend },
           { model, modelId }
         );
         const now = new Date();
@@ -257,6 +307,11 @@ export function TestPage2() {
         <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
           {(images.length > 0 || pdfs.length > 0) && (
             <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
+              {images.length > 0 && (
+                <span className="w-full text-white/40 text-xs mb-1">
+                  이미지 {images.length}/{MAX_IMAGES}장
+                </span>
+              )}
               {images.map((img, i) => (
                 <div key={`img-${i}`} className="relative">
                   <img
