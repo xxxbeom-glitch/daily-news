@@ -129,13 +129,14 @@ content = content.replace(
   /(<XCircle size=\{14\} \/>)\s*\n\s*\?\?/g,
   '$1\n                    실패'
 );
+// API 상태 레이블: "로그인 :" / "연결됨 :" 등 -> "연결상태 :"
 content = content.replace(
-  /\?\?\? :/g,
-  '연결됨 :'
+  /\{apiStatus\.gpt === "ok" && apiStatus\.gemini === "ok" && apiStatus\.anthropic === "ok" \? "[^"]*" : "[^"]*"\} :/,
+  '연결상태 :'
 );
 content = content.replace(
   /\?\?\?\? :/g,
-  '지역제한 :'
+  '연결상태 :'
 );
 
 // apiStatus.errorMessage.includes
@@ -164,6 +165,12 @@ content = content.replace(
 content = content.replace(
   /(RefreshCw size=\{14\} className=\{isChecking \? "animate-spin" : ""\} \/>)\s*\n\s*\?\?\?\?/,
   '$1\n              새로고침'
+);
+
+// API 상태 레이블: 로그인/연결됨/지역제한 -> 연결상태
+content = content.replace(
+  /\{apiStatus\.gpt === "ok" && apiStatus\.gemini === "ok" && apiStatus\.anthropic === "ok" \? "[^"]*" : "[^"]*"\} :/,
+  '연결상태 :'
 );
 
 fs.writeFileSync(filePath, content, "utf8");
