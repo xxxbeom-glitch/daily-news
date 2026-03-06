@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Paperclip } from "lucide-react";
 import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
-import { getSelectedModel, getSelectedModelId } from "../utils/persistState";
+import { getSelectedModel, getSelectedModelId, saveArchiveState } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
 import { fetchArticleContent } from "../utils/articleReader";
 import { extractTextFromPdf } from "../utils/pdfExtract";
@@ -78,7 +78,7 @@ function compressImage(file: File): Promise<UploadedImage> {
   });
 }
 
-export function TestPage2() {
+export function UploadPage() {
   const { sessions, addSession, updateSession } = useArchive();
   const location = useLocation();
   const navigate = useNavigate();
@@ -234,8 +234,9 @@ export function TestPage2() {
           setImages([]);
           navigate("/", { replace: true });
         } else {
+          const newId = `session-${Date.now()}-kr`;
           addSession({
-            id: `session-${Date.now()}-kr`,
+            id: newId,
             title,
             createdAt: now.toISOString(),
             isInternational: false,
@@ -258,9 +259,11 @@ export function TestPage2() {
             aiModel: model,
             uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
           });
+          saveArchiveState({ isInternational: false, selectedSessionId: newId });
           setSuccessMessage("리포트에 저장되었습니다.");
           setInputValue("");
           setImages([]);
+          navigate("/", { replace: true });
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "분석 실패");
@@ -292,8 +295,9 @@ export function TestPage2() {
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
           (now.getHours() < 12 ? "오전" : "오후") +
           ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
+        const newId = `session-${Date.now()}-gmd`;
         addSession({
-          id: `session-${Date.now()}-gmd`,
+          id: newId,
           title,
           createdAt: now.toISOString(),
           isInternational: true,
@@ -313,8 +317,10 @@ export function TestPage2() {
           marketSummary: data,
           aiModel: model,
         });
+        saveArchiveState({ isInternational: true, selectedSessionId: newId });
         setSuccessMessage("리포트에 저장되었습니다.");
         setPdfs([]);
+        navigate("/", { replace: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "분석 실패");
       } finally {

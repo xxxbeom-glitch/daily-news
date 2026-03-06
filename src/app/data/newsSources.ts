@@ -31,7 +31,7 @@ export interface ArchiveSession {
   aiModel?: "gemini" | "gpt" | "claude";
   /** AI 요약 (요약하기 버튼 클릭 후 고정 저장) */
   aiSummary?: string;
-  /** 업로드된 이미지 (TestPage2 한국 탭에서 생성 시 저장, 수정 시 사용) */
+  /** 업로드된 이미지 (UploadPage 한국 탭에서 생성 시 저장, 수정 시 사용) */
   uploadedImages?: { data: string; mimeType: string; name?: string }[];
 }
 

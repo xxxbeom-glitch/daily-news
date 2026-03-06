@@ -50,9 +50,9 @@ function HeaderContent() {
               리포트
             </Link>
             <Link
-              to="/test2"
+              to="/upload"
               className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/test2"
+                location.pathname === "/upload"
                   ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}

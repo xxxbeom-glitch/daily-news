@@ -10,7 +10,7 @@ import { MarketSummaryView } from "./MarketSummaryView";
 
 const CONFIRM_MS = 2500;
 
-export function ArchivePage() {
+export function ReportPage() {
   const navigate = useNavigate();
   const { sessions, deleteSession } = useArchive();
   const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
@@ -164,7 +164,7 @@ export function ArchivePage() {
               </div>
             ))}
           </div>
-        )}
+          )}
         </div>
 
         {/* 국가 탭 */}
@@ -213,7 +213,7 @@ export function ArchivePage() {
             showEditButton={!!(selectedSession.uploadedImages?.length)}
             onEdit={
               selectedSession.uploadedImages?.length
-                ? () => navigate("/test2", { state: { editSessionId: selectedSession.id } })
+                ? () => navigate("/upload", { state: { editSessionId: selectedSession.id } })
                 : undefined
             }
             displayDate={
