@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, ExternalLink, X } from "lucide-react";
+import { RefreshCw, ExternalLink, X, Bookmark, BookmarkCheck } from "lucide-react";
 import { useSearchState } from "../context/SearchStateContext";
 import { getSelectedSources } from "../utils/persistState";
-import { allSources, matchesNewsSearchKeywords } from "../data/newsSources";
+import { getEffectiveSources, matchesNewsSearchKeywords } from "../data/newsSources";
 import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { filterArticlesByRange } from "../utils/fetchRssFeeds";
 import { getRecentRangeFromSettings } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
-import { summarizeSingleArticle } from "../utils/aiSummary";
 import { stripHtmlToText } from "../utils/stripHtml";
+import { addScrap, removeScrap, isScrapped } from "../utils/scrapStorage";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
 /** 기사 발행일 포맷 */
@@ -68,7 +68,7 @@ function ArticleCardSimple({
   );
 }
 
-/** 전체보기 진입 시 해당 기사 본문 + AI 개별 요약 표시 */
+/** 전체보기 진입 시 해당 기사 본문만 표시 (제목, 업로드 일시, 본문) */
 function ArticleFullViewModal({
   article,
   onClose,
@@ -76,19 +76,15 @@ function ArticleFullViewModal({
   article: RawRssArticle;
   onClose: () => void;
 }) {
+  const [scrapped, setScrapped] = useState(() => isScrapped(article.link));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
   const [title, setTitle] = useState<string | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
 
-  // 1. 본문 로드 - RSS body 있으면 즉시 표시, 전체 본문은 백그라운드에서 가져와 교체
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    setSummary(null);
-    setSummaryLoading(false);
 
     const rssBody = article.body?.trim();
     const hasRssFallback = rssBody && rssBody.length > 50;
@@ -133,24 +129,6 @@ function ArticleFullViewModal({
     return () => { cancelled = true; };
   }, [article.link, article.body, article.title]);
 
-  // 2. 본문 로드 완료 시 개별 기사 AI 요약 생성
-  useEffect(() => {
-    if (loading || !content || content.length < 100 || summary || summaryLoading) return;
-    let cancelled = false;
-    setSummaryLoading(true);
-    summarizeSingleArticle(content)
-      .then((s) => {
-        if (!cancelled && s) setSummary(s);
-      })
-      .catch(() => {
-        if (!cancelled) setSummary("(요약 생성 실패)");
-      })
-      .finally(() => {
-        if (!cancelled) setSummaryLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [loading, content, summary, summaryLoading]);
-
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-[#0a0a0f]">
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
@@ -161,16 +139,32 @@ function ArticleFullViewModal({
         >
           <X size={20} />
         </button>
-        <a
-          href={article.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
-          style={{ fontSize: 13 }}
-        >
-          <ExternalLink size={14} />
-          원문 보기
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (scrapped) removeScrap(article.link);
+              else addScrap(article);
+              setScrapped(!scrapped);
+            }}
+            className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
+            style={{ fontSize: 13 }}
+            title={scrapped ? "스크랩 해제" : "스크랩"}
+          >
+            {scrapped ? <BookmarkCheck size={14} className="text-[#618EFF]" /> : <Bookmark size={14} />}
+            스크랩
+          </button>
+          <a
+            href={article.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
+            style={{ fontSize: 13 }}
+          >
+            <ExternalLink size={14} />
+            원문 보기
+          </a>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 max-w-[430px] mx-auto w-full">
@@ -198,20 +192,6 @@ function ArticleFullViewModal({
               <span>·</span>
               <span>{formatPubDate(article.pubDate)}</span>
             </div>
-
-            {summaryLoading && (
-              <div className="mb-6 p-4 bg-white/5 rounded-[10px] border border-white/8">
-                <p className="text-white/50" style={{ fontSize: 13 }}>AI 요약 생성 중…</p>
-              </div>
-            )}
-            {summary && !summaryLoading && (
-              <div className="mb-6 p-4 bg-[#618EFF]/10 rounded-[10px] border border-[#618EFF]/20">
-                <p className="text-white/90 font-medium mb-1" style={{ fontSize: 13 }}>핵심 요약</p>
-                <p className="text-white/80 whitespace-pre-wrap" style={{ fontSize: 14, lineHeight: 1.7 }}>
-                  {summary}
-                </p>
-              </div>
-            )}
 
             <div
               className="text-white/90 whitespace-pre-wrap font-normal"
@@ -244,7 +224,7 @@ export function SearchPage() {
 
   const selectedSources = getSelectedSources();
   const selectedSet = new Set(selectedSources.sources);
-  const sourceList = allSources.filter((s) => selectedSet.has(s.id));
+  const sourceList = getEffectiveSources().filter((s) => selectedSet.has(s.id));
   const hasAnySource = sourceList.length > 0;
 
   const [fullViewArticle, setFullViewArticle] = useState<RawRssArticle | null>(null);

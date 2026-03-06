@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, ExternalLink, X } from "lucide-react";
-import { allSources } from "../data/newsSources";
+import { RefreshCw, ExternalLink, X, Bookmark, BookmarkCheck } from "lucide-react";
+import { getEffectiveSources } from "../data/newsSources";
 import { getSelectedSources } from "../utils/persistState";
 import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
 import { stripHtmlToText } from "../utils/stripHtml";
 import { recordArticleView, getArticleViewCounts } from "../utils/articleViewCount";
+import { addScrap, removeScrap, isScrapped } from "../utils/scrapStorage";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
 const PAGE_SIZE = 20;
@@ -29,11 +30,14 @@ function formatPubDate(pubDate: string): string {
 function ArticleFullViewModal({
   article,
   onClose,
+  onScrapChange,
 }: {
   article: RawRssArticle;
   onClose: () => void;
+  onScrapChange?: () => void;
 }) {
   const rssBody = article.body?.trim() && article.body.trim().length > 50 ? stripHtmlToText(article.body) : null;
+  const [scrapped, setScrapped] = useState(() => isScrapped(article.link));
   const [loading, setLoading] = useState(!rssBody);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(rssBody);
@@ -86,16 +90,33 @@ function ArticleFullViewModal({
         >
           <X size={20} />
         </button>
-        <a
-          href={article.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
-          style={{ fontSize: 13 }}
-        >
-          <ExternalLink size={14} />
-          원문 보기
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (scrapped) removeScrap(article.link);
+              else addScrap(article);
+              setScrapped(!scrapped);
+              onScrapChange?.();
+            }}
+            className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
+            style={{ fontSize: 13 }}
+            title={scrapped ? "스크랩 해제" : "스크랩"}
+          >
+            {scrapped ? <BookmarkCheck size={14} className="text-[#618EFF]" /> : <Bookmark size={14} />}
+            스크랩
+          </button>
+          <a
+            href={article.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
+            style={{ fontSize: 13 }}
+          >
+            <ExternalLink size={14} />
+            원문 보기
+          </a>
+        </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 max-w-[430px] mx-auto w-full">
         {loading && (
@@ -144,7 +165,7 @@ export function OverseasNewsPage() {
 
   const selectedSources = getSelectedSources();
   const selectedSet = new Set(selectedSources.sources);
-  const sourceList = allSources.filter((s) => selectedSet.has(s.id));
+  const sourceList = getEffectiveSources().filter((s) => selectedSet.has(s.id));
 
   const viewCounts = useMemo(() => getArticleViewCounts(), [viewCountVersion]);
 

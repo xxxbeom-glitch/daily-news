@@ -9,6 +9,7 @@ import { TestPage } from "./components/TestPage";
 import { UploadPage } from "./components/UploadPage";
 import { MarketDashboardPage } from "./components/MarketDashboardPage";
 import { OverseasNewsPage } from "./components/OverseasNewsPage";
+import { ScrapPage } from "./components/ScrapPage";
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
         element: <Outlet />,
         children: [
           { index: true, element: <SettingsPageWrapper /> },
+          { path: "scrap", element: <ScrapPage /> },
           { path: "login", element: <LoginPage /> },
           { path: "admin", element: <AdminPage /> },
         ],

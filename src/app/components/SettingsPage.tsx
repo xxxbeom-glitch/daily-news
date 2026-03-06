@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload, Plus } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
-import { allSources, type ArchiveSession } from "../data/newsSources";
+import { getEffectiveSources, type ArchiveSession } from "../data/newsSources";
+import { addCustomSource, removeCustomSource, isCustomSourceId, getCustomSources } from "../utils/customRssStorage";
 import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
@@ -338,8 +339,10 @@ export function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
   const [exportPdfLoading, setExportPdfLoading] = useState(false);
+  const [customSourcesVersion, setCustomSourcesVersion] = useState(0);
+  const effectiveSources = useMemo(() => getEffectiveSources(), [customSourcesVersion]);
   const [sourceStatus, setSourceStatus] = useState<Record<string, "ok" | "error">>(() =>
-    Object.fromEntries(allSources.map((s) => [s.id, "ok" as const]))
+    Object.fromEntries(getEffectiveSources().map((s) => [s.id, "ok" as const]))
   );
   const [apiStatus, setApiStatus] = useState({
     gpt: "error" as "ok" | "error",
@@ -350,6 +353,8 @@ export function SettingsPage() {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() => getSelectedSources().sources);
+  const [newRssName, setNewRssName] = useState("");
+  const [newRssUrl, setNewRssUrl] = useState("");
   const [selectedModelId, setSelectedModelIdState] = useState<string>(() => getSelectedModelId());
 
   useEffect(() => {
@@ -383,17 +388,46 @@ export function SettingsPage() {
     });
   }, []);
 
+  const handleAddRss = useCallback(() => {
+    const name = newRssName.trim() || "커스텀 RSS";
+    const url = newRssUrl.trim();
+    if (!url) return;
+    const added = addCustomSource(name, url);
+    setSelectedSourceIds((prev) => {
+      const next = prev.includes(added.id) ? prev : [...prev, added.id];
+      setSelectedSources({ sources: next });
+      return next;
+    });
+    setCustomSourcesVersion((v) => v + 1);
+    setNewRssName("");
+    setNewRssUrl("");
+  }, [newRssName, newRssUrl]);
+
+  const handleRemoveRss = useCallback((id: string, isCustom: boolean) => {
+    if (isCustom) {
+      removeCustomSource(id);
+      setSelectedSourceIds((prev) => {
+        const next = prev.filter((x) => x !== id);
+        setSelectedSources({ sources: next });
+        return next;
+      });
+      setCustomSourcesVersion((v) => v + 1);
+    } else {
+      toggleSourceSelection(id);
+    }
+  }, [toggleSourceSelection]);
+
   const runCheck = useCallback(async () => {
     setIsChecking(true);
     try {
-      const { sourceStatus: s, apiStatus: a } = await checkConnectionStatus(allSources as { id: string; name: string; rssUrl: string }[]);
+      const { sourceStatus: s, apiStatus: a } = await checkConnectionStatus(getEffectiveSources() as { id: string; name: string; rssUrl: string }[]);
       setSourceStatus(s);
       setApiStatus(a);
       setLastCheckTime(Date.now());
     } finally {
       setIsChecking(false);
     }
-  }, [allSources]);
+  }, [customSourcesVersion]);
 
   const handleRefresh = useCallback(() => {
     const now = Date.now();
@@ -646,10 +680,38 @@ export function SettingsPage() {
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
               RSS 소스
             </div>
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="이름"
+                value={newRssName}
+                onChange={(e) => setNewRssName(e.target.value)}
+                className="flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
+                style={{ fontSize: 13 }}
+              />
+              <input
+                type="url"
+                placeholder="RSS URL"
+                value={newRssUrl}
+                onChange={(e) => setNewRssUrl(e.target.value)}
+                className="flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
+                style={{ fontSize: 13 }}
+              />
+              <button
+                type="button"
+                onClick={handleAddRss}
+                disabled={!newRssUrl.trim()}
+                className="shrink-0 rounded-[8px] border border-[#618EFF]/40 bg-[#618EFF]/20 px-3 py-2 text-[#618EFF] hover:bg-[#618EFF]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ fontSize: 13 }}
+              >
+                <Plus size={18} />
+              </button>
+            </div>
             <div className="divide-y divide-white/6">
-            {allSources.map((s) => {
+            {effectiveSources.map((s) => {
               const status = sourceStatus[s.id] ?? "ok";
               const isSelected = selectedSourceIds.includes(s.id);
+              const isCustom = isCustomSourceId(s.id);
               return (
                 <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
@@ -661,9 +723,19 @@ export function SettingsPage() {
                     />
                     <span style={{ fontSize: 14 }} className="text-white/90 truncate">{s.name}</span>
                   </label>
-                  <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-                    {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`flex items-center gap-1.5 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
+                      {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRss(s.id, isCustom)}
+                      className="p-1.5 rounded-[6px] text-white/40 hover:text-red-400 hover:bg-white/5"
+                      title={isCustom ? "삭제" : "선택 해제"}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -851,6 +923,19 @@ export function SettingsPage() {
             <ReportSyncFailureHint />
           </div>
         </div>
+      </section>
+
+      {/* 스크랩한 기사 */}
+      <section className="mb-4">
+        <Link
+          to="/settings/scrap"
+          className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
+        >
+          <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
+            <span style={{ fontSize: 14, fontWeight: 600 }}>스크랩한 기사</span>
+            <ChevronRight size={20} className="text-white/40 shrink-0" />
+          </div>
+        </Link>
       </section>
 
       {/* 로그인 */}

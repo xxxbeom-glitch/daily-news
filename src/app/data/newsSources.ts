@@ -1,4 +1,5 @@
 import type { MarketSummaryData } from "./marketSummary";
+import { getCustomSources } from "../utils/customRssStorage";
 
 export interface NewsSource {
   id: string;
@@ -133,6 +134,11 @@ export const internationalSources = _internationalSources;
 
 /** 통합 RSS 소스 (국내·해외 구분 없음) */
 export const allSources: NewsSource[] = [..._domesticSources, ..._internationalSources];
+
+/** 기본 + 커스텀 RSS 통합 (설정에서 추가한 RSS 포함) */
+export function getEffectiveSources(): NewsSource[] {
+  return [...allSources, ...getCustomSources()];
+}
 
 // Mock articles (개발용)
 export const mockArticles: Article[] = [

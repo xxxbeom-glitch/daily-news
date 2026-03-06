@@ -115,16 +115,20 @@ export function ReaderViewModal({
   article,
   translate,
   onClose,
+  onScrapChange,
+  onUnscrap,
 }: {
   article: RawRssArticle;
   translate: boolean;
   onClose: () => void;
+  onScrapChange?: () => void;
+  onUnscrap?: () => void;
 }) {
+  const [scrapped, setScrapped] = useState(() => isScrapped(article.link));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
   const [title, setTitle] = useState<string | null>(null);
-  const [translating, setTranslating] = useState(false);
   const [translated, setTranslated] = useState<string | null>(null);
 
   useEffect(() => {
@@ -141,13 +145,9 @@ export function ReaderViewModal({
         setContent(res.textContent || "본문을 추출하지 못했습니다.");
         setTitle(res.title || article.title);
         if (translate && res.textContent) {
-          setTranslating(true);
           translateTextToKorean(res.textContent)
             .then((text) => {
               if (!cancelled && text) setTranslated(text);
-            })
-            .finally(() => {
-              if (!cancelled) setTranslating(false);
             });
         }
       })
@@ -161,7 +161,6 @@ export function ReaderViewModal({
   }, [article.link, translate]);
 
   const displayContent = translated ?? content;
-  const isIntl = isInternationalSource(article.sourceId);
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-[#0a0a0f]">
@@ -173,16 +172,38 @@ export function ReaderViewModal({
         >
           <X size={20} />
         </button>
-        <a
-          href={article.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
-          style={{ fontSize: 13 }}
-        >
-          <ExternalLink size={14} />
-          원문 보기
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (onUnscrap) {
+                removeScrap(article.link);
+                onUnscrap();
+              } else {
+                if (scrapped) removeScrap(article.link);
+                else addScrap(article);
+                setScrapped(!scrapped);
+                onScrapChange?.();
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
+            style={{ fontSize: 13 }}
+            title={onUnscrap ? "스크랩 해제" : scrapped ? "스크랩 해제" : "스크랩"}
+          >
+            {onUnscrap || scrapped ? <BookmarkCheck size={14} className="text-[#618EFF]" /> : <Bookmark size={14} />}
+            스크랩
+          </button>
+          <a
+            href={article.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-[8px] border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/5 hover:text-white"
+            style={{ fontSize: 13 }}
+          >
+            <ExternalLink size={14} />
+            원문 보기
+          </a>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 max-w-[430px] mx-auto w-full">
@@ -210,29 +231,6 @@ export function ReaderViewModal({
               <span>·</span>
               <span>{formatPubDate(article.pubDate)}</span>
             </div>
-
-            {isIntl && content && (
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (translated || translating) return;
-                    setTranslating(true);
-                    try {
-                      const t = await translateTextToKorean(content);
-                      if (t) setTranslated(t);
-                    } finally {
-                      setTranslating(false);
-                    }
-                  }}
-                  disabled={translating}
-                  className="rounded-[8px] border border-[#618EFF]/40 px-3 py-2 text-[#618EFF] hover:bg-[#618EFF]/10 disabled:opacity-50"
-                  style={{ fontSize: 13 }}
-                >
-                  {translating ? "번역 중…" : translated ? "번역됨" : "번역하기"}
-                </button>
-              </div>
-            )}
 
             <div
               className="text-white/90 whitespace-pre-wrap font-normal"

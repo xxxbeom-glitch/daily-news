@@ -6,6 +6,7 @@
 import type { ArchiveSession } from "../data/newsSources";
 import type { MarketSummaryData } from "../data/marketSummary";
 import { domesticSources, internationalSources, isDomesticSourceId, matchesDomesticForOverseasSummary } from "../data/newsSources";
+import { getCustomSources } from "../utils/customRssStorage";
 import { mockMarketSummaryInternational, mockMarketSummaryDomestic } from "../data/marketSummary";
 import { getSelectedSources, getInterestMemoryDomestic, getInterestMemoryInternational, getSelectedModel, parseInterestKeywords } from "../utils/persistState";
 import { fetchRssFeeds, filterArticlesByRangeTieredWithMin } from "../utils/fetchRssFeeds";
@@ -25,8 +26,11 @@ export async function runMarketSummaryPipeline(
   const selectedSet = new Set(selectedSources.sources);
   const intlList = internationalSources.filter((s) => selectedSet.has(s.id));
   const domList = domesticSources.filter((s) => selectedSet.has(s.id));
-  const sourceList = isInternational ? [...intlList, ...domList] : domList;
-  const sourceIds = isInternational ? [...intlList.map((s) => s.id), ...domList.map((s) => s.id)] : domList.map((s) => s.id);
+  const customList = getCustomSources().filter((s) => selectedSet.has(s.id));
+  const sourceList = isInternational ? [...intlList, ...domList, ...customList] : [...domList, ...customList];
+  const sourceIds = isInternational
+    ? [...intlList.map((s) => s.id), ...domList.map((s) => s.id), ...customList.map((s) => s.id)]
+    : [...domList.map((s) => s.id), ...customList.map((s) => s.id)];
   if (sourceList.length === 0) return null;
 
   const startMs = Date.now();
