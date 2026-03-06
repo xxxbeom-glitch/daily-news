@@ -1,19 +1,19 @@
 /**
- * YouTube 시황 영상 검색
- * 1. 매일경제TV: 제목에 '[간밤 미국은]' 포함, 당일 업로드
- * 2. 채널K 글로벌: '체크인 뉴욕' 플레이리스트에서 당일 업로드
+ * YouTube ?쒗솴 ?곸긽 寃??
+ * 1. 留ㅼ씪寃쎌젣TV: ?쒕ぉ??'[媛꾨갇 誘멸뎅?]' ?ы븿, ?뱀씪 ?낅줈??
+ * 2. 梨꾨꼸K 湲濡쒕쾶: '泥댄겕???댁슃' ?뚮젅?대━?ㅽ듃?먯꽌 ?뱀씪 ?낅줈??
  */
 
-const MKE_CHANNEL_ID = "UCnfwIKyFYRuqZzzKBDt6JOA"; // 매일경제TV @MKeconomy_TV
-const KIWOOM_HANDLE = "kiwoomchk_global"; // 채널K 글로벌 by 키움증권 @kiwoomchk_global
-const CHECKIN_NEWYORK_PLAYLIST_TITLE = "체크인 뉴욕";
+const MKE_CHANNEL_ID = "UCnfwIKyFYRuqZzzKBDt6JOA"; // 留ㅼ씪寃쎌젣TV @MKeconomy_TV
+const KIWOOM_HANDLE = "kiwoomchk_global"; // 梨꾨꼸K 湲濡쒕쾶 by ?ㅼ?利앷텒 @kiwoomchk_global
+const CHECKIN_NEWYORK_PLAYLIST_TITLE = "泥댄겕???댁슃";
 
 function getYouTubeApiKey(): string {
   const key = (import.meta.env.VITE_YOUTUBE_API_KEY as string) ?? "";
   return key.trim().replace(/^["']|["']$/g, "");
 }
 
-/** KST 기준 오늘 00:00:00을 ISO 문자열로 (YouTube API용) */
+/** KST 湲곗? ?ㅻ뒛 00:00:00??ISO 臾몄옄?대줈 (YouTube API?? */
 function getTodayStartISO(): string {
   const now = new Date();
   const kr = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -44,7 +44,7 @@ async function fetchApi<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** 매일경제TV: '[간밤 미국은]' 제목 포함, 당일 업로드 */
+/** 留ㅼ씪寃쎌젣TV: '[媛꾨갇 誘멸뎅?]' ?쒕ぉ ?ы븿, ?뱀씪 ?낅줈??*/
 async function fetchMkeVideos(
   apiKey: string,
   publishedAfter: string,
@@ -57,7 +57,7 @@ async function fetchMkeVideos(
     maxResults: "10",
     order: "date",
     publishedAfter,
-    q: "[간밤 미국은]",
+    q: "[媛꾨갇 誘멸뎅?]",
     key: apiKey,
   });
   const url = `https://www.googleapis.com/youtube/v3/search?${params}`;
@@ -90,7 +90,7 @@ async function fetchMkeVideos(
       title: s?.title ?? "",
       description: s?.description ?? "",
       thumbnailUrl: thumb,
-      channelTitle: s?.channelTitle ?? "매일경제TV",
+      channelTitle: s?.channelTitle ?? "留ㅼ씪寃쎌젣TV",
       channelId: s?.channelId ?? MKE_CHANNEL_ID,
       publishedAt: s?.publishedAt ?? "",
     });
@@ -98,13 +98,13 @@ async function fetchMkeVideos(
   return results;
 }
 
-/** 채널K 글로벌: '체크인 뉴욕' 플레이리스트에서 당일 업로드 영상 */
+/** 梨꾨꼸K 湲濡쒕쾶: '泥댄겕???댁슃' ?뚮젅?대━?ㅽ듃?먯꽌 ?뱀씪 ?낅줈???곸긽 */
 async function fetchCheckinNewYorkVideos(
   apiKey: string,
   publishedAfter: string,
   seen: Set<string>
 ): Promise<YouTubeMarketVideo[]> {
-  // 1. 채널 ID 조회 (forHandle)
+  // 1. 梨꾨꼸 ID 議고쉶 (forHandle)
   const channelParams = new URLSearchParams({
     part: "id,snippet",
     forHandle: KIWOOM_HANDLE,
@@ -116,13 +116,13 @@ async function fetchCheckinNewYorkVideos(
 
   const channelId = channelRes.items?.[0]?.id;
   if (!channelId) {
-    console.warn("[YouTube] 채널K 글로벌 채널을 찾을 수 없습니다.");
+    console.warn("[YouTube] 梨꾨꼸K 湲濡쒕쾶 梨꾨꼸??李얠쓣 ???놁뒿?덈떎.");
     return [];
   }
 
-  const channelTitle = channelRes.items?.[0]?.snippet?.title ?? "채널K 글로벌 by 키움증권";
+  const channelTitle = channelRes.items?.[0]?.snippet?.title ?? "梨꾨꼸K 湲濡쒕쾶 by ?ㅼ?利앷텒";
 
-  // 2. 채널의 플레이리스트 목록
+  // 2. 梨꾨꼸???뚮젅?대━?ㅽ듃 紐⑸줉
   const playlistParams = new URLSearchParams({
     part: "snippet",
     channelId,
@@ -140,11 +140,11 @@ async function fetchCheckinNewYorkVideos(
     p.snippet?.title?.includes(CHECKIN_NEWYORK_PLAYLIST_TITLE)
   );
   if (!targetPlaylist?.id) {
-    console.warn("[YouTube] '체크인 뉴욕' 플레이리스트를 찾을 수 없습니다.");
+    console.warn("[YouTube] '泥댄겕???댁슃' ?뚮젅?대━?ㅽ듃瑜?李얠쓣 ???놁뒿?덈떎.");
     return [];
   }
 
-  // 3. 플레이리스트 항목 (최신순, 당일 것만 사용)
+  // 3. ?뚮젅?대━?ㅽ듃 ??ぉ (理쒖떊?? ?뱀씪 寃껊쭔 ?ъ슜)
   const itemsParams = new URLSearchParams({
     part: "snippet",
     playlistId: targetPlaylist.id,
@@ -169,7 +169,7 @@ async function fetchCheckinNewYorkVideos(
     const publishedAt = item.snippet?.publishedAt ?? "";
     if (!videoId || seen.has(videoId)) continue;
 
-    // 당일 업로드만
+    // ?뱀씪 ?낅줈?쒕쭔
     if (publishedAt < publishedAfter) continue;
     seen.add(videoId);
 
@@ -189,10 +189,53 @@ async function fetchCheckinNewYorkVideos(
   return results;
 }
 
+/** URL?먯꽌 YouTube videoId 異붿텧 */
+export function extractYouTubeVideoId(url: string): string | null {
+  const trimmed = (url || "").trim();
+  const m = trimmed.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+/** URL로 영상 메타데이터 조회 (제목·설명·업로드일시) */
+export async function fetchYouTubeVideoByUrl(
+  url: string
+): Promise<{ id: string; title: string; description: string; url: string; publishedAt: string }> {
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) throw new Error("유효하지 않은 유튜브 URL입니다.");
+  const apiKey = getYouTubeApiKey();
+  if (!apiKey) throw new Error("YouTube API 키가 없습니다. .env에 VITE_YOUTUBE_API_KEY를 추가해주세요.");
+  const params = new URLSearchParams({
+    part: "snippet",
+    id: videoId,
+    key: apiKey,
+  });
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? "영상 정보를 가져올 수 없습니다.");
+  }
+  const json = (await res.json()) as {
+    items?: Array<{
+      id?: string;
+      snippet?: { title?: string; description?: string; publishedAt?: string };
+    }>;
+  };
+  const item = json.items?.[0];
+  if (!item) throw new Error("영상을 찾을 수 없습니다.");
+  const s = item.snippet;
+  return {
+    id: videoId,
+    title: s?.title ?? "",
+    description: s?.description ?? "",
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    publishedAt: s?.publishedAt ?? "",
+  };
+}
+
 export async function searchYouTubeMarketVideos(): Promise<YouTubeMarketVideo[]> {
   const apiKey = getYouTubeApiKey();
   if (!apiKey) {
-    throw new Error("YouTube API 키가 없습니다. .env에 VITE_YOUTUBE_API_KEY를 추가하세요.");
+    throw new Error("YouTube API 키가 없습니다. .env에 VITE_YOUTUBE_API_KEY를 추가해주세요.");
   }
 
   const publishedAfter = getTodayStartISO();

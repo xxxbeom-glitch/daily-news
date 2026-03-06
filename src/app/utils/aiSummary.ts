@@ -4,6 +4,7 @@
 
 import { jsonrepair } from "jsonrepair";
 import type { MarketSummaryData, IssueItem, StockMover, IndexData, SourceRef, EarningsItem } from "../data/marketSummary";
+import { fetchIndices } from "./fetchMarketData";
 
 export interface RawRssArticle {
   title: string;
@@ -1282,15 +1283,17 @@ ${description.slice(0, 8000)}
 - 간결성: 수식어·감정 표현 배제, 사실·핵심 데이터 위주 압축.
 - totalAssessment: 아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평. (keyIssues 폐기)
 
+### [중요] 대표지수(indices)
+- indices·indicesSources는 반드시 빈 배열 [] 로 반환.
+- 대표지수(S&P500·나스닥·다우 등)는 영상에서 추출하지 말 것. Yahoo Finance 미국 장 마감 기준으로 별도 조회됨.
+
 ### JSON 형식
 {
   "date": "YYYY-MM-DD 요요일",
   "regionLabel": "해외 시황 요약",
   "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",
-  "indices": [
-    { "name": "지수명", "value": "수치", "change": "+0.5%", "changeAbs": "▲12.34", "isUp": true }
-  ],
-  "indicesSources": [{ "outlet": "출처", "headline": "헤드라인" }],
+  "indices": [],
+  "indicesSources": [],
   "stockMoversLabel": "M7 및 반도체주 등락율",
   "moversUp": [],
   "moversDown": [],
@@ -1481,19 +1484,36 @@ export async function generateMarketSummaryFromVideos(
 export async function generateMarketSummaryFromVideo(
   title: string,
   description: string,
-  opts?: { model?: "gemini" | "gpt"; modelId?: string }
+  opts?: { model?: "gemini" | "gpt" | "claude"; modelId?: string }
 ): Promise<MarketSummaryData> {
   const model = opts?.model ?? "gemini";
   const modelId = opts?.modelId;
   const useGemini = modelId ? GEMINI_MODELS.includes(modelId) : model === "gemini";
+  const useClaude = modelId ? CLAUDE_MODELS.includes(modelId) : model === "claude";
 
   const prompt = buildPromptFromVideo(title, description);
-  const rawResponse = useGemini
-    ? await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined)
-    : await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+  let rawResponse: string;
+  if (useGemini) {
+    rawResponse = await callGemini(prompt, modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined);
+  } else if (useClaude) {
+    rawResponse = await callClaude(prompt, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
+  } else {
+    rawResponse = await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
+  }
 
   const data = parseAndNormalize(rawResponse, true);
-  if (!useGemini) data.totalAssessmentError = true;
+  if (!useGemini && !useClaude) data.totalAssessmentError = true;
   else if (!data.totalAssessment?.trim()) data.totalAssessmentError = true;
+
+  // 대표지수: 영상에서 추출하지 않고 Yahoo Finance 미국 장 마감 기준으로 조회
+  try {
+    const { indices, source } = await fetchIndices(true);
+    if (indices.length > 0) {
+      data.indices = indices;
+      data.indicesSources = [source];
+    }
+  } catch {
+    // Yahoo 조회 실패 시 AI가 반환한 indices 유지 (빈 배열일 수 있음)
+  }
   return data;
 }
