@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Paperclip } from "lucide-react";
-import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf, generateMarketSummaryFromVideo } from "../utils/aiSummary";
+import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
 import { getSelectedModel, getSelectedModelId, saveArchiveState } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
 import { fetchArticleContent } from "../utils/articleReader";
@@ -12,8 +12,6 @@ import {
   uploadPdfToCloudinary,
   fetchUrlToBase64,
 } from "../utils/cloudinaryUpload";
-import { fetchYouTubeVideoByUrl, extractYouTubeVideoId } from "../utils/youtubeService";
-
 type CountryTab = "kr" | "us";
 
 const ACCEPT_ALL = "image/png,image/jpeg,image/gif,image/webp,application/pdf,.pdf";
@@ -31,28 +29,6 @@ interface UploadedPdf {
   text: string;
   /** Cloudinary URL (설정 시) */
   url?: string;
-}
-
-interface YouTubeVideo {
-  id: string;
-  title: string;
-  description: string;
-  url: string;
-  publishedAt: string;
-}
-
-/** 유튜브 영상 업로드일(ISO) → 리포트 타이틀용 "3월 4일 오후 09:30 · 리포트" (KST) */
-function formatVideoDateForTitle(isoStr: string): string {
-  if (!isoStr) return "";
-  const d = new Date(isoStr);
-  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-  const month = kst.getUTCMonth() + 1;
-  const date = kst.getUTCDate();
-  const hours = kst.getUTCHours();
-  const minutes = kst.getUTCMinutes();
-  const ampm = hours < 12 ? "오전" : "오후";
-  const h = hours % 12 || 12;
-  return `${month}월 ${date}일 ${ampm} ${String(h).padStart(2, "0")}:${String(minutes).padStart(2, "0")} · 리포트`;
 }
 
 function isDuplicateImage(images: UploadedImage[], newData: string): boolean {
@@ -115,8 +91,6 @@ export function UploadPage() {
   const [inputValue, setInputValue] = useState("");
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [pdfs, setPdfs] = useState<UploadedPdf[]>([]);
-  const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
-  const [youtubeUrlInput, setYoutubeUrlInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -146,30 +120,6 @@ export function UploadPage() {
   const removePdf = useCallback((index: number) => {
     setPdfs((prev) => prev.filter((_, i) => i !== index));
   }, []);
-
-  const removeYouTubeVideo = useCallback((index: number) => {
-    setYoutubeVideos((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const addYouTubeVideo = useCallback(async () => {
-    const url = youtubeUrlInput.trim();
-    if (!url) return;
-    if (!extractYouTubeVideoId(url)) {
-      setError("유효한 유튜브 URL을 입력하세요.");
-      return;
-    }
-    setError(null);
-    try {
-      const meta = await fetchYouTubeVideoByUrl(url);
-      setYoutubeVideos((prev) => {
-        if (prev.some((v) => v.id === meta.id)) return prev;
-        return [...prev, meta].slice(-2);
-      });
-      setYoutubeUrlInput("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "유튜브 영상 정보를 가져올 수 없습니다.");
-    }
-  }, [youtubeUrlInput]);
 
   const addImageIfNotDuplicate = useCallback(
     (img: UploadedImage) => {
@@ -379,10 +329,8 @@ export function UploadPage() {
         setLoading(false);
       }
     } else {
-      const hasPdf = pdfs.length > 0;
-      const hasYouTube = youtubeVideos.length > 0;
-      if (!hasPdf && !hasYouTube) {
-        setError("PDF 파일을 첨부하거나 유튜브 링크를 추가하세요.");
+      if (pdfs.length === 0) {
+        setError("PDF 파일을 첨부하세요.");
         return;
       }
 
@@ -395,63 +343,40 @@ export function UploadPage() {
       try {
         const model = getSelectedModel();
         const modelId = getSelectedModelId();
-        let data;
-
-        if (hasYouTube) {
-          setProgressStep(2);
-          setProgressPercent(30);
-          const v = youtubeVideos[0];
-          data = await generateMarketSummaryFromVideo(v.title, v.description, { model, modelId });
-        } else {
-          setProgressStep(2);
-          setProgressPercent(20);
-          const combinedText = pdfs
-            .map((p, i) => `[PDF ${i + 1}] ${p.name}\n\n${p.text}`)
-            .join("\n\n---\n\n");
-          data = await generateGlobalMarketDailyFromPdf(combinedText, { model, modelId });
-        }
+        setProgressStep(2);
+        setProgressPercent(20);
+        const combinedText = pdfs
+          .map((p, i) => `[PDF ${i + 1}] ${p.name}\n\n${p.text}`)
+          .join("\n\n---\n\n");
+        const data = await generateGlobalMarketDailyFromPdf(combinedText, { model, modelId });
 
         setProgressStep(3);
         setProgressPercent(90);
         const now = new Date();
-        const title = hasYouTube && youtubeVideos[0]?.publishedAt
-          ? formatVideoDateForTitle(youtubeVideos[0].publishedAt)
-          : `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
-            (now.getHours() < 12 ? "오전" : "오후") +
-            ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
+        const title =
+          `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
+          (now.getHours() < 12 ? "오전" : "오후") +
+          ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
         const newId = `session-${Date.now()}-gmd`;
-        const articles = hasYouTube
-          ? youtubeVideos.map((v, i) => ({
-              id: `youtube-${Date.now()}-${i}`,
-              title: v.title,
-              source: "유튜브 시황",
-              sourceId: "youtube",
-              publishedAt: v.publishedAt || now.toISOString(),
-              url: v.url,
-              summary: "",
-              aiModel: model,
-              category: "Economy" as const,
-              isInternational: true,
-            }))
-          : pdfs.map((p, i) => ({
-              id: `test2-${Date.now()}-${i}`,
-              title: p.name,
-              source: "글로벌 마켓 데일리",
-              sourceId: "test2",
-              publishedAt: now.toISOString(),
-              url: p.url ?? "",
-              summary: "",
-              aiModel: model,
-              category: "Economy" as const,
-              isInternational: true,
-            }));
+        const articles = pdfs.map((p, i) => ({
+          id: `test2-${Date.now()}-${i}`,
+          title: p.name,
+          source: "글로벌 마켓 데일리",
+          sourceId: "test2",
+          publishedAt: now.toISOString(),
+          url: p.url ?? "",
+          summary: "",
+          aiModel: model,
+          category: "Economy" as const,
+          isInternational: true,
+        }));
 
         addSession({
           id: newId,
           title,
           createdAt: now.toISOString(),
           isInternational: true,
-          sources: [hasYouTube ? "youtube" : "test2"],
+          sources: ["test2"],
           articles,
           marketSummary: data,
           aiModel: model,
@@ -459,7 +384,6 @@ export function UploadPage() {
         saveArchiveState({ isInternational: true, selectedSessionId: newId });
         setSuccessMessage("완료");
         setPdfs([]);
-        setYoutubeVideos([]);
         navigate("/", { replace: true });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "분석 실패";
@@ -471,11 +395,11 @@ export function UploadPage() {
         setLoading(false);
       }
     }
-  }, [tab, inputValue, images, pdfs, youtubeVideos, addSession, updateSession, editSessionId, navigate]);
+  }, [tab, inputValue, images, pdfs, addSession, updateSession, editSessionId, navigate]);
 
   const canSubmit =
     (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0)) ||
-    (tab === "us" && (pdfs.length > 0 || youtubeVideos.length > 0));
+    (tab === "us" && pdfs.length > 0);
 
   const handleCancel = useCallback(() => {
     navigate("/", { replace: true });
@@ -485,16 +409,11 @@ export function UploadPage() {
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-[120px]" onPaste={handlePaste}>
         <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
-          {(images.length > 0 || pdfs.length > 0 || youtubeVideos.length > 0) && (
+          {(images.length > 0 || pdfs.length > 0) && (
             <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
               {images.length > 0 && (
                 <span className="w-full text-white/40 text-xs mb-1">
                   이미지 {images.length}/{MAX_IMAGES}장
-                </span>
-              )}
-              {tab === "us" && youtubeVideos.length > 0 && (
-                <span className="w-full text-white/40 text-xs mb-1">
-                  유튜브 {youtubeVideos.length}개
                 </span>
               )}
               {images.map((img, i) => (
@@ -528,40 +447,6 @@ export function UploadPage() {
                   </button>
                 </div>
               ))}
-              {youtubeVideos.map((v, i) => (
-                <div
-                  key={`yt-${i}`}
-                  className="flex items-center gap-2 px-3 py-2 rounded border border-white/10 bg-white/5"
-                >
-                  <span className="text-white/80 text-xs truncate max-w-[120px]">{v.title || "유튜브 영상"}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeYouTubeVideo(i)}
-                    className="text-red-400 hover:text-red-300 text-xs"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {tab === "us" && (
-            <div className="flex gap-2 px-4 py-2 border-b border-white/10">
-              <input
-                type="text"
-                value={youtubeUrlInput}
-                onChange={(e) => setYoutubeUrlInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addYouTubeVideo()}
-                placeholder="유튜브 링크 붙여넣기"
-                className="flex-1 px-3 py-2 rounded bg-white/5 border border-white/10 text-white placeholder:text-white/40 text-sm focus:outline-none focus:ring-1 focus:ring-white/20"
-              />
-              <button
-                type="button"
-                onClick={addYouTubeVideo}
-                className="px-4 py-2 rounded bg-[#618EFF]/80 text-white text-sm font-medium hover:bg-[#618EFF] shrink-0"
-              >
-                추가
-              </button>
             </div>
           )}
           <textarea

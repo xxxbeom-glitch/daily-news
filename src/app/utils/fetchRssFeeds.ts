@@ -83,6 +83,8 @@ export interface RawRssArticle {
   sourceName: string;
   /** 본문 요약(RSS description) - 필터/유사도 판단용 */
   body?: string;
+  /** 썸네일 이미지 URL (RSS enclosure/thumbnail) */
+  thumbnail?: string;
 }
 
 /** rss2json API - IP 차단 우회 (한국경제 등) */
@@ -92,6 +94,8 @@ interface Rss2JsonItem {
   pubDate?: string;
   description?: string;
   content?: string;
+  thumbnail?: string;
+  enclosure?: { link?: string };
 }
 
 async function fetchViaRss2Json(
@@ -110,14 +114,18 @@ async function fetchViaRss2Json(
     if (json?.status !== "ok" || !Array.isArray(json.items)) return null;
     return json.items
       .filter((item) => item?.title && item?.link)
-      .map((item) => ({
-        title: item.title ?? "",
-        link: item.link ?? "",
-        pubDate: item.pubDate ?? new Date().toISOString(),
-        sourceId,
-        sourceName,
-        body: (item.description ?? item.content ?? "").trim() || undefined,
-      }));
+      .map((item) => {
+        const thumb = item.thumbnail?.trim() || item.enclosure?.link?.trim();
+        return {
+          title: item.title ?? "",
+          link: item.link ?? "",
+          pubDate: item.pubDate ?? new Date().toISOString(),
+          sourceId,
+          sourceName,
+          body: (item.description ?? item.content ?? "").trim() || undefined,
+          thumbnail: thumb || undefined,
+        };
+      });
   } catch {
     clearTimeout(timeout);
     return null;
@@ -149,8 +157,22 @@ function parseRssXml(xmlText: string, sourceId: string, sourceName: string): Raw
           item.querySelector("description")?.textContent?.trim() ??
           item.querySelector("content\\:encoded")?.textContent?.trim() ??
           "";
+        const enc = item.querySelector("enclosure[type^='image']");
+        const media = item.querySelector("media\\:content, media\\:thumbnail");
+        const thumb =
+          enc?.getAttribute("url")?.trim() ??
+          media?.getAttribute("url")?.trim() ??
+          (media?.getAttribute("medium") === "image" ? media.getAttribute("url")?.trim() : undefined);
         if (title && link) {
-          articles.push({ title, link, pubDate, sourceId, sourceName, body: body || undefined });
+          articles.push({
+            title,
+            link,
+            pubDate,
+            sourceId,
+            sourceName,
+            body: body || undefined,
+            thumbnail: thumb || undefined,
+          });
         }
       });
       return articles;
@@ -167,8 +189,10 @@ function parseRssXml(xmlText: string, sourceId: string, sourceName: string): Raw
         entry.querySelector("summary")?.textContent?.trim() ??
         entry.querySelector("content")?.textContent?.trim() ??
         "";
+      const media = entry.querySelector("media\\:content, media\\:thumbnail");
+      const thumb = (media?.getAttribute("url") ?? "").trim() || undefined;
       if (title && link) {
-        articles.push({ title, link, pubDate: published, sourceId, sourceName, body: body || undefined });
+        articles.push({ title, link, pubDate: published, sourceId, sourceName, body: body || undefined, thumbnail: thumb });
       }
     });
   } catch {
