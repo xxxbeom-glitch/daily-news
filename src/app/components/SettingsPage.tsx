@@ -46,7 +46,7 @@ function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_A
 async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ???? ??????? ???????? (.env??VITE_GEMINI_API_KEY ???)" };
+    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_GEMINI_API_KEY 추가)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -62,7 +62,7 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "??? ???";
+    const msg = e instanceof Error ? e.message : "네트워크 오류";
     return { ok: false, message: msg };
   }
 }
@@ -94,13 +94,13 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
       return { ok: false, message: msg };
     } catch (e) {
       clearTimeout(timeout);
-      const msg = e instanceof Error ? e.message : "??? ???";
+      const msg = e instanceof Error ? e.message : "네트워크 오류";
       return { ok: false, message: msg };
     }
   }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ???? ??????? ???????? (.env??VITE_ANTHROPIC_API_KEY ??? VITE_OPENROUTER_API_KEY ???)" };
+    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 또는 VITE_OPENROUTER_API_KEY 추가)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -127,7 +127,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "??? ???";
+    const msg = e instanceof Error ? e.message : "네트워크 오류";
     return { ok: false, message: msg };
   }
 }
@@ -135,7 +135,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
 async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_OPENAI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ???? ??????? ???????? (.env??VITE_OPENAI_API_KEY ???)" };
+    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_OPENAI_API_KEY 추가)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -163,7 +163,7 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "??? ???";
+    const msg = e instanceof Error ? e.message : "네트워크 오류";
     return { ok: false, message: msg };
   }
 }
@@ -195,19 +195,19 @@ async function checkConnectionStatus(
 
   const sourceStatus = Object.fromEntries(sourceResults);
   const translateError = (msg: string | undefined): string => {
-    if (!msg) return "??? ???";
-    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "???????";
-    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ?????";
+    if (!msg) return "네트워크 오류";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "할당량초과";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API 키오류";
     const lower = msg.toLowerCase();
-    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "??????";
-    if (msg.includes("not found") || msg.includes("model")) return "?? ???";
-    return msg.length > 50 ? msg.slice(0, 50) + "?" : msg;
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "지역제한";
+    if (msg.includes("not found") || msg.includes("model")) return "모델 오류";
+    return msg.length > 50 ? msg.slice(0, 50) + "…" : msg;
   };
   const errors: string[] = [];
   if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
   if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
   if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
-  if (errors.length === 0) errors.push("?? API ??? ???");
+  if (errors.length === 0) errors.push("모든 API 오류");
 
   return {
     sourceStatus,
@@ -220,7 +220,7 @@ async function checkConnectionStatus(
   };
 }
 
-/** ??????????? */
+/** 언론사 연결상태 */
 function ReportSyncButtons({
   sessions,
   isEnabled,
@@ -239,7 +239,7 @@ function ReportSyncButtons({
 
   const handlePull = async () => {
     if (!uid) {
-      setResult({ ok: false, message: "?????? ???????? (??? ??? ??????" });
+      setResult({ ok: false, message: "로그인 후 사용 가능합니다. (설정 > 로그인)" });
       setTimeout(() => setResult(null), 4000);
       return;
     }
@@ -247,9 +247,9 @@ function ReportSyncButtons({
     setResult(null);
     try {
       await refreshSessionsFromCloud();
-      setResult({ ok: true, message: "????????? ?????????" });
+      setResult({ ok: true, message: "클라우드에서 가져왔습니다" });
     } catch (e) {
-      setResult({ ok: false, message: e instanceof Error ? e.message : "?????????" });
+      setResult({ ok: false, message: e instanceof Error ? e.message : "가져오기 실패" });
     } finally {
       setLoading(null);
     }
@@ -271,7 +271,7 @@ function ReportSyncButtons({
   if (!isEnabled) {
     return (
       <p style={{ fontSize: 13 }} className="text-white/50">
-        Firebase? ???????? ??????. (.env??VITE_FIREBASE_* ???)
+        Firebase가 비활성화되어 있습니다. (.env에 VITE_FIREBASE_* 설정)
       </p>
     );
   }
@@ -287,7 +287,7 @@ function ReportSyncButtons({
           style={{ fontSize: 13 }}
         >
           <CloudDownload size={16} />
-          {loading === "pull" ? "???? ??" : "?????? ????"}
+          {loading === "pull" ? "가져오는 중…" : "클라우드에서 가져오기"}
         </button>
         <button
           type="button"
@@ -297,7 +297,7 @@ function ReportSyncButtons({
           style={{ fontSize: 13 }}
         >
           <CloudUpload size={16} />
-          {loading === "push" ? "??? ??" : "????? ???"}
+          {loading === "push" ? "업로드 중…" : "클라우드에 업로드"}
         </button>
       </div>
       {result && (
@@ -312,18 +312,18 @@ function ReportSyncButtons({
   );
 }
 
-/** ???????? ?????? ??? */
+/** 새로고침전체 삭제취소 관리자 */
 function ReportSyncFailureHint() {
   return (
     <details className="mt-2">
       <summary style={{ fontSize: 12 }} className="text-white/40 cursor-pointer hover:text-white/60">
-        ??????? ?????????????      </summary>
+        취소취소전체 삭제취소취소새로고침      </summary>
       <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
-        <li>?????? ??? ???</li>
-        <li>Firestore ?? 1MB ???: ?????? ??? ????? ????????????? ??????????????.</li>
-        <li>Firebase Console ??Authentication ????????????? ??? URL(??? IP) ??? (??????192.168.x.x ??? ??</li>
-        <li>{"Firestore ??: users/" + "{" + "userId" + "}" + "??read, write ??? ????"}</li>
-        <li>??? ??? ????????? (Firebase Console ??Authentication ????????)</li>
+        <li>스크랩한 기사? 관리자</li>
+        <li>Firestore 취소 1MB 관리자: 취소취소취소 전체 삭제? 내보내기취소전체 삭제내보내기취소.</li>
+        <li>Firebase Console 취소Authentication 취소언론사 연결상태 관리자 URL(관리자 IP) 관리자 (취소취소취소192.168.x.x 관리자 취소</li>
+        <li>{"Firestore 취소: users/" + "{" + "userId" + "}" + "취소read, write 전체 삭제"}</li>
+        <li>관리자 전체 삭제새로고침 (Firebase Console 취소Authentication 내보내기)</li>
       </ul>
     </details>
   );
@@ -347,7 +347,7 @@ export function SettingsPage() {
     gpt: "error" as "ok" | "error",
     gemini: "ok" as "ok" | "error",
     anthropic: "error" as "ok" | "error",
-    errorMessage: "API ?? ?? ?? ??",
+    errorMessage: "API 연결 상태 확인 중…",
   });
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
@@ -388,7 +388,7 @@ export function SettingsPage() {
   }, []);
 
   const handleAddRss = useCallback(() => {
-    const name = newRssName.trim() || "???? RSS";
+    const name = newRssName.trim() || "커스텀 RSS";
     const url = newRssUrl.trim();
     if (!url) return;
     const added = addCustomSource(name, url);
@@ -432,13 +432,13 @@ export function SettingsPage() {
     const now = Date.now();
     if (now - lastCheckTime < REFRESH_COOLDOWN_MS && lastCheckTime > 0) {
       const remain = Math.ceil((REFRESH_COOLDOWN_MS - (now - lastCheckTime)) / 60000);
-      alert(`??????? 5?? ???? ???????. (${remain}????`);
+      alert(`새로고침은 5분에 한 번만 가능합니다. (${remain}분 후)`);
       return;
     }
     runCheck();
   }, [lastCheckTime, runCheck]);
 
-  // ?? ??1??+ 6????? ??? ?? (???? ?? ??? - ????? ????? ?? ???)
+  // 취소 취소1취소+ 6새로고침 관리자 취소 (취소취소 취소 관리자 - 취소전체 삭제? 취소 관리자)
   useEffect(() => {
     runCheck();
     let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -483,14 +483,14 @@ export function SettingsPage() {
       const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
       setShowExportMenu(false);
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF ??????" });
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 취소취소취소" });
       } else {
         const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await saveBlobToLocalStorage(blob, filename);
         setExportStatus({
           type: "pdfzip",
           ok: result.ok,
-          message: result.ok ? "PDF(ZIP)????????????????????????." : (result.error || "???????"),
+          message: result.ok ? "PDF(ZIP)내보내기내보내기내보내기." : (result.error || "할당량초과"),
         });
       }
     } finally {
@@ -505,14 +505,14 @@ export function SettingsPage() {
       const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
       setShowExportMenu(false);
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF ??????" });
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 취소취소취소" });
       } else {
         const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await uploadBlobToGoogleDrive(blob, filename, "application/zip");
         setExportStatus({
           type: "pdfzip",
           ok: result.ok,
-          message: result.ok ? "PDF(ZIP)? ??? ???????????????????." : (result.error || "????????"),
+          message: result.ok ? "PDF(ZIP)? 전체 삭제취소취소언론사 연결상태." : (result.error || "내보내기"),
         });
       }
     } finally {
@@ -549,10 +549,10 @@ export function SettingsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>
-                ??? ????
+                전체 삭제
               </p>
               <p className="text-white/60 mb-5" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                ????? ?????????? ?????????????
+                취소전체 삭제관리자전체 삭제취소취소새로고침
               </p>
               <div className="flex gap-2">
                 <button
@@ -561,7 +561,7 @@ export function SettingsPage() {
                   className="flex-1 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
                 >
-                  ??
+                  취소
                 </button>
                 <button
                   type="button"
@@ -569,7 +569,7 @@ export function SettingsPage() {
                   className="flex-1 py-2.5 rounded-[10px] border border-red-500/50 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
                 >
-                  ????
+                  취소취소
                 </button>
               </div>
             </div>
@@ -577,7 +577,7 @@ export function SettingsPage() {
         </>
       )}
 
-      {/* AI ??? ??? */}
+      {/* AI 모델 설정 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -586,7 +586,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>AI ???</span>
+            <span>AI 모델</span>
             <span className="flex items-center gap-2 text-white/60 font-normal truncate max-w-[60%]">
               {getModelLabel(selectedModelId)}
               <ChevronDown
@@ -638,15 +638,15 @@ export function SettingsPage() {
                 onClick={handleSaveSelectedModel}
                 className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
               >
-                ????              </button>
+                저장              </button>
             </div>
           )}
         </div>
       </section>
 
-      {/* ???????? - ???? */}
+      {/* 기억할 관심사 - 숨김 */}
 
-      {/* ??????????? */}
+      {/* 언론사 연결상태 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -656,7 +656,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              ???????????
+              언론사 연결상태
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${sourcesExpanded ? "rotate-180" : ""}`}
@@ -670,18 +670,18 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              ?????
+              새로고침
             </button>
           </div>
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4 overflow-hidden min-w-0">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
-              RSS ???
+              RSS 관리자
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mb-3 min-w-0">
               <input
                 type="text"
-                placeholder="???"
+                placeholder="관리자"
                 value={newRssName}
                 onChange={(e) => setNewRssName(e.target.value)}
                 className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
@@ -727,7 +727,7 @@ export function SettingsPage() {
                   </label>
                   <div className="relative z-10 flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 12 }}>
-                      {status === "ok" ? <><CheckCircle2 size={12} />???</> : <><XCircle size={12} />???</>}
+                      {status === "ok" ? <><CheckCircle2 size={12} />연결됨</> : <><XCircle size={12} />실패</>}
                     </span>
                     <button
                       type="button"
@@ -742,7 +742,7 @@ export function SettingsPage() {
                         handleRemoveRss(s.id, isCustom);
                       }}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[8px] text-white/40 hover:text-red-400 hover:bg-white/5 active:bg-white/10 touch-manipulation"
-                      title={isCustom ? "????" : "??? ???"}
+                      title={isCustom ? "취소취소" : "네트워크 오류"}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -756,7 +756,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* API ?????? */}
+      {/* API 설정 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -766,7 +766,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              API ??????
+              API 설정
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
@@ -780,7 +780,7 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              ?????
+              새로고침
             </button>
           </div>
           {apiExpanded && (
@@ -799,12 +799,12 @@ export function SettingsPage() {
                 {apiStatus[key] === "ok" ? (
                   <>
                     <CheckCircle2 size={14} />
-                    ???
+                    관리자
                   </>
                 ) : (
                   <>
                     <XCircle size={14} />
-                    ???
+                    관리자
                   </>
                 )}
               </span>
@@ -812,7 +812,7 @@ export function SettingsPage() {
           ))}
           <div className="pt-2">
             <div style={{ fontSize: 12 }} className="text-white/40 mb-1">
-              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "???" : "??????"} :
+              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "연결됨" : "지역제한"} :
             </div>
             <div
               className="rounded-[8px] bg-white/5 border border-white/8 px-3 py-2"
@@ -821,9 +821,9 @@ export function SettingsPage() {
               <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
                 {apiStatus.errorMessage}
               </span>
-              {apiStatus.errorMessage.includes("??????") && (
+              {apiStatus.errorMessage.includes("지역제한") && (
                 <p style={{ fontSize: 11 }} className="text-white/45 mt-2">
-                  VPN ??? ??? API ??????????? ???
+                  VPN 데이터 동기화 API 언론사 연결상태 관리자
                 </p>
               )}
             </div>
@@ -833,12 +833,12 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ????? ?????? - ???? */}
+      {/* 취소전체 삭제취소 - 취소취소 */}
       {false && (
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button type="button" className="w-full h-[72px]">
-            ????? ??????
+            취소전체 삭제취소
           </button>
           <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-2">
           <button
@@ -848,7 +848,7 @@ export function SettingsPage() {
             style={{ fontSize: 14 }}
           >
             <Trash2 size={16} />
-            ???????
+            취소새로고침
           </button>
 
           <div className="relative">
@@ -859,7 +859,7 @@ export function SettingsPage() {
               style={{ fontSize: 14 }}
             >
               <Download size={16} />
-              ??????
+              취소취소취소
             </button>
             {showExportMenu && (
               <>
@@ -878,7 +878,7 @@ export function SettingsPage() {
                   >
                     <Download size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF ?? ??" : "PDF(ZIP) � ???? ????"}
+                      {exportPdfLoading ? "PDF 취소 취소" : "PDF(ZIP) � ?전체 삭제"}
                     </span>
                   </button>
                   <button
@@ -890,7 +890,7 @@ export function SettingsPage() {
                   >
                     <Cloud size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF ?? ??" : "PDF(ZIP) � ???? ????"}
+                      {exportPdfLoading ? "PDF 취소 취소" : "PDF(ZIP) � ?전체 삭제"}
                     </span>
                   </button>
                 </div>
@@ -902,23 +902,23 @@ export function SettingsPage() {
             className="block mt-2 text-[#618EFF] hover:text-[#8BABFF]"
             style={{ fontSize: 13 }}
           >
-            ??????????? ?? ??          </Link>
+            언론사 연결상태 취소 취소          </Link>
           {sessions.length > 0 && (
             <p style={{ fontSize: 12 }} className="text-white/35 mt-1">
-              ????? ??? {sessions.length}??            </p>
+              새로고침 관리자 {sessions.length}개            </p>
           )}
           </div>
         </div>
       </section>
       )}
 
-      {/* ?????????*/}
+      {/* 취소취소새로고침*/}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="px-4 py-3 border-b border-white/6">
-            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">??? ???</p>
+            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">데이터 동기화</p>
             <p style={{ fontSize: 12 }} className="text-white/50 mt-1">
-              ?????? Firebase ???????? ?????????. ??????? ????? ??? ????? ??? ??????? ????????
+              취소취소취소 Firebase 새로고침전체 삭제새로고침. 취소취소전체 삭제? 전체 삭제? 전체 삭제전체 삭제취소취소
             </p>
           </div>
           <div className="p-4 space-y-3">
@@ -934,20 +934,20 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ?????? ?? */}
+      {/* 스크랩한 기사 */}
       <section className="mb-4">
         <Link
           to="/settings/scrap"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>?????? ??</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>스크랩한 기사</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* ????*/}
+      {/* 취소취소*/}
       <section className="mb-4">
         <Link
           to="/settings/login"
@@ -960,24 +960,24 @@ export function SettingsPage() {
         </Link>
       </section>
 
-      {/* ??? ?? */}
+      {/* 관리자 취소 */}
       <section className="mb-4">
         <Link
           to="/settings/admin"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>???</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>관리자</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* ?? ?????? (lightweight-charts attributionLogo ????? ????????) */}
+      {/* 취소 취소취소취소 (lightweight-charts attributionLogo 취소전체 삭제취소취소) */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden px-4 py-3">
           <p style={{ fontSize: 12 }} className="text-white/50">
-            ???????? ????TradingView lightweight-charts??????????{" "}
+            새로고침전체 삭제TradingView lightweight-charts내보내기취소{" "}
             <a
               href="https://www.tradingview.com/"
               target="_blank"
