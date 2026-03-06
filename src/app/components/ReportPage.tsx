@@ -215,7 +215,8 @@ export function ReportPage() {
             모닝뉴스가 숨김 처리되어 있습니다.
           </p>
         </div>
-      ) : selectedSession?.marketSummary && (Array.isArray(selectedSession.marketSummary?.indices) && selectedSession.marketSummary.indices.length > 0
+      ) : selectedSession?.marketSummary && ((selectedSession.marketSummary?.regionLabel ?? "").includes("글로벌 마켓")
+          || Array.isArray(selectedSession.marketSummary?.indices) && selectedSession.marketSummary.indices.length > 0
           || Array.isArray(selectedSession.marketSummary?.sectorEtf) && selectedSession.marketSummary.sectorEtf.length > 0
           || Array.isArray(selectedSession.marketSummary?.currencies) && (selectedSession.marketSummary.currencies?.length ?? 0) > 0
           || Array.isArray(selectedSession.marketSummary?.commodities) && (selectedSession.marketSummary.commodities?.length ?? 0) > 0
