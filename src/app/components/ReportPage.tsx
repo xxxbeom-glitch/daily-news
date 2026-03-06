@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, BookmarkX } from "lucide-react";
+import { ChevronDown, BookmarkX, Pencil } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
@@ -148,19 +148,35 @@ export function ReportPage() {
                     {new Date(s.createdAt).toLocaleString("ko-KR")}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteClick(e, s)}
-                  className={`flex-shrink-0 flex items-center gap-1 rounded-[6px] border px-2 py-1 transition-all ${
-                    confirmDeleteId === s.id
-                      ? "bg-red-500/25 text-red-400 border-red-500/30"
-                      : "bg-white/5 border-white/10 text-white/50 hover:text-white/70"
-                  }`}
-                  style={{ fontSize: 12 }}
-                >
-                  <BookmarkX size={12} />
-                  {confirmDeleteId === s.id ? "삭제?" : "삭제"}
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  {(s.uploadedImages?.length || s.sources?.includes("test2") || s.marketSummary?.regionLabel?.includes?.("한국경제") || s.marketSummary?.regionLabel?.includes?.("글로벌 마켓")) ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDropdownOpen(false);
+                        navigate("/upload", { state: { editSessionId: s.id } });
+                      }}
+                      className="p-1.5 rounded-[6px] text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors"
+                      title="수정"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteClick(e, s)}
+                    className={`flex items-center gap-1 rounded-[6px] border px-2 py-1 transition-all ${
+                      confirmDeleteId === s.id
+                        ? "bg-red-500/25 text-red-400 border-red-500/30"
+                        : "bg-white/5 border-white/10 text-white/50 hover:text-white/70"
+                    }`}
+                    style={{ fontSize: 12 }}
+                  >
+                    <BookmarkX size={12} />
+                    {confirmDeleteId === s.id ? "삭제?" : "삭제"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -210,9 +226,9 @@ export function ReportPage() {
             data={selectedSession.marketSummary}
             aiModel={selectedSession.aiModel ?? "gemini"}
             articles={selectedSession.articles}
-            showEditButton={!!(selectedSession.uploadedImages?.length)}
+            showEditButton={!!(selectedSession.uploadedImages?.length || selectedSession.sources?.includes("test2") || selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") || selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓"))}
             onEdit={
-              selectedSession.uploadedImages?.length
+              selectedSession.uploadedImages?.length || selectedSession.sources?.includes("test2") || selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") || selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓")
                 ? () => navigate("/upload", { state: { editSessionId: selectedSession.id } })
                 : undefined
             }

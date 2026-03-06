@@ -464,8 +464,12 @@ export interface GenerateFromUploadedOptions {
   modelId?: string;
 }
 
+/** 이미지 배치 크기 - 1로 하면 이미지당 1회 API 호출 (기사 누락 최소화, 비용 증가) */
+const UPLOAD_IMAGE_BATCH_SIZE = 1;
+
 /**
  * 테스트2: 업로드된 텍스트/이미지를 금융 데이터 무결성 검증 프롬프트로 분석하여 MarketSummaryData 생성
+ * 이미지가 6장 초과 시 배치로 나누어 처리 후 keyIssues 병합
  */
 export async function generateMarketSummaryFromUploadedData(
   input: UploadedDataInput,
@@ -486,10 +490,61 @@ export async function generateMarketSummaryFromUploadedData(
     throw new Error("이미지 분석은 Gemini 모델만 지원합니다. 설정에서 Gemini를 선택해주세요.");
   }
 
+  const imageCount = images?.length ?? 0;
+  const useBatchMode = useGemini && imageCount >= 2;
+
+  if (useBatchMode && imageCount > 0) {
+    const allKeyIssues: { title: string; body: string; section?: string }[] = [];
+    const textBlock = text?.trim() || "(텍스트 없음 - 이미지만 참고)";
+
+    for (let i = 0; i < images!.length; i += UPLOAD_IMAGE_BATCH_SIZE) {
+      const batch = images!.slice(i, i + UPLOAD_IMAGE_BATCH_SIZE);
+      const batchNum = Math.floor(i / UPLOAD_IMAGE_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(images!.length / UPLOAD_IMAGE_BATCH_SIZE);
+      const batchNote =
+        totalBatches > 1
+          ? `\n\n[중요] 이번 요청은 전체 ${images!.length}장 중 ${batch.length}장(배치 ${batchNum}/${totalBatches})입니다. 이 배치 이미지에 있는 모든 기사를 빠짐없이 추출하세요.`
+          : "";
+
+      const batchPrompt = `${MORNING_HEADLINE_USER_PROMPT}${batchNote}\n\n## 업로드된 자료\n\n${i === 0 ? textBlock : "(이미지만 참고)"}`;
+
+      const parts: GeminiPart[] = [];
+      for (const img of batch) {
+        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+      }
+      parts.push({ text: batchPrompt });
+
+      let rawResponse: string;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          rawResponse = await callGeminiWithOptions("", {
+            modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
+            systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
+            parts,
+            maxOutputTokens: 16384,
+          });
+          break;
+        } catch (e) {
+          const isJsonError = e instanceof Error && e.message.includes("유효한 JSON");
+          if (isJsonError && attempt === 0) continue;
+          throw e;
+        }
+      }
+      const data = parseMorningHeadline(rawResponse!);
+      allKeyIssues.push(...(data.keyIssues ?? []));
+    }
+
+    const base = parseMorningHeadline("{}");
+    base.keyIssues = allKeyIssues;
+    return base;
+  }
+
   const imageLimitNote =
-    (images?.length ?? 0) >= 10
+    imageCount >= 10
       ? "\n\n[중요] 이미지가 많습니다. 모든 기사를 빠짐없이 추출하세요. keyIssues는 최대 60개까지 가능합니다. 각 항목 body는 1문장으로 간결히 하세요. 반드시 유효한 JSON만 출력하세요."
-      : "";
+      : imageCount === 1
+        ? "\n\n[중요] 이 이미지 1장에 여러 기사가 있으면 10개, 20개여도 전부 빠짐없이 추출하세요. 일부만 선택하지 마세요."
+        : "";
   const fullUserPrompt = `${MORNING_HEADLINE_USER_PROMPT}${imageLimitNote}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
 
   const callApi = async (): Promise<string> => {
@@ -505,7 +560,7 @@ export async function generateMarketSummaryFromUploadedData(
         modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
         systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
         parts,
-        maxOutputTokens: (images?.length ?? 0) >= 10 ? 16384 : undefined,
+        maxOutputTokens: imageCount >= 10 ? 16384 : undefined,
       });
     } else if (useClaude) {
       const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
