@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronDown, BookmarkX } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
@@ -10,6 +11,7 @@ import { MarketSummaryView } from "./MarketSummaryView";
 const CONFIRM_MS = 2500;
 
 export function ArchivePage() {
+  const navigate = useNavigate();
   const { sessions, deleteSession } = useArchive();
   const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
   const { hideMarket } = useAdminSettings();
@@ -208,6 +210,12 @@ export function ArchivePage() {
             data={selectedSession.marketSummary}
             aiModel={selectedSession.aiModel ?? "gemini"}
             articles={selectedSession.articles}
+            showEditButton={!!(selectedSession.uploadedImages?.length)}
+            onEdit={
+              selectedSession.uploadedImages?.length
+                ? () => navigate("/test2", { state: { editSessionId: selectedSession.id } })
+                : undefined
+            }
             displayDate={
               (selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") ||
                 selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓")) &&

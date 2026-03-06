@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Paperclip } from "lucide-react";
 import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
 import { getSelectedModel, getSelectedModelId } from "../utils/persistState";
@@ -78,7 +79,10 @@ function compressImage(file: File): Promise<UploadedImage> {
 }
 
 export function TestPage2() {
-  const { addSession } = useArchive();
+  const { sessions, addSession, updateSession } = useArchive();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const editSessionId = (location.state as { editSessionId?: string } | null)?.editSessionId;
   const [tab, setTab] = useState<CountryTab>("kr");
   const [inputValue, setInputValue] = useState("");
   const [images, setImages] = useState<UploadedImage[]>([]);
@@ -87,6 +91,15 @@ export function TestPage2() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editSessionId) return;
+    const session = sessions.find((s) => s.id === editSessionId);
+    if (session?.uploadedImages?.length) {
+      setImages(session.uploadedImages);
+      setTab("kr");
+    }
+  }, [editSessionId, sessions]);
 
   const removeImage = useCallback((index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
@@ -211,32 +224,44 @@ export function TestPage2() {
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
           (now.getHours() < 12 ? "오전" : "오후") +
           ` ${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} · 리포트`;
-        addSession({
-          id: `session-${Date.now()}-kr`,
-          title,
-          createdAt: now.toISOString(),
-          isInternational: false,
-          sources: ["test2"],
-          articles: [
-            {
-              id: `test2-${Date.now()}`,
-              title: finalText ? "데이터 직접 입력" : "이미지 분석",
-              source: "한국 뉴스",
-              sourceId: "test2",
-              publishedAt: now.toISOString(),
-              url: "",
-              summary: "",
-              aiModel: model,
-              category: "Economy",
-              isInternational: false,
-            },
-          ],
-          marketSummary: data,
-          aiModel: model,
-        });
-        setSuccessMessage("리포트에 저장되었습니다.");
-        setInputValue("");
-        setImages([]);
+        if (editSessionId) {
+          updateSession(editSessionId, {
+            marketSummary: data,
+            uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
+          });
+          setSuccessMessage("리포트가 수정되었습니다.");
+          setInputValue("");
+          setImages([]);
+          navigate("/", { replace: true });
+        } else {
+          addSession({
+            id: `session-${Date.now()}-kr`,
+            title,
+            createdAt: now.toISOString(),
+            isInternational: false,
+            sources: ["test2"],
+            articles: [
+              {
+                id: `test2-${Date.now()}`,
+                title: finalText ? "데이터 직접 입력" : "이미지 분석",
+                source: "한국 뉴스",
+                sourceId: "test2",
+                publishedAt: now.toISOString(),
+                url: "",
+                summary: "",
+                aiModel: model,
+                category: "Economy",
+                isInternational: false,
+              },
+            ],
+            marketSummary: data,
+            aiModel: model,
+            uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
+          });
+          setSuccessMessage("리포트에 저장되었습니다.");
+          setInputValue("");
+          setImages([]);
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "분석 실패");
       } finally {
@@ -296,7 +321,7 @@ export function TestPage2() {
         setLoading(false);
       }
     }
-  }, [tab, inputValue, images, pdfs, addSession]);
+  }, [tab, inputValue, images, pdfs, addSession, updateSession, editSessionId, navigate]);
 
   const canSubmit =
     (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0)) || (tab === "us" && pdfs.length > 0);
@@ -404,7 +429,7 @@ export function TestPage2() {
             }`}
             style={{ fontSize: 15, fontWeight: 500 }}
           >
-            {loading ? "분석 중…" : "리포트 작성"}
+            {loading ? "분석 중…" : editSessionId ? "리포트 수정" : "리포트 작성"}
           </button>
         </div>
 
