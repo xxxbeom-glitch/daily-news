@@ -1,0 +1,10 @@
+# 모든 파일 UTF-8 사용 (한글 깨짐 방지)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{ts,tsx,js,jsx,json,css,html}]
+charset = utf-8
