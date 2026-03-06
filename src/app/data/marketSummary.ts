@@ -10,6 +10,8 @@ export interface IssueItem {
   title: string;   // 1줄 제목
   body: string;    // 개조식·명사형 종결 (-음, -기, -함, -됨, 명사)
   changeRate?: string; // 종가 기준 등락률 "+8.4%" (빅테크 이슈용)
+  /** 섹션 분류 (한국경제 헤드라인: 경제, 증권, 정치, 사회, IT/과학, 부동산, 국제, 기타) */
+  section?: string;
 }
 
 export interface StockMover {
