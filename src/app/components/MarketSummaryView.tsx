@@ -187,28 +187,6 @@ export function MarketSummaryView({
     }));
   };
 
-  /** 섹션별 정렬 순서 (한국경제 헤드라인) */
-  const SECTION_ORDER = ["경제", "증권", "정치", "사회", "IT/과학", "부동산", "국제", "기타"];
-  const groupBySection = (items: IssueItem[]): { section: string; items: IssueItem[] }[] => {
-    const hasSection = items.some((i) => i.section);
-    if (!hasSection) return [{ section: "", items }];
-    const bySection = new Map<string, IssueItem[]>();
-    for (const item of items) {
-      const sec = item.section?.trim() || "기타";
-      if (!bySection.has(sec)) bySection.set(sec, []);
-      bySection.get(sec)!.push(item);
-    }
-    const result: { section: string; items: IssueItem[] }[] = [];
-    for (const sec of SECTION_ORDER) {
-      const list = bySection.get(sec);
-      if (list?.length) result.push({ section: sec, items: list });
-    }
-    for (const [sec, list] of bySection) {
-      if (!SECTION_ORDER.includes(sec)) result.push({ section: sec, items: list });
-    }
-    return result;
-  };
-
   if (isHeadlineMode) {
     const stripBullet = (text: string) =>
       (text ?? "")
@@ -259,20 +237,14 @@ export function MarketSummaryView({
             <>
               {renderTable("시장지표", data.indices ?? [])}
               {renderTable("주요 섹터ETF", data.sectorEtf ?? [])}
-              <div className="my-[26px] border-t-2 border-white/50" />
             </>
           )}
           <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
-            {groupBySection(items).map(({ section, items: sectionItems }) => (
-              <div key={section || "all"}>
-                {section && (
-                  <BlockTitle>{section}</BlockTitle>
-                )}
-                {sectionItems.map((item, i) => (
-                  <div
-                    key={i}
-                    className={i > 0 ? "pt-[26px] mt-[26px] border-t-2 border-white/50" : (section ? "mt-[14px]" : "mt-6")}
-                  >
+            {items.map((item, i) => (
+              <div
+                key={i}
+                className={i > 0 ? "pt-[26px] mt-[26px] border-t-2 border-white/50" : "mt-6"}
+              >
                     <div style={{ fontSize: 16, lineHeight: 1.5 }} className="text-white font-semibold">
                       {(item.title ?? "").replace(/^\s*■\s*/, "")}
                     </div>
@@ -288,8 +260,6 @@ export function MarketSummaryView({
                     </div>
                   </div>
                 ))}
-              </div>
-            ))}
           </div>
         </div>
       </>
