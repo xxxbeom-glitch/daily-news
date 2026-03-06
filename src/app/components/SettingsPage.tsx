@@ -46,7 +46,7 @@ function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_A
 async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_GEMINI_API_KEY 추가)" };
+    return { ok: false, message: "API ?��? ?�정?��? ?�았?�니?? (.env??VITE_GEMINI_API_KEY 추�?)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -62,7 +62,7 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "연결 실패";
+    const msg = e instanceof Error ? e.message : "?�결 ?�패";
     return { ok: false, message: msg };
   }
 }
@@ -94,13 +94,13 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
       return { ok: false, message: msg };
     } catch (e) {
       clearTimeout(timeout);
-      const msg = e instanceof Error ? e.message : "연결 실패";
+      const msg = e instanceof Error ? e.message : "?�결 ?�패";
       return { ok: false, message: msg };
     }
   }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 또는 VITE_OPENROUTER_API_KEY 추가)" };
+    return { ok: false, message: "API ?��? ?�정?��? ?�았?�니?? (.env??VITE_ANTHROPIC_API_KEY ?�는 VITE_OPENROUTER_API_KEY 추�?)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -127,7 +127,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "연결 실패";
+    const msg = e instanceof Error ? e.message : "?�결 ?�패";
     return { ok: false, message: msg };
   }
 }
@@ -135,7 +135,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
 async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_OPENAI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_OPENAI_API_KEY 추가)" };
+    return { ok: false, message: "API ?��? ?�정?��? ?�았?�니?? (.env??VITE_OPENAI_API_KEY 추�?)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -163,7 +163,7 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "연결 실패";
+    const msg = e instanceof Error ? e.message : "?�결 ?�패";
     return { ok: false, message: msg };
   }
 }
@@ -195,19 +195,19 @@ async function checkConnectionStatus(
 
   const sourceStatus = Object.fromEntries(sourceResults);
   const translateError = (msg: string | undefined): string => {
-    if (!msg) return "연결 실패";
-    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "할당량 초과";
-    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API 키 오류";
+    if (!msg) return "?�결 ?�패";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "?�당??초과";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ???�류";
     const lower = msg.toLowerCase();
-    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "지역 제한";
-    if (msg.includes("not found") || msg.includes("model")) return "모델 오류";
-    return msg.length > 50 ? msg.slice(0, 50) + "…" : msg;
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "지???�한";
+    if (msg.includes("not found") || msg.includes("model")) return "모델 ?�류";
+    return msg.length > 50 ? msg.slice(0, 50) + "?? : msg;
   };
   const errors: string[] = [];
   if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
   if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
   if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
-  if (errors.length === 0) errors.push("모든 API 연결 정상");
+  if (errors.length === 0) errors.push("모든 API ?�결 ?�상");
 
   return {
     sourceStatus,
@@ -220,7 +220,7 @@ async function checkConnectionStatus(
   };
 }
 
-/** 리포트 동기화 버튼 */
+/** 리포???�기??버튼 */
 function ReportSyncButtons({
   sessions,
   isEnabled,
@@ -239,7 +239,7 @@ function ReportSyncButtons({
 
   const handlePull = async () => {
     if (!uid) {
-      setResult({ ok: false, message: "로그인되지 않았습니다. (익명 인증 대기 중)" });
+      setResult({ ok: false, message: "로그?�되지 ?�았?�니?? (?�명 ?�증 ?��?�?" });
       setTimeout(() => setResult(null), 4000);
       return;
     }
@@ -247,9 +247,9 @@ function ReportSyncButtons({
     setResult(null);
     try {
       await refreshSessionsFromCloud();
-      setResult({ ok: true, message: "클라우드에서 가져왔습니다." });
+      setResult({ ok: true, message: "?�라?�드?�서 가?�왔?�니??" });
     } catch (e) {
-      setResult({ ok: false, message: e instanceof Error ? e.message : "가져오기 실패" });
+      setResult({ ok: false, message: e instanceof Error ? e.message : "가?�오�??�패" });
     } finally {
       setLoading(null);
     }
@@ -271,7 +271,7 @@ function ReportSyncButtons({
   if (!isEnabled) {
     return (
       <p style={{ fontSize: 13 }} className="text-white/50">
-        Firebase가 비활성화되어 있습니다. (.env에 VITE_FIREBASE_* 설정)
+        Firebase가 비활?�화?�어 ?�습?�다. (.env??VITE_FIREBASE_* ?�정)
       </p>
     );
   }
@@ -287,7 +287,7 @@ function ReportSyncButtons({
           style={{ fontSize: 13 }}
         >
           <CloudDownload size={16} />
-          {loading === "pull" ? "가져오는 중…" : "클라우드에서 가져오기"}
+          {loading === "pull" ? "가?�오??중�? : "?�라?�드?�서 가?�오�?}
         </button>
         <button
           type="button"
@@ -297,7 +297,7 @@ function ReportSyncButtons({
           style={{ fontSize: 13 }}
         >
           <CloudUpload size={16} />
-          {loading === "push" ? "업로드 중…" : "클라우드에 업로드"}
+          {loading === "push" ? "?�로??중�? : "?�라?�드???�로??}
         </button>
       </div>
       {result && (
@@ -312,19 +312,18 @@ function ReportSyncButtons({
   );
 }
 
-/** 동기화 실패 가능 원인 안내 */
+/** ?�기???�패 가???�인 ?�내 */
 function ReportSyncFailureHint() {
   return (
     <details className="mt-2">
       <summary style={{ fontSize: 12 }} className="text-white/40 cursor-pointer hover:text-white/60">
-        동기화가 안 될 때 확인할 것
-      </summary>
+        ?�기?��? ???????�인??�?      </summary>
       <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
-        <li>네트워크 연결 상태</li>
-        <li>Firestore 문서 1MB 제한: 이미지가 많은 리포트는 이미지를 제외하고 요약만 업로드됩니다.</li>
-        <li>Firebase Console → Authentication → 승인된 도메인에 접속 URL(또는 IP) 추가 (내부망 192.168.x.x 사용 시)</li>
-        <li>{"Firestore 규칙: users/" + "{" + "userId" + "}" + "에 read, write 허용 여부"}</li>
-        <li>익명 인증 활성화 여부 (Firebase Console → Authentication → 로그인 방법)</li>
+        <li>?�트?�크 ?�결 ?�태</li>
+        <li>Firestore 문서 1MB ?�한: ?��?지가 많�? 리포?�는 ?��?지�??�외?�고 ?�약�??�로?�됩?�다.</li>
+        <li>Firebase Console ??Authentication ???�인???�메?�에 ?�속 URL(?�는 IP) 추�? (?��?�?192.168.x.x ?�용 ??</li>
+        <li>{"Firestore 규칙: users/" + "{" + "userId" + "}" + "??read, write ?�용 ?��?"}</li>
+        <li>?�명 ?�증 ?�성???��? (Firebase Console ??Authentication ??로그??방법)</li>
       </ul>
     </details>
   );
@@ -348,7 +347,7 @@ export function SettingsPage() {
     gpt: "error" as "ok" | "error",
     gemini: "ok" as "ok" | "error",
     anthropic: "error" as "ok" | "error",
-    errorMessage: "API 연결 상태 확인 중…",
+    errorMessage: "API ?�결 ?�태 ?�인 중�?,
   });
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
@@ -389,7 +388,7 @@ export function SettingsPage() {
   }, []);
 
   const handleAddRss = useCallback(() => {
-    const name = newRssName.trim() || "커스텀 RSS";
+    const name = newRssName.trim() || "커스?� RSS";
     const url = newRssUrl.trim();
     if (!url) return;
     const added = addCustomSource(name, url);
@@ -433,13 +432,13 @@ export function SettingsPage() {
     const now = Date.now();
     if (now - lastCheckTime < REFRESH_COOLDOWN_MS && lastCheckTime > 0) {
       const remain = Math.ceil((REFRESH_COOLDOWN_MS - (now - lastCheckTime)) / 60000);
-      alert(`새로고침은 5분에 한 번만 가능합니다. (${remain}분 후)`);
+      alert(`?�로고침?� 5분에 ??번만 가?�합?�다. (${remain}�???`);
       return;
     }
     runCheck();
   }, [lastCheckTime, runCheck]);
 
-  // 진입 시 1회 + 6시간마다 자동 체크 (탭이 보일 때만 - 탭 전환 시 자동 갱신 방지)
+  // 진입 ??1??+ 6?�간마다 ?�동 체크 (??�� 보일 ?�만 - ???�환 ???�동 갱신 방�?)
   useEffect(() => {
     runCheck();
     let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -484,14 +483,14 @@ export function SettingsPage() {
       const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
       setShowExportMenu(false);
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 변환 실패" });
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 변???�패" });
       } else {
         const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await saveBlobToLocalStorage(blob, filename);
         setExportStatus({
           type: "pdfzip",
           ok: result.ok,
-          message: result.ok ? "PDF(ZIP)로 내부저장소에 저장되었습니다." : (result.error || "저장 실패"),
+          message: result.ok ? "PDF(ZIP)�??��??�?�소???�?�되?�습?�다." : (result.error || "?�???�패"),
         });
       }
     } finally {
@@ -506,14 +505,14 @@ export function SettingsPage() {
       const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
       setShowExportMenu(false);
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 변환 실패" });
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 변???�패" });
       } else {
         const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await uploadBlobToGoogleDrive(blob, filename, "application/zip");
         setExportStatus({
           type: "pdfzip",
           ok: result.ok,
-          message: result.ok ? "PDF(ZIP)가 구글 드라이브에 저장되었습니다." : (result.error || "업로드 실패"),
+          message: result.ok ? "PDF(ZIP)가 구�? ?�라?�브???�?�되?�습?�다." : (result.error || "?�로???�패"),
         });
       }
     } finally {
@@ -550,10 +549,10 @@ export function SettingsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>
-                전체 삭제
+                ?�체 ??��
               </p>
               <p className="text-white/60 mb-5" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                저장된 아카이브를 모두 삭제하시겠습니까?
+                ?�?�된 ?�카?�브�?모두 ??��?�시겠습?�까?
               </p>
               <div className="flex gap-2">
                 <button
@@ -570,7 +569,7 @@ export function SettingsPage() {
                   className="flex-1 py-2.5 rounded-[10px] border border-red-500/50 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
                 >
-                  삭제
+                  ??��
                 </button>
               </div>
             </div>
@@ -578,7 +577,7 @@ export function SettingsPage() {
         </>
       )}
 
-      {/* AI 엔진 설정 */}
+      {/* AI ?�진 ?�정 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -587,7 +586,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>AI 엔진</span>
+            <span>AI ?�진</span>
             <span className="flex items-center gap-2 text-white/60 font-normal truncate max-w-[60%]">
               {getModelLabel(selectedModelId)}
               <ChevronDown
@@ -639,16 +638,15 @@ export function SettingsPage() {
                 onClick={handleSaveSelectedModel}
                 className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
               >
-                저장
-              </button>
+                ?�??              </button>
             </div>
           )}
         </div>
       </section>
 
-      {/* 기억할 관심사 - 숨김 */}
+      {/* 기억??관?�사 - ?��? */}
 
-      {/* 언론사 연결상태 */}
+      {/* ?�론???�결?�태 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -658,7 +656,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              언론사 연결상태
+              ?�론???�결?�태
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${sourcesExpanded ? "rotate-180" : ""}`}
@@ -672,18 +670,18 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              새로고침
+              ?�로고침
             </button>
           </div>
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4 overflow-hidden min-w-0">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
-              RSS 소스
+              RSS ?�스
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mb-3 min-w-0">
               <input
                 type="text"
-                placeholder="이름"
+                placeholder="?�름"
                 value={newRssName}
                 onChange={(e) => setNewRssName(e.target.value)}
                 className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
@@ -714,8 +712,12 @@ export function SettingsPage() {
               const isCustom = isCustomSourceId(s.id);
               return (
                 <div key={s.id} className="flex items-center justify-between gap-2 py-3 min-w-0">
-                  <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0 overflow-hidden">
+                  <label
+                    htmlFor={`rss-src-${s.id}`}
+                    className="flex items-center gap-2 cursor-pointer min-w-0 overflow-hidden"
+                  >
                     <input
+                      id={`rss-src-${s.id}`}
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSourceSelection(s.id)}
@@ -723,19 +725,24 @@ export function SettingsPage() {
                     />
                     <span style={{ fontSize: 14 }} className="text-white/90 truncate block min-w-0">{s.name}</span>
                   </label>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="relative z-10 flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 12 }}>
-                      {status === "ok" ? <><CheckCircle2 size={12} />정상</> : <><XCircle size={12} />오류</>}
+                      {status === "ok" ? <><CheckCircle2 size={12} />?�상</> : <><XCircle size={12} />?�류</>}
                     </span>
                     <button
                       type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemoveRss(s.id, isCustom);
+                      }}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         handleRemoveRss(s.id, isCustom);
                       }}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[8px] text-white/40 hover:text-red-400 hover:bg-white/5 active:bg-white/10 touch-manipulation"
-                      title={isCustom ? "삭제" : "선택 해제"}
+                      title={isCustom ? "??��" : "?�택 ?�제"}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -749,7 +756,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* API 연결상태 */}
+      {/* API ?�결?�태 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -759,7 +766,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              API 연결상태
+              API ?�결?�태
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
@@ -773,7 +780,7 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              새로고침
+              ?�로고침
             </button>
           </div>
           {apiExpanded && (
@@ -792,12 +799,12 @@ export function SettingsPage() {
                 {apiStatus[key] === "ok" ? (
                   <>
                     <CheckCircle2 size={14} />
-                    연결
+                    ?�결
                   </>
                 ) : (
                   <>
                     <XCircle size={14} />
-                    오류
+                    ?�류
                   </>
                 )}
               </span>
@@ -805,7 +812,7 @@ export function SettingsPage() {
           ))}
           <div className="pt-2">
             <div style={{ fontSize: 12 }} className="text-white/40 mb-1">
-              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "상태" : "오류내용"} :
+              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "?�태" : "?�류?�용"} :
             </div>
             <div
               className="rounded-[8px] bg-white/5 border border-white/8 px-3 py-2"
@@ -814,9 +821,9 @@ export function SettingsPage() {
               <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
                 {apiStatus.errorMessage}
               </span>
-              {apiStatus.errorMessage.includes("지역 제한") && (
+              {apiStatus.errorMessage.includes("지???�한") && (
                 <p style={{ fontSize: 11 }} className="text-white/45 mt-2">
-                  VPN 사용 또는 API 제공자 지원 국가 확인
+                  VPN ?�용 ?�는 API ?�공??지??�?? ?�인
                 </p>
               )}
             </div>
@@ -826,12 +833,12 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 저장된 아카이브 - 숨김 */}
+      {/* ?�?�된 ?�카?�브 - ?��? */}
       {false && (
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button type="button" className="w-full h-[72px]">
-            저장된 아카이브
+            ?�?�된 ?�카?�브
           </button>
           <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-2">
           <button
@@ -841,7 +848,7 @@ export function SettingsPage() {
             style={{ fontSize: 14 }}
           >
             <Trash2 size={16} />
-            전체삭제
+            ?�체??��
           </button>
 
           <div className="relative">
@@ -852,7 +859,7 @@ export function SettingsPage() {
               style={{ fontSize: 14 }}
             >
               <Download size={16} />
-              내보내기
+              ?�보?�기
             </button>
             {showExportMenu && (
               <>
@@ -871,7 +878,7 @@ export function SettingsPage() {
                   >
                     <Download size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF 생성 중…" : "PDF(ZIP) · 내부저장소에 저장"}
+                      {exportPdfLoading ? "PDF ?�성 중�? : "PDF(ZIP) · ?��??�?�소???�??}
                     </span>
                   </button>
                   <button
@@ -883,7 +890,7 @@ export function SettingsPage() {
                   >
                     <Cloud size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF 생성 중…" : "PDF(ZIP) · 구글드라이브에 저장"}
+                      {exportPdfLoading ? "PDF ?�성 중�? : "PDF(ZIP) · 구�??�라?�브???�??}
                     </span>
                   </button>
                 </div>
@@ -895,25 +902,23 @@ export function SettingsPage() {
             className="block mt-2 text-[#618EFF] hover:text-[#8BABFF]"
             style={{ fontSize: 13 }}
           >
-            오늘의 시황에서 보기 →
-          </Link>
+            ?�늘???�황?�서 보기 ??          </Link>
           {sessions.length > 0 && (
             <p style={{ fontSize: 12 }} className="text-white/35 mt-1">
-              저장된 시황 {sessions.length}건
-            </p>
+              ?�?�된 ?�황 {sessions.length}�?            </p>
           )}
           </div>
         </div>
       </section>
       )}
 
-      {/* 리포트 동기화 */}
+      {/* 리포???�기??*/}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="px-4 py-3 border-b border-white/6">
-            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">리포트 동기화</p>
+            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">리포???�기??/p>
             <p style={{ fontSize: 12 }} className="text-white/50 mt-1">
-              리포트를 Firebase 클라우드와 동기화합니다. 동기화가 안 되면 아래 버튼으로 수동 동기화를 시도하세요.
+              리포?��? Firebase ?�라?�드?� ?�기?�합?�다. ?�기?��? ???�면 ?�래 버튼?�로 ?�동 ?�기?��? ?�도?�세??
             </p>
           </div>
           <div className="p-4 space-y-3">
@@ -929,27 +934,27 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 스크랩한 기사 */}
+      {/* ?�크?�한 기사 */}
       <section className="mb-4">
         <Link
           to="/settings/scrap"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>스크랩한 기사</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>?�크?�한 기사</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* 로그인 */}
+      {/* 로그??*/}
       <section className="mb-4">
         <Link
           to="/settings/login"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>로그인</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>로그??/span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
@@ -968,11 +973,11 @@ export function SettingsPage() {
         </Link>
       </section>
 
-      {/* 차트 라이선스 (lightweight-charts attributionLogo 비활성화 시 요구사항) */}
+      {/* 차트 ?�이?�스 (lightweight-charts attributionLogo 비활?�화 ???�구?�항) */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden px-4 py-3">
           <p style={{ fontSize: 12 }} className="text-white/50">
-            오늘의 시장 차트는 TradingView lightweight-charts를 사용합니다.{" "}
+            ?�늘???�장 차트??TradingView lightweight-charts�??�용?�니??{" "}
             <a
               href="https://www.tradingview.com/"
               target="_blank"
