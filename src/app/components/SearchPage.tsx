@@ -83,15 +83,26 @@ function ArticleFullViewModal({
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
-  // 1. 본문 로드 (실패 시 RSS body를 폴백으로 사용)
+  // 1. 본문 로드 - RSS body 있으면 즉시 표시, 전체 본문은 백그라운드에서 가져와 교체
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     setError(null);
-    setContent(null);
-    setTitle(null);
     setSummary(null);
     setSummaryLoading(false);
+
+    const rssBody = article.body?.trim();
+    const hasRssFallback = rssBody && rssBody.length > 50;
+
+    if (hasRssFallback) {
+      setContent(stripHtmlToText(rssBody));
+      setTitle(article.title);
+      setLoading(false);
+    } else {
+      setLoading(true);
+      setContent(null);
+      setTitle(null);
+    }
+
     fetchArticleContent(article.link)
       .then((res) => {
         if (cancelled) return;
@@ -99,20 +110,20 @@ function ArticleFullViewModal({
         if (txt && txt.length > 50) {
           setContent(txt);
           setTitle(res.title || article.title);
-        } else if (article.body && article.body.trim().length > 50) {
-          setContent(stripHtmlToText(article.body));
+        } else if (!hasRssFallback && rssBody && rssBody.length > 50) {
+          setContent(stripHtmlToText(rssBody));
           setTitle(article.title);
-        } else {
+        } else if (!hasRssFallback) {
           setContent("본문을 추출하지 못했습니다. 아래 '원문 보기'에서 직접 확인해주세요.");
           setTitle(article.title);
         }
       })
       .catch(() => {
         if (cancelled) return;
-        if (article.body && article.body.trim().length > 50) {
-          setContent(stripHtmlToText(article.body));
+        if (!hasRssFallback && rssBody && rssBody.length > 50) {
+          setContent(stripHtmlToText(rssBody));
           setTitle(article.title);
-        } else {
+        } else if (!hasRssFallback) {
           setError("본문 로드에 실패했습니다. CORS 또는 사이트 차단으로 인한 것으로, '원문 보기'에서 직접 확인해주세요.");
         }
       })

@@ -100,9 +100,25 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
     checkAndRun();
     const onSettingsChange = () => checkAndRun();
     window.addEventListener("admin_settings_changed", onSettingsChange);
-    intervalRef.current = setInterval(checkAndRun, 10000);
+    const schedule = () => {
+      if (document.hidden) return;
+      checkAndRun();
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else if (!intervalRef.current) {
+        intervalRef.current = setInterval(schedule, 10000);
+      }
+    };
+    if (!document.hidden) intervalRef.current = setInterval(schedule, 10000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("admin_settings_changed", onSettingsChange);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [addSession]);

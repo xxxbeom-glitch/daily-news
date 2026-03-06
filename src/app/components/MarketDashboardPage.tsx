@@ -175,10 +175,27 @@ export function MarketDashboardPage() {
   }, [loadData]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const schedule = () => {
+      if (document.hidden) return;
       if (shouldRefreshDashboard()) loadData();
-    }, 60 * 1000);
-    return () => clearInterval(interval);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      } else {
+        if (!intervalId) intervalId = setInterval(schedule, 60 * 1000);
+      }
+    };
+    if (!document.hidden) intervalId = setInterval(schedule, 60 * 1000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [loadData]);
 
   const itemMap = new Map(items.map((i) => [i.symbol, i]));

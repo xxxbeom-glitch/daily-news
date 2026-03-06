@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, ExternalLink, X } from "lucide-react";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
 import { stripHtmlToText } from "../utils/stripHtml";
+import { recordArticleView, getArticleViewCounts } from "../utils/articleViewCount";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
 const PAGE_SIZE = 20;
+
+type SortTab = "latest" | "mostViewed";
+
+/** 탭 전환 시 리페치 방지 - 페이지 새로고침 시에만 초기화됨 */
+let overseasNewsCache: RawRssArticle[] | null = null;
 
 function formatPubDate(pubDate: string): string {
   const d = new Date(pubDate);
@@ -26,17 +32,19 @@ function ArticleFullViewModal({
   article: RawRssArticle;
   onClose: () => void;
 }) {
-  const [loading, setLoading] = useState(true);
+  const rssBody = article.body?.trim() && article.body.trim().length > 50 ? stripHtmlToText(article.body) : null;
+  const [loading, setLoading] = useState(!rssBody);
   const [error, setError] = useState<string | null>(null);
-  const [content, setContent] = useState<string | null>(null);
-  const [title, setTitle] = useState<string | null>(null);
+  const [content, setContent] = useState<string | null>(rssBody);
+  const [title, setTitle] = useState<string | null>(article.title);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setContent(null);
-    setTitle(null);
+    if (!rssBody) {
+      setError(null);
+      setContent(null);
+      setTitle(null);
+    }
     fetchArticleContent(article.link)
       .then((res) => {
         if (cancelled) return;
@@ -44,8 +52,8 @@ function ArticleFullViewModal({
         if (txt && txt.length > 50) {
           setContent(txt);
           setTitle(res.title || article.title);
-        } else if (article.body && article.body.trim().length > 50) {
-          setContent(stripHtmlToText(article.body));
+        } else if (rssBody) {
+          setContent(rssBody);
           setTitle(article.title);
         } else {
           setContent("본문을 추출하지 못했습니다. 아래 '원문 보기'에서 직접 확인해주세요.");
@@ -54,8 +62,8 @@ function ArticleFullViewModal({
       })
       .catch(() => {
         if (cancelled) return;
-        if (article.body && article.body.trim().length > 50) {
-          setContent(stripHtmlToText(article.body));
+        if (rssBody) {
+          setContent(rssBody);
           setTitle(article.title);
         } else {
           setError("본문 로드에 실패했습니다. '원문 보기'에서 직접 확인해주세요.");
@@ -65,7 +73,7 @@ function ArticleFullViewModal({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [article.link, article.body, article.title]);
+  }, [article.link, article.title, rssBody]);
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-[#0a0a0f]">
@@ -125,17 +133,43 @@ function ArticleFullViewModal({
 
 export function OverseasNewsPage() {
   const [allArticles, setAllArticles] = useState<RawRssArticle[]>([]);
+  const [sortTab, setSortTab] = useState<SortTab>("latest");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fullViewArticle, setFullViewArticle] = useState<RawRssArticle | null>(null);
+  const [viewCountVersion, setViewCountVersion] = useState(0);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const sourceList = [...internationalSources, ...domesticSources];
 
+  const viewCounts = useMemo(() => getArticleViewCounts(), [viewCountVersion]);
+
+  const sortedArticles = useMemo(() => {
+    const arr = [...allArticles];
+    if (sortTab === "latest") {
+      arr.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+    } else {
+      arr.sort((a, b) => {
+        const va = viewCounts[a.link] ?? 0;
+        const vb = viewCounts[b.link] ?? 0;
+        if (vb !== va) return vb - va;
+        return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+      });
+    }
+    return arr;
+  }, [allArticles, sortTab, viewCounts]);
+
   useEffect(() => {
     if (sourceList.length === 0) {
       setLoading(false);
+      return;
+    }
+    if (overseasNewsCache?.length) {
+      setAllArticles(overseasNewsCache);
+      setVisibleCount(PAGE_SIZE);
+      setLoading(false);
+      setError(null);
       return;
     }
     setLoading(true);
@@ -160,6 +194,7 @@ export function OverseasNewsPage() {
           seen.add(a.link);
           return true;
         });
+        overseasNewsCache = deduped;
         setAllArticles(deduped);
       })
       .catch((e) => {
@@ -169,12 +204,23 @@ export function OverseasNewsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const visibleArticles = allArticles.slice(0, visibleCount);
-  const hasMore = visibleCount < allArticles.length;
+  const visibleArticles = sortedArticles.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedArticles.length;
 
   const loadMore = useCallback(() => {
-    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, allArticles.length));
-  }, [allArticles.length]);
+    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, sortedArticles.length));
+  }, [sortedArticles.length]);
+
+  const handleArticleClick = useCallback((a: RawRssArticle) => {
+    recordArticleView(a.link);
+    setViewCountVersion((v) => v + 1);
+    setFullViewArticle(a);
+  }, []);
+
+  const handleSortTabChange = useCallback((tab: SortTab) => {
+    setSortTab(tab);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
 
   useEffect(() => {
     if (!hasMore || loading) return;
@@ -192,6 +238,24 @@ export function OverseasNewsPage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="flex-shrink-0 flex border-b border-white/10 px-4">
+        <button
+          type="button"
+          onClick={() => handleSortTabChange("latest")}
+          className={`flex-1 py-3 text-center transition-colors ${sortTab === "latest" ? "text-white font-semibold border-b-2 border-white -mb-[1px]" : "text-white/50 hover:text-white/70"}`}
+          style={{ fontSize: 14 }}
+        >
+          최신기사
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSortTabChange("mostViewed")}
+          className={`flex-1 py-3 text-center transition-colors ${sortTab === "mostViewed" ? "text-white font-semibold border-b-2 border-white -mb-[1px]" : "text-white/50 hover:text-white/70"}`}
+          style={{ fontSize: 14 }}
+        >
+          가장 많이본 기사
+        </button>
+      </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-5 pb-8">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
@@ -212,7 +276,7 @@ export function OverseasNewsPage() {
               <button
                 key={`${a.link}-${i}`}
                 type="button"
-                onClick={() => setFullViewArticle(a)}
+                onClick={() => handleArticleClick(a)}
                 className="w-full flex items-start gap-3 p-3 rounded-[10px] bg-white/5 border border-white/8 hover:bg-white/8 text-left transition-colors"
               >
                 <div className="flex-1 min-w-0">

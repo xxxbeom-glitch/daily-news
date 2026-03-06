@@ -412,11 +412,30 @@ export function SettingsPage() {
     runCheck();
   }, [lastCheckTime, runCheck]);
 
-  // 진입 시 1회 + 6시간마다 자동 체크
+  // 진입 시 1회 + 6시간마다 자동 체크 (탭이 보일 때만 - 탭 전환 시 자동 갱신 방지)
   useEffect(() => {
     runCheck();
-    const interval = setInterval(runCheck, SIX_HOURS_MS);
-    return () => clearInterval(interval);
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const schedule = () => {
+      if (document.hidden) return;
+      runCheck();
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      } else {
+        if (!intervalId) intervalId = setInterval(schedule, SIX_HOURS_MS);
+      }
+    };
+    if (!document.hidden) intervalId = setInterval(schedule, SIX_HOURS_MS);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [runCheck]);
 
   const handleClearAllClick = () => {
@@ -602,8 +621,7 @@ export function SettingsPage() {
 
       {/* 기억할 관심사 - 숨김 */}
 
-      {/* 언론사 연결상태 - 숨김 */}
-      {false && (
+      {/* 언론사 연결상태 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -690,7 +708,6 @@ export function SettingsPage() {
           )}
         </div>
       </section>
-      )}
 
       {/* API 연결상태 */}
       <section className="mb-4">
