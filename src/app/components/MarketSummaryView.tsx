@@ -134,7 +134,7 @@ export function MarketSummaryView({
 
   const dateToShow = displayDate ?? data.date;
   const header = (
-      <div className="flex items-center justify-between px-[17px] pt-[20px] pb-[20px] border-b-2 border-white/50">
+      <div className="flex items-center justify-between px-[17px] pt-[20px] pb-[20px] border-b border-white/50">
       <div>
         <div style={{ fontSize: 11, lineHeight: 1.5 }} className="text-white/90">
           {formatDisplayDate(dateToShow)}
@@ -243,12 +243,12 @@ export function MarketSummaryView({
             {items.map((item, i) => (
               <div
                 key={i}
-                className={i > 0 ? "pt-[26px] mt-[26px] border-t-2 border-white/50" : "mt-6"}
+                className={i > 0 ? "pt-[26px] mt-[26px] border-t border-dashed border-white/20" : "mt-6"}
               >
                     <div style={{ fontSize: 16, lineHeight: 1.5 }} className="text-white font-semibold">
                       {(item.title ?? "").replace(/^\s*■\s*/, "")}
                     </div>
-                    <div className="mt-[8px] space-y-[10px]">
+                    <div className="mt-[10px] space-y-[10px]">
                       {bodyParagraphs(item.body ?? "").map((para, j) => (
                         <div key={j} className="flex gap-2 items-start">
                           <span style={bulletStyle} className="bg-white/50 block shrink-0" />
