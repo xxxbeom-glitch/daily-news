@@ -206,7 +206,7 @@ export function ReaderViewModal({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 max-w-[430px] mx-auto w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-6 pb-12 max-w-[430px] mx-auto w-full">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <RefreshCw size={28} className="animate-spin text-white/50 mb-4" />
@@ -222,7 +222,7 @@ export function ReaderViewModal({
         )}
 
         {!loading && !error && displayContent && (
-          <div className="reader-view">
+          <div className="reader-view pb-16">
             <h1 className="text-white font-semibold mb-4" style={{ fontSize: 18, lineHeight: 1.45, fontFamily: "Pretendard, system-ui, sans-serif" }}>
               {title || article.title}
             </h1>
@@ -233,7 +233,7 @@ export function ReaderViewModal({
             </div>
 
             <div
-              className="text-white/90 whitespace-pre-wrap font-normal"
+              className="text-white/90 whitespace-pre-wrap font-normal break-words"
               style={{ fontSize: 17, lineHeight: 1.8, fontFamily: "Pretendard, system-ui, sans-serif" }}
             >
               {displayContent}

@@ -676,17 +676,17 @@ export function SettingsPage() {
             </button>
           </div>
           {sourcesExpanded && (
-          <div className="border-t border-white/6 px-4 pb-4 pt-4">
+          <div className="border-t border-white/6 px-4 pb-4 pt-4 overflow-hidden min-w-0">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
               RSS 소스
             </div>
-            <div className="flex gap-2 mb-3">
+            <div className="flex flex-col sm:flex-row gap-2 mb-3 min-w-0">
               <input
                 type="text"
                 placeholder="이름"
                 value={newRssName}
                 onChange={(e) => setNewRssName(e.target.value)}
-                className="flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
+                className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
                 style={{ fontSize: 13 }}
               />
               <input
@@ -694,7 +694,7 @@ export function SettingsPage() {
                 placeholder="RSS URL"
                 value={newRssUrl}
                 onChange={(e) => setNewRssUrl(e.target.value)}
-                className="flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
+                className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
                 style={{ fontSize: 13 }}
               />
               <button
@@ -707,33 +707,37 @@ export function SettingsPage() {
                 <Plus size={18} />
               </button>
             </div>
-            <div className="divide-y divide-white/6">
+            <div className="divide-y divide-white/6 max-h-[240px] overflow-y-auto min-w-0">
             {effectiveSources.map((s) => {
               const status = sourceStatus[s.id] ?? "ok";
               const isSelected = selectedSourceIds.includes(s.id);
               const isCustom = isCustomSourceId(s.id);
               return (
-                <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                <div key={s.id} className="flex items-center justify-between gap-2 py-3 min-w-0">
+                  <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0 overflow-hidden">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSourceSelection(s.id)}
-                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
+                      className="w-4 h-4 shrink-0 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
                     />
-                    <span style={{ fontSize: 14 }} className="text-white/90 truncate">{s.name}</span>
+                    <span style={{ fontSize: 14 }} className="text-white/90 truncate block min-w-0">{s.name}</span>
                   </label>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`flex items-center gap-1.5 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-                      {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 12 }}>
+                      {status === "ok" ? <><CheckCircle2 size={12} />정상</> : <><XCircle size={12} />오류</>}
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveRss(s.id, isCustom)}
-                      className="p-1.5 rounded-[6px] text-white/40 hover:text-red-400 hover:bg-white/5"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemoveRss(s.id, isCustom);
+                      }}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[8px] text-white/40 hover:text-red-400 hover:bg-white/5 active:bg-white/10 touch-manipulation"
                       title={isCustom ? "삭제" : "선택 해제"}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>

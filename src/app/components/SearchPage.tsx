@@ -7,7 +7,7 @@ import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { filterArticlesByRange } from "../utils/fetchRssFeeds";
 import { getRecentRangeFromSettings } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
-import { stripHtmlToText } from "../utils/stripHtml";
+import { extractArticleBodyFromHtml } from "../utils/stripHtml";
 import { addScrap, removeScrap, isScrapped } from "../utils/scrapStorage";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
 
@@ -90,7 +90,7 @@ function ArticleFullViewModal({
     const hasRssFallback = rssBody && rssBody.length > 50;
 
     if (hasRssFallback) {
-      setContent(stripHtmlToText(rssBody));
+      setContent(extractArticleBodyFromHtml(rssBody));
       setTitle(article.title);
       setLoading(false);
     } else {
@@ -107,7 +107,7 @@ function ArticleFullViewModal({
           setContent(txt);
           setTitle(res.title || article.title);
         } else if (!hasRssFallback && rssBody && rssBody.length > 50) {
-          setContent(stripHtmlToText(rssBody));
+          setContent(extractArticleBodyFromHtml(rssBody));
           setTitle(article.title);
         } else if (!hasRssFallback) {
           setContent("본문을 추출하지 못했습니다. 아래 '원문 보기'에서 직접 확인해주세요.");
@@ -117,7 +117,7 @@ function ArticleFullViewModal({
       .catch(() => {
         if (cancelled) return;
         if (!hasRssFallback && rssBody && rssBody.length > 50) {
-          setContent(stripHtmlToText(rssBody));
+          setContent(extractArticleBodyFromHtml(rssBody));
           setTitle(article.title);
         } else if (!hasRssFallback) {
           setError("본문 로드에 실패했습니다. CORS 또는 사이트 차단으로 인한 것으로, '원문 보기'에서 직접 확인해주세요.");
@@ -167,7 +167,7 @@ function ArticleFullViewModal({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 max-w-[430px] mx-auto w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-6 pb-12 max-w-[430px] mx-auto w-full">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <RefreshCw size={28} className="animate-spin text-white/50 mb-4" />
@@ -183,7 +183,7 @@ function ArticleFullViewModal({
         )}
 
         {!loading && !error && content && (
-          <div>
+          <div className="pb-16">
             <h1 className="text-white font-semibold mb-4" style={{ fontSize: 18, lineHeight: 1.45 }}>
               {title || article.title}
             </h1>
@@ -194,7 +194,7 @@ function ArticleFullViewModal({
             </div>
 
             <div
-              className="text-white/90 whitespace-pre-wrap font-normal"
+              className="text-white/90 whitespace-pre-wrap font-normal break-words"
               style={{ fontSize: 17, lineHeight: 1.8 }}
             >
               {content}

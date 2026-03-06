@@ -4,7 +4,7 @@ import { getEffectiveSources } from "../data/newsSources";
 import { getSelectedSources } from "../utils/persistState";
 import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
-import { stripHtmlToText } from "../utils/stripHtml";
+import { extractArticleBodyFromHtml } from "../utils/stripHtml";
 import { recordArticleView, getArticleViewCounts } from "../utils/articleViewCount";
 import { addScrap, removeScrap, isScrapped } from "../utils/scrapStorage";
 import type { RawRssArticle } from "../utils/fetchRssFeeds";
@@ -36,7 +36,7 @@ function ArticleFullViewModal({
   onClose: () => void;
   onScrapChange?: () => void;
 }) {
-  const rssBody = article.body?.trim() && article.body.trim().length > 50 ? stripHtmlToText(article.body) : null;
+  const rssBody = article.body?.trim() && article.body.trim().length > 50 ? extractArticleBodyFromHtml(article.body) : null;
   const [scrapped, setScrapped] = useState(() => isScrapped(article.link));
   const [loading, setLoading] = useState(!rssBody);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +118,7 @@ function ArticleFullViewModal({
           </a>
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 max-w-[430px] mx-auto w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-6 pb-12 max-w-[430px] mx-auto w-full">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <RefreshCw size={28} className="animate-spin text-white/50 mb-4" />
@@ -131,7 +131,7 @@ function ArticleFullViewModal({
           </div>
         )}
         {!loading && !error && content && (
-          <div>
+          <div className="pb-16">
             <h1 className="text-white font-semibold mb-4" style={{ fontSize: 18, lineHeight: 1.45 }}>
               {title || article.title}
             </h1>
@@ -141,7 +141,7 @@ function ArticleFullViewModal({
               <span>{formatPubDate(article.pubDate)}</span>
             </div>
             <div
-              className="text-white/90 whitespace-pre-wrap font-normal"
+              className="text-white/90 whitespace-pre-wrap font-normal break-words"
               style={{ fontSize: 17, lineHeight: 1.8 }}
             >
               {content}

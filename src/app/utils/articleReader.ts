@@ -1,8 +1,9 @@
 /**
- * 원문 URL에서 기사 본문 추출 (Reader View)
- * DOM 파싱으로 article/main 등 본문 영역 추출
+ * ??? URL??? ?? ?? ?? (Reader View)
+ * DOM ?????? article/main ???? ??? ??, ??? ??Readability ???
  */
 
+import { Readability } from "@mozilla/readability";
 import { fetchViaCorsProxy } from "./corsProxy";
 
 export interface ArticleReaderResult {
@@ -32,7 +33,7 @@ const CONTENT_SELECTORS = [
   ".story-body-text",
   "[itemprop='articleBody']",
   ".pf-content",
-  /* 매일경제, 한국경제 등 국내 언론사 */
+  /* ????, ????? ?????? ?????*/
   ".news_body",
   "#news_body",
   ".view_content",
@@ -42,6 +43,17 @@ const CONTENT_SELECTORS = [
   ".news_end_body",
   ".cont_news",
   ".article_txt",
+  /* ??? ?????*/
+  ".article-body__content",
+  ".news_content",
+  "#news_content",
+  ".article-content",
+  ".post__body",
+  ".story-body__inner",
+  ".td-post-content",
+  ".entry-body",
+  ".content",
+  "#content",
 ];
 
 const BLOCK_TAGS = new Set(["P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "BR", "TR", "SECTION", "ARTICLE", "BLOCKQUOTE"]);
@@ -88,13 +100,13 @@ export async function fetchArticleContent(url: string): Promise<ArticleReaderRes
 
   const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: 12000 });
   if (!ok || !text) {
-    throw new Error("기사를 불러올 수 없습니다.");
+    throw new Error("????????????????.");
   }
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(text, "text/html");
 
-  const title = doc.querySelector("title")?.textContent?.trim() ?? null;
+  let finalTitle = doc.querySelector("title")?.textContent?.trim() ?? null;
   let textContent: string | null = null;
 
   for (const sel of CONTENT_SELECTORS) {
@@ -108,15 +120,26 @@ export async function fetchArticleContent(url: string): Promise<ArticleReaderRes
     }
   }
   if (!textContent) {
-    const body = doc.body?.cloneNode(true) as Element | null;
-    if (body) {
-      body.querySelectorAll("script, style, nav, header, footer, aside, iframe").forEach((n) => n.remove());
-      textContent = extractTextWithStructure(body).slice(0, 5000) || null;
+    try {
+      const reader = new Readability(doc.cloneNode(true) as Document);
+      const parsed = reader.parse();
+      if (parsed?.textContent && parsed.textContent.trim().length > 200) {
+        textContent = parsed.textContent.trim();
+      }
+    } catch {
+      /* Readability ?? ? body fallback */
     }
   }
-  if (textContent) textContent = textContent.slice(0, 15000);
+  if (!textContent) {
+    const body = doc.body?.cloneNode(true) as Element | null;
+    if (body) {
+      body.querySelectorAll("script, style, nav, header, footer, aside, iframe, .ad, .advertisement, .related, .sidebar").forEach((n) => n.remove());
+      textContent = extractTextWithStructure(body).slice(0, 15000) || null;
+    }
+  }
+  if (textContent) textContent = textContent.slice(0, 35000);
 
-  const result: ArticleReaderResult = { title, textContent, excerpt: null, byline: null };
+  const result: ArticleReaderResult = { title: finalTitle, textContent, excerpt: null, byline: null };
   if (articleCache.size >= ARTICLE_CACHE_MAX) {
     const firstKey = articleCache.keys().next().value;
     if (firstKey) articleCache.delete(firstKey);
