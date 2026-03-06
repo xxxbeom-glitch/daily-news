@@ -46,7 +46,7 @@ function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_A
 async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ?¤ê? ?¤ì •?˜ì? ?Šì•˜?µë‹ˆ?? (.env??VITE_GEMINI_API_KEY ì¶”ê?)" };
+    return { ok: false, message: "API ???? ??????? ???????? (.env??VITE_GEMINI_API_KEY ???)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -62,7 +62,7 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "?°ê²° ?¤íŒ¨";
+    const msg = e instanceof Error ? e.message : "??? ???";
     return { ok: false, message: msg };
   }
 }
@@ -94,13 +94,13 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
       return { ok: false, message: msg };
     } catch (e) {
       clearTimeout(timeout);
-      const msg = e instanceof Error ? e.message : "?°ê²° ?¤íŒ¨";
+      const msg = e instanceof Error ? e.message : "??? ???";
       return { ok: false, message: msg };
     }
   }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ?¤ê? ?¤ì •?˜ì? ?Šì•˜?µë‹ˆ?? (.env??VITE_ANTHROPIC_API_KEY ?ëŠ” VITE_OPENROUTER_API_KEY ì¶”ê?)" };
+    return { ok: false, message: "API ???? ??????? ???????? (.env??VITE_ANTHROPIC_API_KEY ??? VITE_OPENROUTER_API_KEY ???)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -127,7 +127,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "?°ê²° ?¤íŒ¨";
+    const msg = e instanceof Error ? e.message : "??? ???";
     return { ok: false, message: msg };
   }
 }
@@ -135,7 +135,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
 async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_OPENAI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ?¤ê? ?¤ì •?˜ì? ?Šì•˜?µë‹ˆ?? (.env??VITE_OPENAI_API_KEY ì¶”ê?)" };
+    return { ok: false, message: "API ???? ??????? ???????? (.env??VITE_OPENAI_API_KEY ???)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -163,7 +163,7 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "?°ê²° ?¤íŒ¨";
+    const msg = e instanceof Error ? e.message : "??? ???";
     return { ok: false, message: msg };
   }
 }
@@ -195,19 +195,19 @@ async function checkConnectionStatus(
 
   const sourceStatus = Object.fromEntries(sourceResults);
   const translateError = (msg: string | undefined): string => {
-    if (!msg) return "?°ê²° ?¤íŒ¨";
-    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "? ë‹¹??ì´ˆê³¼";
-    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ???¤ë¥˜";
+    if (!msg) return "??? ???";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "???????";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ?????";
     const lower = msg.toLowerCase();
-    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "ì§€???œí•œ";
-    if (msg.includes("not found") || msg.includes("model")) return "ëª¨ë¸ ?¤ë¥˜";
-    return msg.length > 50 ? msg.slice(0, 50) + "?? : msg;
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "??????";
+    if (msg.includes("not found") || msg.includes("model")) return "?? ???";
+    return msg.length > 50 ? msg.slice(0, 50) + "?" : msg;
   };
   const errors: string[] = [];
   if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
   if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
   if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
-  if (errors.length === 0) errors.push("ëª¨ë“  API ?°ê²° ?•ìƒ");
+  if (errors.length === 0) errors.push("?? API ??? ???");
 
   return {
     sourceStatus,
@@ -220,7 +220,7 @@ async function checkConnectionStatus(
   };
 }
 
-/** ë¦¬í¬???™ê¸°??ë²„íŠ¼ */
+/** ??????????? */
 function ReportSyncButtons({
   sessions,
   isEnabled,
@@ -239,7 +239,7 @@ function ReportSyncButtons({
 
   const handlePull = async () => {
     if (!uid) {
-      setResult({ ok: false, message: "ë¡œê·¸?¸ë˜ì§€ ?Šì•˜?µë‹ˆ?? (?µëª… ?¸ì¦ ?€ê¸?ì¤?" });
+      setResult({ ok: false, message: "?????? ???????? (??? ??? ??????" });
       setTimeout(() => setResult(null), 4000);
       return;
     }
@@ -247,9 +247,9 @@ function ReportSyncButtons({
     setResult(null);
     try {
       await refreshSessionsFromCloud();
-      setResult({ ok: true, message: "?´ë¼?°ë“œ?ì„œ ê°€?¸ì™”?µë‹ˆ??" });
+      setResult({ ok: true, message: "????????? ?????????" });
     } catch (e) {
-      setResult({ ok: false, message: e instanceof Error ? e.message : "ê°€?¸ì˜¤ê¸??¤íŒ¨" });
+      setResult({ ok: false, message: e instanceof Error ? e.message : "?????????" });
     } finally {
       setLoading(null);
     }
@@ -271,7 +271,7 @@ function ReportSyncButtons({
   if (!isEnabled) {
     return (
       <p style={{ fontSize: 13 }} className="text-white/50">
-        Firebaseê°€ ë¹„í™œ?±í™”?˜ì–´ ?ˆìŠµ?ˆë‹¤. (.env??VITE_FIREBASE_* ?¤ì •)
+        Firebase? ???????? ??????. (.env??VITE_FIREBASE_* ???)
       </p>
     );
   }
@@ -287,7 +287,7 @@ function ReportSyncButtons({
           style={{ fontSize: 13 }}
         >
           <CloudDownload size={16} />
-          {loading === "pull" ? "ê°€?¸ì˜¤??ì¤‘â€? : "?´ë¼?°ë“œ?ì„œ ê°€?¸ì˜¤ê¸?}
+          {loading === "pull" ? "???? ??" : "?????? ????"}
         </button>
         <button
           type="button"
@@ -297,7 +297,7 @@ function ReportSyncButtons({
           style={{ fontSize: 13 }}
         >
           <CloudUpload size={16} />
-          {loading === "push" ? "?…ë¡œ??ì¤‘â€? : "?´ë¼?°ë“œ???…ë¡œ??}
+          {loading === "push" ? "??? ??" : "????? ???"}
         </button>
       </div>
       {result && (
@@ -312,18 +312,18 @@ function ReportSyncButtons({
   );
 }
 
-/** ?™ê¸°???¤íŒ¨ ê°€???ì¸ ?ˆë‚´ */
+/** ???????? ?????? ??? */
 function ReportSyncFailureHint() {
   return (
     <details className="mt-2">
       <summary style={{ fontSize: 12 }} className="text-white/40 cursor-pointer hover:text-white/60">
-        ?™ê¸°?”ê? ???????•ì¸??ê²?      </summary>
+        ??????? ?????????????      </summary>
       <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
-        <li>?¤íŠ¸?Œí¬ ?°ê²° ?íƒœ</li>
-        <li>Firestore ë¬¸ì„œ 1MB ?œí•œ: ?´ë?ì§€ê°€ ë§ì? ë¦¬í¬?¸ëŠ” ?´ë?ì§€ë¥??œì™¸?˜ê³  ?”ì•½ë§??…ë¡œ?œë©?ˆë‹¤.</li>
-        <li>Firebase Console ??Authentication ???¹ì¸???„ë©”?¸ì— ?‘ì† URL(?ëŠ” IP) ì¶”ê? (?´ë?ë§?192.168.x.x ?¬ìš© ??</li>
-        <li>{"Firestore ê·œì¹™: users/" + "{" + "userId" + "}" + "??read, write ?ˆìš© ?¬ë?"}</li>
-        <li>?µëª… ?¸ì¦ ?œì„±???¬ë? (Firebase Console ??Authentication ??ë¡œê·¸??ë°©ë²•)</li>
+        <li>?????? ??? ???</li>
+        <li>Firestore ?? 1MB ???: ?????? ??? ????? ????????????? ??????????????.</li>
+        <li>Firebase Console ??Authentication ????????????? ??? URL(??? IP) ??? (??????192.168.x.x ??? ??</li>
+        <li>{"Firestore ??: users/" + "{" + "userId" + "}" + "??read, write ??? ????"}</li>
+        <li>??? ??? ????????? (Firebase Console ??Authentication ????????)</li>
       </ul>
     </details>
   );
@@ -347,7 +347,7 @@ export function SettingsPage() {
     gpt: "error" as "ok" | "error",
     gemini: "ok" as "ok" | "error",
     anthropic: "error" as "ok" | "error",
-    errorMessage: "API ?°ê²° ?íƒœ ?•ì¸ ì¤‘â€?,
+    errorMessage: "API ?? ?? ?? ??",
   });
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
@@ -388,7 +388,7 @@ export function SettingsPage() {
   }, []);
 
   const handleAddRss = useCallback(() => {
-    const name = newRssName.trim() || "ì»¤ìŠ¤?€ RSS";
+    const name = newRssName.trim() || "???? RSS";
     const url = newRssUrl.trim();
     if (!url) return;
     const added = addCustomSource(name, url);
@@ -432,13 +432,13 @@ export function SettingsPage() {
     const now = Date.now();
     if (now - lastCheckTime < REFRESH_COOLDOWN_MS && lastCheckTime > 0) {
       const remain = Math.ceil((REFRESH_COOLDOWN_MS - (now - lastCheckTime)) / 60000);
-      alert(`?ˆë¡œê³ ì¹¨?€ 5ë¶„ì— ??ë²ˆë§Œ ê°€?¥í•©?ˆë‹¤. (${remain}ë¶???`);
+      alert(`??????? 5?? ???? ???????. (${remain}????`);
       return;
     }
     runCheck();
   }, [lastCheckTime, runCheck]);
 
-  // ì§„ì… ??1??+ 6?œê°„ë§ˆë‹¤ ?ë™ ì²´í¬ (??´ ë³´ì¼ ?Œë§Œ - ???„í™˜ ???ë™ ê°±ì‹  ë°©ì?)
+  // ?? ??1??+ 6????? ??? ?? (???? ?? ??? - ????? ????? ?? ???)
   useEffect(() => {
     runCheck();
     let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -483,14 +483,14 @@ export function SettingsPage() {
       const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
       setShowExportMenu(false);
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF ë³€???¤íŒ¨" });
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF ??????" });
       } else {
         const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await saveBlobToLocalStorage(blob, filename);
         setExportStatus({
           type: "pdfzip",
           ok: result.ok,
-          message: result.ok ? "PDF(ZIP)ë¡??´ë??€?¥ì†Œ???€?¥ë˜?ˆìŠµ?ˆë‹¤." : (result.error || "?€???¤íŒ¨"),
+          message: result.ok ? "PDF(ZIP)????????????????????????." : (result.error || "???????"),
         });
       }
     } finally {
@@ -505,14 +505,14 @@ export function SettingsPage() {
       const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
       setShowExportMenu(false);
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF ë³€???¤íŒ¨" });
+        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF ??????" });
       } else {
         const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await uploadBlobToGoogleDrive(blob, filename, "application/zip");
         setExportStatus({
           type: "pdfzip",
           ok: result.ok,
-          message: result.ok ? "PDF(ZIP)ê°€ êµ¬ê? ?œë¼?´ë¸Œ???€?¥ë˜?ˆìŠµ?ˆë‹¤." : (result.error || "?…ë¡œ???¤íŒ¨"),
+          message: result.ok ? "PDF(ZIP)? ??? ???????????????????." : (result.error || "????????"),
         });
       }
     } finally {
@@ -549,10 +549,10 @@ export function SettingsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>
-                ?„ì²´ ?? œ
+                ??? ????
               </p>
               <p className="text-white/60 mb-5" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                ?€?¥ëœ ?„ì¹´?´ë¸Œë¥?ëª¨ë‘ ?? œ?˜ì‹œê² ìŠµ?ˆê¹Œ?
+                ????? ?????????? ?????????????
               </p>
               <div className="flex gap-2">
                 <button
@@ -561,7 +561,7 @@ export function SettingsPage() {
                   className="flex-1 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
                 >
-                  ì·¨ì†Œ
+                  ??
                 </button>
                 <button
                   type="button"
@@ -569,7 +569,7 @@ export function SettingsPage() {
                   className="flex-1 py-2.5 rounded-[10px] border border-red-500/50 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
                 >
-                  ?? œ
+                  ????
                 </button>
               </div>
             </div>
@@ -577,7 +577,7 @@ export function SettingsPage() {
         </>
       )}
 
-      {/* AI ?”ì§„ ?¤ì • */}
+      {/* AI ??? ??? */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -586,7 +586,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>AI ?”ì§„</span>
+            <span>AI ???</span>
             <span className="flex items-center gap-2 text-white/60 font-normal truncate max-w-[60%]">
               {getModelLabel(selectedModelId)}
               <ChevronDown
@@ -638,15 +638,15 @@ export function SettingsPage() {
                 onClick={handleSaveSelectedModel}
                 className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
               >
-                ?€??              </button>
+                ????              </button>
             </div>
           )}
         </div>
       </section>
 
-      {/* ê¸°ì–µ??ê´€?¬ì‚¬ - ?¨ê? */}
+      {/* ???????? - ???? */}
 
-      {/* ?¸ë¡ ???°ê²°?íƒœ */}
+      {/* ??????????? */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -656,7 +656,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              ?¸ë¡ ???°ê²°?íƒœ
+              ???????????
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${sourcesExpanded ? "rotate-180" : ""}`}
@@ -670,18 +670,18 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              ?ˆë¡œê³ ì¹¨
+              ?????
             </button>
           </div>
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4 overflow-hidden min-w-0">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
-              RSS ?ŒìŠ¤
+              RSS ???
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mb-3 min-w-0">
               <input
                 type="text"
-                placeholder="?´ë¦„"
+                placeholder="???"
                 value={newRssName}
                 onChange={(e) => setNewRssName(e.target.value)}
                 className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
@@ -727,7 +727,7 @@ export function SettingsPage() {
                   </label>
                   <div className="relative z-10 flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 12 }}>
-                      {status === "ok" ? <><CheckCircle2 size={12} />?•ìƒ</> : <><XCircle size={12} />?¤ë¥˜</>}
+                      {status === "ok" ? <><CheckCircle2 size={12} />???</> : <><XCircle size={12} />???</>}
                     </span>
                     <button
                       type="button"
@@ -742,7 +742,7 @@ export function SettingsPage() {
                         handleRemoveRss(s.id, isCustom);
                       }}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[8px] text-white/40 hover:text-red-400 hover:bg-white/5 active:bg-white/10 touch-manipulation"
-                      title={isCustom ? "?? œ" : "? íƒ ?´ì œ"}
+                      title={isCustom ? "????" : "??? ???"}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -756,7 +756,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* API ?°ê²°?íƒœ */}
+      {/* API ?????? */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -766,7 +766,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              API ?°ê²°?íƒœ
+              API ??????
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
@@ -780,7 +780,7 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              ?ˆë¡œê³ ì¹¨
+              ?????
             </button>
           </div>
           {apiExpanded && (
@@ -799,12 +799,12 @@ export function SettingsPage() {
                 {apiStatus[key] === "ok" ? (
                   <>
                     <CheckCircle2 size={14} />
-                    ?°ê²°
+                    ???
                   </>
                 ) : (
                   <>
                     <XCircle size={14} />
-                    ?¤ë¥˜
+                    ???
                   </>
                 )}
               </span>
@@ -812,7 +812,7 @@ export function SettingsPage() {
           ))}
           <div className="pt-2">
             <div style={{ fontSize: 12 }} className="text-white/40 mb-1">
-              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "?íƒœ" : "?¤ë¥˜?´ìš©"} :
+              {apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "???" : "??????"} :
             </div>
             <div
               className="rounded-[8px] bg-white/5 border border-white/8 px-3 py-2"
@@ -821,9 +821,9 @@ export function SettingsPage() {
               <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
                 {apiStatus.errorMessage}
               </span>
-              {apiStatus.errorMessage.includes("ì§€???œí•œ") && (
+              {apiStatus.errorMessage.includes("??????") && (
                 <p style={{ fontSize: 11 }} className="text-white/45 mt-2">
-                  VPN ?¬ìš© ?ëŠ” API ?œê³µ??ì§€??êµ?? ?•ì¸
+                  VPN ??? ??? API ??????????? ???
                 </p>
               )}
             </div>
@@ -833,12 +833,12 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ?€?¥ëœ ?„ì¹´?´ë¸Œ - ?¨ê? */}
+      {/* ????? ?????? - ???? */}
       {false && (
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button type="button" className="w-full h-[72px]">
-            ?€?¥ëœ ?„ì¹´?´ë¸Œ
+            ????? ??????
           </button>
           <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-2">
           <button
@@ -848,7 +848,7 @@ export function SettingsPage() {
             style={{ fontSize: 14 }}
           >
             <Trash2 size={16} />
-            ?„ì²´?? œ
+            ???????
           </button>
 
           <div className="relative">
@@ -859,7 +859,7 @@ export function SettingsPage() {
               style={{ fontSize: 14 }}
             >
               <Download size={16} />
-              ?´ë³´?´ê¸°
+              ??????
             </button>
             {showExportMenu && (
               <>
@@ -878,7 +878,7 @@ export function SettingsPage() {
                   >
                     <Download size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF ?ì„± ì¤‘â€? : "PDF(ZIP) Â· ?´ë??€?¥ì†Œ???€??}
+                      {exportPdfLoading ? "PDF ?? ??" : "PDF(ZIP) ï¿½ ???? ????"}
                     </span>
                   </button>
                   <button
@@ -890,7 +890,7 @@ export function SettingsPage() {
                   >
                     <Cloud size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF ?ì„± ì¤‘â€? : "PDF(ZIP) Â· êµ¬ê??œë¼?´ë¸Œ???€??}
+                      {exportPdfLoading ? "PDF ?? ??" : "PDF(ZIP) ï¿½ ???? ????"}
                     </span>
                   </button>
                 </div>
@@ -902,23 +902,23 @@ export function SettingsPage() {
             className="block mt-2 text-[#618EFF] hover:text-[#8BABFF]"
             style={{ fontSize: 13 }}
           >
-            ?¤ëŠ˜???œí™©?ì„œ ë³´ê¸° ??          </Link>
+            ??????????? ?? ??          </Link>
           {sessions.length > 0 && (
             <p style={{ fontSize: 12 }} className="text-white/35 mt-1">
-              ?€?¥ëœ ?œí™© {sessions.length}ê±?            </p>
+              ????? ??? {sessions.length}??            </p>
           )}
           </div>
         </div>
       </section>
       )}
 
-      {/* ë¦¬í¬???™ê¸°??*/}
+      {/* ?????????*/}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="px-4 py-3 border-b border-white/6">
-            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">ë¦¬í¬???™ê¸°??/p>
+            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">??? ???</p>
             <p style={{ fontSize: 12 }} className="text-white/50 mt-1">
-              ë¦¬í¬?¸ë? Firebase ?´ë¼?°ë“œ?€ ?™ê¸°?”í•©?ˆë‹¤. ?™ê¸°?”ê? ???˜ë©´ ?„ë˜ ë²„íŠ¼?¼ë¡œ ?˜ë™ ?™ê¸°?”ë? ?œë„?˜ì„¸??
+              ?????? Firebase ???????? ?????????. ??????? ????? ??? ????? ??? ??????? ????????
             </p>
           </div>
           <div className="p-4 space-y-3">
@@ -934,50 +934,50 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ?¤í¬?©í•œ ê¸°ì‚¬ */}
+      {/* ?????? ?? */}
       <section className="mb-4">
         <Link
           to="/settings/scrap"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>?¤í¬?©í•œ ê¸°ì‚¬</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>?????? ??</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* ë¡œê·¸??*/}
+      {/* ????*/}
       <section className="mb-4">
         <Link
           to="/settings/login"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>ë¡œê·¸??/span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>ë¡œê·¸ì¸</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* ê´€ë¦¬ì ê¸°ëŠ¥ */}
+      {/* ??? ?? */}
       <section className="mb-4">
         <Link
           to="/settings/admin"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>ê´€ë¦¬ì</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>???</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* ì°¨íŠ¸ ?¼ì´? ìŠ¤ (lightweight-charts attributionLogo ë¹„í™œ?±í™” ???”êµ¬?¬í•­) */}
+      {/* ?? ?????? (lightweight-charts attributionLogo ????? ????????) */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden px-4 py-3">
           <p style={{ fontSize: 12 }} className="text-white/50">
-            ?¤ëŠ˜???œì¥ ì°¨íŠ¸??TradingView lightweight-chartsë¥??¬ìš©?©ë‹ˆ??{" "}
+            ???????? ????TradingView lightweight-charts??????????{" "}
             <a
               href="https://www.tradingview.com/"
               target="_blank"

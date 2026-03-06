@@ -1,0 +1,250 @@
+﻿import { useState, useCallback, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload, Plus } from "lucide-react";
+import { useArchive } from "../context/ArchiveContext";
+import { useFirebase } from "../context/FirebaseContext";
+import { getEffectiveSources, type ArchiveSession } from "../data/newsSources";
+import { addCustomSource, removeCustomSource, isCustomSourceId } from "../utils/customRssStorage";
+import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
+import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
+import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
+import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
+import { fetchViaCorsProxy } from "../utils/corsProxy";
+
+
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
+
+const RSS_CHECK_TIMEOUT_MS = 10000;
+
+async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
+  const useRss2JsonFirst = (sourceId ?? "").startsWith("gn_") || sourceId === "yna_economy";
+  const useRss2JsonFallback = useRss2JsonFirst || (sourceId ?? "").startsWith("rss_");
+
+  if (!useRss2JsonFirst) {
+    const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+    if (ok && (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml"))) return true;
+  }
+  if (useRss2JsonFallback) {
+    const apiKey = (import.meta.env.VITE_RSS2JSON_API_KEY as string)?.trim().replace(/^["']|["']$/g, "") ?? "";
+    const rss2JsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ""}`;
+    const { ok, text } = await fetchViaCorsProxy(rss2JsonUrl, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+    if (ok && /"status"\s*:\s*"ok"/.test(text ?? "")) return true;
+  }
+  if (useRss2JsonFirst) {
+    const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+    if (ok && (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml"))) return true;
+  }
+  return false;
+}
+
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY" | "VITE_OPENROUTER_API_KEY"): string {
+  let key = (import.meta.env[name] as string) ?? "";
+  return key.trim().replace(/^["']|["']$/g, "");
+}
+
+async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getApiKey("VITE_GEMINI_API_KEY");
+  if (!key) {
+    return { ok: false, message: "API ?ㅺ? ?ㅼ젙?섏? ?딆븯?듬땲?? (.env??VITE_GEMINI_API_KEY 異붽?)" };
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    if (res.ok) return { ok: true };
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+    const msg = err?.error?.message ?? err?.message ?? `HTTP ${res.status}`;
+    return { ok: false, message: msg };
+  } catch (e) {
+    clearTimeout(timeout);
+    const msg = e instanceof Error ? e.message : "?곌껐 ?ㅽ뙣";
+    return { ok: false, message: msg };
+  }
+}
+
+async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
+  const openRouterKey = getApiKey("VITE_OPENROUTER_API_KEY");
+  if (openRouterKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openRouterKey}`,
+          "HTTP-Referer": window.location.origin,
+        },
+        body: JSON.stringify({
+          model: "anthropic/claude-3.5-sonnet",
+          max_tokens: 5,
+          messages: [{ role: "user", content: "hi" }],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (res.ok) return { ok: true };
+      const msg = data?.error?.message || `HTTP ${res.status}`;
+      return { ok: false, message: msg };
+    } catch (e) {
+      clearTimeout(timeout);
+      const msg = e instanceof Error ? e.message : "?곌껐 ?ㅽ뙣";
+      return { ok: false, message: msg };
+    }
+  }
+  const key = getApiKey("VITE_ANTHROPIC_API_KEY");
+  if (!key) {
+    return { ok: false, message: "API ?ㅺ? ?ㅼ젙?섏? ?딆븯?듬땲?? (.env??VITE_ANTHROPIC_API_KEY ?먮뒗 VITE_OPENROUTER_API_KEY 異붽?)" };
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 5,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    if (res.ok) return { ok: true };
+    const msg = data?.error?.message || `HTTP ${res.status}`;
+    return { ok: false, message: msg };
+  } catch (e) {
+    clearTimeout(timeout);
+    const msg = e instanceof Error ? e.message : "?곌껐 ?ㅽ뙣";
+    return { ok: false, message: msg };
+  }
+}
+
+async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getApiKey("VITE_OPENAI_API_KEY");
+  if (!key) {
+    return { ok: false, message: "API ?ㅺ? ?ㅼ젙?섏? ?딆븯?듬땲?? (.env??VITE_OPENAI_API_KEY 異붽?)" };
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 5,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = (await res.json().catch(() => ({}))) as { error?: { message?: string; code?: string; type?: string } };
+    if (res.ok) return { ok: true };
+    const err = data?.error;
+    const msg = err?.message || `HTTP ${res.status}`;
+    const code = err?.code ?? (res.status === 429 ? "rate_limit_exceeded" : res.status === 401 ? "invalid_api_key" : "");
+    const fullMsg = code ? `${msg} [${code}]` : msg;
+    return { ok: false, message: fullMsg };
+  } catch (e) {
+    clearTimeout(timeout);
+    const msg = e instanceof Error ? e.message : "?곌껐 ?ㅽ뙣";
+    return { ok: false, message: msg };
+  }
+}
+
+async function checkConnectionStatus(
+  sources: { id: string; rssUrl: string }[]
+): Promise<{
+  sourceStatus: Record<string, "ok" | "error">;
+  apiStatus: {
+    gpt: "ok" | "error";
+    gemini: "ok" | "error";
+    anthropic: "ok" | "error";
+    errorMessage: string;
+  };
+}> {
+  const [sourceResults, geminiResult, gptResult, anthropicResult] = await Promise.all([
+    Promise.all(
+      sources
+        .filter((s) => s.id !== "finnhub")
+        .map(async (s) => {
+          const ok = await checkRssFeed(s.rssUrl, s.id);
+          return [s.id, ok ? "ok" as const : "error" as const] as const;
+        })
+    ),
+    checkGeminiApi(),
+    checkOpenAIApi(),
+    checkAnthropicApi(),
+  ]);
+
+  const sourceStatus = Object.fromEntries(sourceResults);
+  const translateError = (msg: string | undefined): string => {
+    if (!msg) return "?곌껐 ?ㅽ뙣";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "?좊떦??珥덇낵";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ???ㅻ쪟";
+    const lower = msg.toLowerCase();
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "吏???쒗븳";
+    if (msg.includes("not found") || msg.includes("model")) return "紐⑤뜽 ?ㅻ쪟";
+    return msg.length > 50 ? msg.slice(0, 50) + "?? : msg;
+  };
+  const errors: string[] = [];
+  if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
+  if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
+  if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
+  if (errors.length === 0) errors.push("紐⑤뱺 API ?곌껐 ?뺤긽");
+
+  return {
+    sourceStatus,
+    apiStatus: {
+      gpt: gptResult.ok ? "ok" : "error",
+      gemini: geminiResult.ok ? "ok" : "error",
+      anthropic: anthropicResult.ok ? "ok" : "error",
+      errorMessage: errors.join(" / "),
+    },
+  };
+}
+
+/** 由ы룷???숆린??踰꾪듉 */
+function ReportSyncButtons({
+  sessions,
+  isEnabled,
+  uid,
+  refreshSessionsFromCloud,
+  syncAllSessionsToCloud,
+}: {
+  sessions: ArchiveSession[];
+  isEnabled: boolean;
+  uid: string | null;
+  refreshSessionsFromCloud: () => Promise<void>;
+  syncAllSessionsToCloud: (sessions: ArchiveSession[]) => Promise<{ ok: boolean; message: string }>;
+}) {
+  const [loading, setLoading] = useState<"pull" | "push" | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handlePull = async () => {
+    if (!uid) {
+      setResult({ ok: false, message: "濡쒓렇?몃릺吏 ?딆븯?듬땲?? (?듬챸 ?몄쬆 ?湲?以?" });
+      setTimeout(() => setResult(null), 4000);
+      return;
+    }
+    setLoading("pull");
+    setResult(null);
+    try {
+      await refreshSessionsFromCloud();
+      setResult({ ok: true, message: "?대씪?곕뱶?먯꽌 媛?몄솕?듬땲??" });
