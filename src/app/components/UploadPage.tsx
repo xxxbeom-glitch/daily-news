@@ -90,7 +90,15 @@ export function UploadPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [progressStep, setProgressStep] = useState<1 | 2 | 3>(1);
+  const [progressPercent, setProgressPercent] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const PROGRESS_LABELS: Record<1 | 2 | 3, string> = {
+    1: "업로드",
+    2: "AI 요약",
+    3: "리포트 작성",
+  };
 
   useEffect(() => {
     if (!editSessionId) return;
@@ -192,33 +200,42 @@ export function UploadPage() {
       setError(null);
       setSuccessMessage(null);
       setLoading(true);
+      setProgressStep(1);
+      setProgressPercent(5);
 
       let finalText = inputValue.trim();
       const urlMatches = finalText.match(/\bhttps?:\/\/[^\s]+/g);
       if (urlMatches?.length) {
         const contents: string[] = [];
-        for (const url of urlMatches) {
+        for (let i = 0; i < urlMatches.length; i++) {
           try {
-            const { title, textContent } = await fetchArticleContent(url.trim());
+            setProgressPercent(5 + Math.round(((i + 1) / urlMatches.length) * 15));
+            const { title, textContent } = await fetchArticleContent(urlMatches[i].trim());
             const part = [title ? `[제목] ${title}` : "", textContent ?? ""].filter(Boolean).join("\n\n");
             if (part) contents.push(part);
           } catch {
-            contents.push(`[URL] ${url}`);
+            contents.push(`[URL] ${urlMatches[i]}`);
           }
         }
         if (contents.length > 0) {
           finalText = contents.join("\n\n---\n\n");
         }
       }
+      setProgressStep(2);
+      setProgressPercent(20);
 
       try {
         const model = getSelectedModel();
         const modelId = getSelectedModelId();
         const imagesToSend = hasImages ? images.slice(0, MAX_IMAGES) : undefined;
+        setProgressStep(2);
+        setProgressPercent(50);
         const data = await generateMarketSummaryFromUploadedData(
           { text: finalText || "", images: imagesToSend },
           { model, modelId }
         );
+        setProgressStep(3);
+        setProgressPercent(90);
         const now = new Date();
         const title =
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
@@ -229,7 +246,7 @@ export function UploadPage() {
             marketSummary: data,
             uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
           });
-          setSuccessMessage("리포트가 수정되었습니다.");
+          setSuccessMessage("완료");
           setInputValue("");
           setImages([]);
           navigate("/", { replace: true });
@@ -260,13 +277,17 @@ export function UploadPage() {
             uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
           });
           saveArchiveState({ isInternational: false, selectedSessionId: newId });
-          setSuccessMessage("리포트에 저장되었습니다.");
+          setSuccessMessage("완료");
           setInputValue("");
           setImages([]);
           navigate("/", { replace: true });
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "분석 실패");
+        const msg = e instanceof Error ? e.message : "분석 실패";
+        const detail = e instanceof Error && e.stack ? `${msg}\n${e.stack}` : msg;
+        setError(detail);
+        setProgressStep(1);
+        setProgressPercent(0);
       } finally {
         setLoading(false);
       }
@@ -279,8 +300,12 @@ export function UploadPage() {
       setError(null);
       setSuccessMessage(null);
       setLoading(true);
+      setProgressStep(1);
+      setProgressPercent(10);
 
       try {
+        setProgressStep(2);
+        setProgressPercent(20);
         const combinedText = pdfs
           .map((p, i) => `[PDF ${i + 1}] ${p.name}\n\n${p.text}`)
           .join("\n\n---\n\n");
@@ -290,6 +315,8 @@ export function UploadPage() {
           model,
           modelId,
         });
+        setProgressStep(3);
+        setProgressPercent(90);
         const now = new Date();
         const title =
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
@@ -318,11 +345,15 @@ export function UploadPage() {
           aiModel: model,
         });
         saveArchiveState({ isInternational: true, selectedSessionId: newId });
-        setSuccessMessage("리포트에 저장되었습니다.");
+        setSuccessMessage("완료");
         setPdfs([]);
         navigate("/", { replace: true });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "분석 실패");
+        const msg = err instanceof Error ? err.message : "분석 실패";
+        const detail = err instanceof Error && err.stack ? `${msg}\n${err.stack}` : msg;
+        setError(detail);
+        setProgressStep(1);
+        setProgressPercent(0);
       } finally {
         setLoading(false);
       }
@@ -331,6 +362,10 @@ export function UploadPage() {
 
   const canSubmit =
     (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0)) || (tab === "us" && pdfs.length > 0);
+
+  const handleCancel = useCallback(() => {
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -426,20 +461,54 @@ export function UploadPage() {
         </div>
 
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#0a0a0f]/95 backdrop-blur-md border-t border-white/6 px-4 pt-3 pb-5 z-10">
-          <button
-            type="button"
-            onClick={handleAnalyze}
-            disabled={!canSubmit || loading}
-            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
-              !canSubmit || loading ? "bg-white/5 text-white/30 cursor-not-allowed" : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
-            }`}
-            style={{ fontSize: 15, fontWeight: 500 }}
-          >
-            {loading ? "분석 중…" : editSessionId ? "리포트 수정" : "리포트 작성"}
-          </button>
+          {editSessionId ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={loading}
+                className="flex-1 py-3.5 rounded-[10px] font-semibold border border-white/15 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                style={{ fontSize: 15, fontWeight: 500 }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={!canSubmit || loading}
+                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
+                  !canSubmit || loading ? "bg-white/5 text-white/30 cursor-not-allowed" : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
+                }`}
+                style={{ fontSize: 15, fontWeight: 500 }}
+              >
+                {loading
+                  ? `${PROGRESS_LABELS[progressStep]} 중 (${progressPercent}%)`
+                  : "수정완료"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAnalyze}
+              disabled={!canSubmit || loading}
+              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[10px] font-semibold transition-all ${
+                !canSubmit || loading ? "bg-white/5 text-white/30 cursor-not-allowed" : "bg-[#618EFF] text-white shadow-xl shadow-[#2C3D6B]/40"
+              }`}
+              style={{ fontSize: 15, fontWeight: 500 }}
+            >
+              {loading
+                ? `${PROGRESS_LABELS[progressStep]} 중 (${progressPercent}%)`
+                : "리포트 작성"}
+            </button>
+          )}
         </div>
 
-        {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
+        {error && (
+          <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+            <p className="text-red-400 text-sm font-medium mb-1">오류</p>
+            <pre className="text-red-300/90 text-xs whitespace-pre-wrap break-words font-mono">{error}</pre>
+          </div>
+        )}
         {successMessage && <p className="text-[#618EFF] text-sm mt-4">{successMessage}</p>}
       </div>
     </div>

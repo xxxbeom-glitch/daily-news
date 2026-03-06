@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
+import { useFirebase } from "../context/FirebaseContext";
 import { domesticSources, internationalSources } from "../data/newsSources";
 import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
@@ -210,6 +211,115 @@ async function checkConnectionStatus(
       errorMessage: errors.join(" / "),
     },
   };
+}
+
+/** 리포트 동기화 버튼 */
+function ReportSyncButtons({
+  sessions,
+  isEnabled,
+  uid,
+  refreshSessionsFromCloud,
+  syncAllSessionsToCloud,
+}: {
+  sessions: { id: string }[];
+  isEnabled: boolean;
+  uid: string | null;
+  refreshSessionsFromCloud: () => Promise<void>;
+  syncAllSessionsToCloud: (sessions: { id: string }[]) => Promise<{ ok: boolean; message: string }>;
+}) {
+  const [loading, setLoading] = useState<"pull" | "push" | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handlePull = async () => {
+    if (!uid) {
+      setResult({ ok: false, message: "로그인되지 않았습니다. (익명 인증 대기 중)" });
+      setTimeout(() => setResult(null), 4000);
+      return;
+    }
+    setLoading("pull");
+    setResult(null);
+    try {
+      await refreshSessionsFromCloud();
+      setResult({ ok: true, message: "클라우드에서 가져왔습니다." });
+    } catch (e) {
+      setResult({ ok: false, message: e instanceof Error ? e.message : "가져오기 실패" });
+    } finally {
+      setLoading(null);
+    }
+    setTimeout(() => setResult(null), 4000);
+  };
+
+  const handlePush = async () => {
+    setLoading("push");
+    setResult(null);
+    try {
+      const res = await syncAllSessionsToCloud(sessions);
+      setResult(res);
+    } finally {
+      setLoading(null);
+    }
+    setTimeout(() => setResult(null), 4000);
+  };
+
+  if (!isEnabled) {
+    return (
+      <p style={{ fontSize: 13 }} className="text-white/50">
+        Firebase가 비활성화되어 있습니다. (.env에 VITE_FIREBASE_* 설정)
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handlePull}
+          disabled={loading !== null || !uid}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors"
+          style={{ fontSize: 13 }}
+        >
+          <CloudDownload size={16} />
+          {loading === "pull" ? "가져오는 중…" : "클라우드에서 가져오기"}
+        </button>
+        <button
+          type="button"
+          onClick={handlePush}
+          disabled={loading !== null || !uid}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors"
+          style={{ fontSize: 13 }}
+        >
+          <CloudUpload size={16} />
+          {loading === "push" ? "업로드 중…" : "클라우드에 업로드"}
+        </button>
+      </div>
+      {result && (
+        <p
+          style={{ fontSize: 12 }}
+          className={result.ok ? "text-emerald-400/90" : "text-red-400/90"}
+        >
+          {result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** 동기화 실패 가능 원인 안내 */
+function ReportSyncFailureHint() {
+  return (
+    <details className="mt-2">
+      <summary style={{ fontSize: 12 }} className="text-white/40 cursor-pointer hover:text-white/60">
+        동기화가 안 될 때 확인할 것
+      </summary>
+      <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
+        <li>네트워크 연결 상태</li>
+        <li>Firebase Console → Authentication → 승인된 도메인에 접속 URL(또는 IP) 추가 (내부망 192.168.x.x 사용 시)</li>
+        <li>Firestore 규칙: users/{userId}에 read, write 허용 여부</li>
+        <li>익명 인증 활성화 여부 (Firebase Console → Authentication → 로그인 방법)</li>
+      </ul>
+    </details>
+  );
 }
 
 export function SettingsPage() {
@@ -738,6 +848,28 @@ export function SettingsPage() {
         </div>
       </section>
       )}
+
+      {/* 리포트 동기화 */}
+      <section className="mb-4">
+        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/6">
+            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">리포트 동기화</p>
+            <p style={{ fontSize: 12 }} className="text-white/50 mt-1">
+              리포트를 Firebase 클라우드와 동기화합니다. 동기화가 안 되면 아래 버튼으로 수동 동기화를 시도하세요.
+            </p>
+          </div>
+          <div className="p-4 space-y-3">
+            <ReportSyncButtons
+              sessions={sessions}
+              isEnabled={useFirebase().isEnabled}
+              uid={useFirebase().uid}
+              refreshSessionsFromCloud={useFirebase().refreshSessionsFromCloud}
+              syncAllSessionsToCloud={useFirebase().syncAllSessionsToCloud}
+            />
+            <ReportSyncFailureHint />
+          </div>
+        </div>
+      </section>
 
       {/* 로그인 */}
       <section className="mb-4">

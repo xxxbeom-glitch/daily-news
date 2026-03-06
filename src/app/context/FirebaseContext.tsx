@@ -60,6 +60,8 @@ interface FirebaseContextValue {
   isReady: boolean;
   isEnabled: boolean;
   refreshSessionsFromCloud: () => Promise<void>;
+  /** 로컬 세션 전체를 Firestore에 업로드 (수동 동기화) */
+  syncAllSessionsToCloud: (sessions: ArchiveSession[]) => Promise<{ ok: boolean; message: string }>;
   syncSettings: (state: {
     selectedSources?: SelectedSourcesState;
     interestMemoryDomestic?: string;
@@ -271,6 +273,37 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     [uid]
   );
 
+  const syncAllSessionsToCloud = useCallback(
+    async (sessions: ArchiveSession[]): Promise<{ ok: boolean; message: string }> => {
+      if (!uid) {
+        return { ok: false, message: "로그인되지 않았습니다. (익명 인증 대기 중이거나 실패)" };
+      }
+      if (sessions.length === 0) {
+        return { ok: true, message: "동기화할 리포트가 없습니다." };
+      }
+      let success = 0;
+      let lastError: string | null = null;
+      for (const session of sessions) {
+        try {
+          await addSessionToFirestore(uid, session);
+          success++;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          lastError = msg;
+          console.error("[Firebase] syncAllSessionsToCloud 실패", session.id, e);
+        }
+      }
+      if (success === sessions.length) {
+        return { ok: true, message: `${sessions.length}건 동기화 완료` };
+      }
+      if (success > 0) {
+        return { ok: false, message: `${success}/${sessions.length}건만 성공. 마지막 오류: ${lastError ?? "알 수 없음"}` };
+      }
+      return { ok: false, message: lastError ?? "동기화 실패 (Firestore 규칙·네트워크·도메인 승인 확인)" };
+    },
+    [uid]
+  );
+
   useEffect(() => {
     if (!enabled || !uid) return;
     let settingsTimer: ReturnType<typeof setTimeout>;
@@ -324,6 +357,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     syncMeta,
     syncAddSession,
     syncDeleteSession,
+    syncAllSessionsToCloud,
   };
 
   return (
@@ -340,5 +374,5 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
 export function useFirebase() {
   const ctx = useContext(FirebaseContext);
-  return ctx ?? { uid: null, user: null, isReady: true, isEnabled: false, refreshSessionsFromCloud: async () => {}, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {} };
+  return ctx ?? { uid: null, user: null, isReady: true, isEnabled: false, refreshSessionsFromCloud: async () => {}, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {}, syncAllSessionsToCloud: async () => ({ ok: false, message: "Firebase 미활성화" }) };
 }
