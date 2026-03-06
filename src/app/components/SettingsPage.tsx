@@ -17,15 +17,21 @@ const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 const RSS_CHECK_TIMEOUT_MS = 10000;
 
 async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
-  const useRss2Json = (sourceId ?? "").startsWith("gn_") || (sourceId ?? "").startsWith("rss_") || sourceId === "yna_economy";
-  if (useRss2Json) {
-    const rss2JsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+  const useRss2JsonFirst = (sourceId ?? "").startsWith("gn_") || sourceId === "yna_economy";
+  const useRss2JsonFallback = useRss2JsonFirst || (sourceId ?? "").startsWith("rss_");
+
+  if (!useRss2JsonFirst) {
+    const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+    if (ok && (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml"))) return true;
+  }
+  if (useRss2JsonFallback) {
+    const apiKey = (import.meta.env.VITE_RSS2JSON_API_KEY as string)?.trim().replace(/^["']|["']$/g, "") ?? "";
+    const rss2JsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ""}`;
     const { ok, text } = await fetchViaCorsProxy(rss2JsonUrl, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
     if (ok && /"status"\s*:\s*"ok"/.test(text ?? "")) return true;
   }
-  const urls = [url];
-  for (const u of urls) {
-    const { ok, text } = await fetchViaCorsProxy(u, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
+  if (useRss2JsonFirst) {
+    const { ok, text } = await fetchViaCorsProxy(url, { timeoutMs: RSS_CHECK_TIMEOUT_MS });
     if (ok && (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml"))) return true;
   }
   return false;

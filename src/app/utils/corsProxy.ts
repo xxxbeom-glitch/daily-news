@@ -14,6 +14,7 @@ const EXTERNAL_PROXIES: ProxyBuilder[] = [
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
   (url) => `https://cors.x2u.in/${url}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ];
 
 const DEFAULT_TIMEOUT_MS = 12000;

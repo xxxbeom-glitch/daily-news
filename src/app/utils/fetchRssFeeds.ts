@@ -98,12 +98,18 @@ interface Rss2JsonItem {
   enclosure?: { link?: string };
 }
 
+function getRss2JsonApiKey(): string {
+  const key = (import.meta.env.VITE_RSS2JSON_API_KEY as string) ?? "";
+  return key.trim().replace(/^["']|["']$/g, "");
+}
+
 async function fetchViaRss2Json(
   rssUrl: string,
   sourceId: string,
   sourceName: string
 ): Promise<RawRssArticle[] | null> {
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+  const apiKey = getRss2JsonApiKey();
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ""}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
   try {
@@ -284,12 +290,13 @@ export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssR
         onProgress?.(idx + 1, sources.length);
         return { sourceName: s.name, articles: items, ok: items.length > 0 };
       }
-      const useRss2Json = s.id.startsWith("gn_") || s.id === "yna_economy" || s.id.startsWith("rss_");
+      const useRss2JsonFirst = s.id.startsWith("gn_") || s.id === "yna_economy";
+      const urlsToTry = s.id === "hankyung_finance"
+        ? ["https://www.hankyung.com/feed/finance", "https://www.hankyung.com/feed/economy"]
+        : [s.rssUrl];
       let items: RawRssArticle[] = [];
-      if (useRss2Json) {
-        const urlsToTry = s.id === "hankyung_finance"
-          ? ["https://www.hankyung.com/feed/finance", "https://www.hankyung.com/feed/economy"]
-          : [s.rssUrl];
+
+      if (useRss2JsonFirst) {
         for (const u of urlsToTry) {
           const parsed = await fetchViaRss2Json(u, s.id, s.name);
           if (parsed && parsed.length > 0) {
@@ -299,22 +306,22 @@ export async function fetchRssFeeds(options: FetchRssOptions): Promise<FetchRssR
         }
       }
       if (items.length === 0) {
-        const urlsToTry = [s.rssUrl];
-        let ok = false;
-        let text = "";
         for (const u of urlsToTry) {
           const r = await fetchViaCorsProxy(u, { timeoutMs: RSS_TIMEOUT_MS });
           if (r.ok && r.text) {
-            ok = true;
-            text = r.text;
+            items = parseRssXml(r.text, s.id, s.name);
+            if (items.length > 0) break;
+          }
+        }
+      }
+      if (items.length === 0 && (s.id.startsWith("rss_") || s.id.startsWith("gn_") || s.id === "yna_economy")) {
+        for (const u of urlsToTry) {
+          const parsed = await fetchViaRss2Json(u, s.id, s.name);
+          if (parsed && parsed.length > 0) {
+            items = parsed;
             break;
           }
         }
-        if (!ok) {
-          onProgress?.(idx + 1, sources.length);
-          return { sourceName: s.name, articles: [], ok: false };
-        }
-        items = parseRssXml(text, s.id, s.name);
       }
       onProgress?.(idx + 1, sources.length);
       return { sourceName: s.name, articles: items, ok: items.length > 0 };
