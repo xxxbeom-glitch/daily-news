@@ -314,6 +314,7 @@ function ReportSyncFailureHint() {
       </summary>
       <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
         <li>네트워크 연결 상태</li>
+        <li>Firestore 문서 1MB 제한: 이미지가 많은 리포트는 이미지를 제외하고 요약만 업로드됩니다.</li>
         <li>Firebase Console → Authentication → 승인된 도메인에 접속 URL(또는 IP) 추가 (내부망 192.168.x.x 사용 시)</li>
         <li>{"Firestore 규칙: users/" + "{" + "userId" + "}" + "에 read, write 허용 여부"}</li>
         <li>익명 인증 활성화 여부 (Firebase Console → Authentication → 로그인 방법)</li>

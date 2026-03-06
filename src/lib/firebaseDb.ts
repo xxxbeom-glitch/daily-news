@@ -107,18 +107,36 @@ function sanitizeForFirestore(obj: unknown): unknown {
   return out;
 }
 
-/** 시황 세션 추가 (session.id를 문서 ID로 사용) */
+/** Firestore 문서 크기 제한 (1MB, 여유 두고 950KB 사용) */
+const FIRESTORE_DOC_SIZE_LIMIT = 950 * 1024;
+
+/** 시황 세션 추가 (session.id를 문서 ID로 사용). 1MB 초과 시 uploadedImages 제외 후 저장 */
 export async function addSessionToFirestore(uid: string, session: ArchiveSession): Promise<void> {
   const db = getFirebaseDb();
   if (!db) throw new Error("Firestore가 초기화되지 않았습니다.");
   const ref = doc(db, "users", uid, "sessions", session.id);
-  const { id, ...rest } = session;
-  const sanitized = sanitizeForFirestore(rest) as Record<string, unknown>;
-  await setDoc(
-    ref,
-    { ...sanitized, createdAt: session.createdAt, addedAt: serverTimestamp() },
-    { merge: true }
-  );
+
+  const buildPayload = (omitImages: boolean) => {
+    const { id, uploadedImages, ...rest } = session;
+    const data = omitImages ? rest : { ...rest, uploadedImages };
+    const sanitized = sanitizeForFirestore(data) as Record<string, unknown>;
+    return { ...sanitized, createdAt: session.createdAt, addedAt: serverTimestamp() };
+  };
+
+  const payloadForSizeCheck = (omitImages: boolean) => {
+    const { id, uploadedImages, ...rest } = session;
+    const data = omitImages ? rest : { ...rest, uploadedImages };
+    const sanitized = sanitizeForFirestore(data) as Record<string, unknown>;
+    return { ...sanitized, createdAt: session.createdAt, addedAt: "_" };
+  };
+
+  let payload = buildPayload(false);
+  const size = new Blob([JSON.stringify(payloadForSizeCheck(false))]).size;
+  if (size > FIRESTORE_DOC_SIZE_LIMIT && session.uploadedImages?.length) {
+    payload = buildPayload(true);
+  }
+
+  await setDoc(ref, payload, { merge: true });
 }
 
 /** 시황 세션 삭제 */
