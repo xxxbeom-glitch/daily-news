@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
-import { domesticSources, internationalSources, type ArchiveSession } from "../data/newsSources";
+import { allSources, type ArchiveSession } from "../data/newsSources";
 import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
@@ -338,13 +338,9 @@ export function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
   const [exportPdfLoading, setExportPdfLoading] = useState(false);
-  const [sourceStatus, setSourceStatus] = useState<Record<string, "ok" | "error">>(() => {
-    const ids = [
-      ...domesticSources.map((s) => s.id),
-      ...internationalSources.map((s) => s.id),
-    ];
-    return Object.fromEntries(ids.map((id) => [id, "ok" as const]));
-  });
+  const [sourceStatus, setSourceStatus] = useState<Record<string, "ok" | "error">>(() =>
+    Object.fromEntries(allSources.map((s) => [s.id, "ok" as const]))
+  );
   const [apiStatus, setApiStatus] = useState({
     gpt: "error" as "ok" | "error",
     gemini: "ok" as "ok" | "error",
@@ -353,9 +349,7 @@ export function SettingsPage() {
   });
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
-  const [selectedSourceIds, setSelectedSourceIds] = useState<{ domestic: string[]; international: string[] }>(() =>
-    getSelectedSources()
-  );
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() => getSelectedSources().sources);
   const [selectedModelId, setSelectedModelIdState] = useState<string>(() => getSelectedModelId());
 
   useEffect(() => {
@@ -379,27 +373,20 @@ export function SettingsPage() {
     return id;
   };
 
-  const allSources = useMemo(
-    () => [...domesticSources, ...internationalSources],
-    []
-  );
-
-  const toggleSourceSelection = useCallback((id: string, region: "domestic" | "international") => {
+  const toggleSourceSelection = useCallback((id: string) => {
     setSelectedSourceIds((prev) => {
-      const list = prev[region];
-      const next = list.includes(id)
-        ? list.filter((x) => x !== id)
-        : [...list, id];
-      const nextState = { ...prev, [region]: next };
-      setSelectedSources(nextState);
-      return nextState;
+      const next = prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id];
+      setSelectedSources({ sources: next });
+      return next;
     });
   }, []);
 
   const runCheck = useCallback(async () => {
     setIsChecking(true);
     try {
-      const { sourceStatus: s, apiStatus: a } = await checkConnectionStatus(allSources);
+      const { sourceStatus: s, apiStatus: a } = await checkConnectionStatus(allSources as { id: string; name: string; rssUrl: string }[]);
       setSourceStatus(s);
       setApiStatus(a);
       setLastCheckTime(Date.now());
@@ -657,51 +644,22 @@ export function SettingsPage() {
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
-              국내 언론사
-              <span className="text-white/30 ml-1" style={{ fontSize: 11, fontWeight: 400 }}>
-                (해외 시황: 뉴욕증시·나스닥·S&P500 등 포함 기사 반영)
-              </span>
+              RSS 소스
             </div>
-            <div className="divide-y divide-white/6 mb-4">
-            {domesticSources.map((s) => {
+            <div className="divide-y divide-white/6">
+            {allSources.map((s) => {
               const status = sourceStatus[s.id] ?? "ok";
-              const isSelected = selectedSourceIds.domestic.includes(s.id);
+              const isSelected = selectedSourceIds.includes(s.id);
               return (
                 <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
                     <input
                       type="checkbox"
                       checked={isSelected}
-                      onChange={() => toggleSourceSelection(s.id, "domestic")}
+                      onChange={() => toggleSourceSelection(s.id)}
                       className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
                     />
                     <span style={{ fontSize: 14 }} className="text-white/90 truncate">{s.name}</span>
-                  </label>
-                  <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-                    {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}
-                  </span>
-                </div>
-              );
-            })}
-            </div>
-            <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>해외 시황 RSS</div>
-            <div className="divide-y divide-white/6">
-            {internationalSources.map((s) => {
-              const status = sourceStatus[s.id] ?? "ok";
-              const isSelected = selectedSourceIds.international.includes(s.id);
-              const label = s.id.startsWith("rss_") ? "[시황] " : "";
-              return (
-                <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSourceSelection(s.id, "international")}
-                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#618EFF] focus:ring-[#618EFF]/50"
-                    />
-                    <span style={{ fontSize: 14 }} className="text-white/90 truncate">
-                      {label}{s.name}
-                    </span>
                   </label>
                   <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
                     {status === "ok" ? <><CheckCircle2 size={14} />정상</> : <><XCircle size={14} />오류</>}

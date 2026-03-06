@@ -71,8 +71,9 @@ export function MarketScheduleProvider({ children }: { children: ReactNode }) {
       }
       const today = toDateKey();
       const selectedSources = getSelectedSources();
-      const hasIntl = internationalSources.filter((s) => selectedSources.international.includes(s.id)).length > 0;
-      const hasDomestic = domesticSources.filter((s) => selectedSources.domestic.includes(s.id)).length > 0;
+      const selectedSet = new Set(selectedSources.sources);
+      const hasIntl = internationalSources.some((s) => selectedSet.has(s.id));
+      const hasDomestic = domesticSources.some((s) => selectedSet.has(s.id));
       const canRunOverseas = hasIntl || hasDomestic;
 
       const sched = getSchedule();

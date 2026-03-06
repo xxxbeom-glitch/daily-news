@@ -126,7 +126,9 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         ]);
         if (cancelled) return;
         if (settings) {
-          setSelectedSources(settings.selectedSources);
+          const src = settings.selectedSources;
+          const normalized = Array.isArray(src?.sources) ? { sources: src.sources } : { sources: [] };
+          setSelectedSources(normalized);
           setInterestMemoryDomestic(settings.interestMemoryDomestic || "");
           setInterestMemoryInternational(settings.interestMemoryInternational || "");
           if (settings.selectedModel) setSelectedModel(settings.selectedModel);

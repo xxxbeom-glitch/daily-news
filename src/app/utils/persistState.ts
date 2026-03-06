@@ -25,9 +25,17 @@ export const DEFAULT_INTERNATIONAL_SOURCES = [
   "rss_seeking_alpha",
 ];
 
+/** 통합 기본 소스 (국내+해외) */
+export const DEFAULT_SOURCES = [...DEFAULT_DOMESTIC_SOURCES, ...DEFAULT_INTERNATIONAL_SOURCES];
+
 export interface SelectedSourcesState {
-  domestic: string[];
-  international: string[];
+  sources: string[];
+}
+
+/** @deprecated 이전 domestic/international 형식 호환용 */
+export interface LegacySelectedSourcesState {
+  domestic?: string[];
+  international?: string[];
 }
 
 const LEGACY_DOMESTIC_IDS = new Set(["hankyung_all", "hankyung_finance", "mk", "sbs", "sbs_economy", "gn_mk"]);
@@ -40,19 +48,21 @@ const LEGACY_INTERNATIONAL_IDS = new Set([
 export function getSelectedSources(): SelectedSourcesState {
   try {
     const raw = localStorage.getItem(SELECTED_SOURCES_KEY);
-    if (!raw) return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
-    const parsed = JSON.parse(raw) as SelectedSourcesState;
-    if (!parsed || !Array.isArray(parsed.domestic) || !Array.isArray(parsed.international)) {
-      return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
+    if (!raw) return { sources: DEFAULT_SOURCES };
+    const parsed = JSON.parse(raw) as SelectedSourcesState & LegacySelectedSourcesState;
+    if (!parsed) return { sources: DEFAULT_SOURCES };
+    if (Array.isArray(parsed.sources)) {
+      return { sources: parsed.sources };
     }
-    const hasLegacyDomestic = parsed.domestic.some((id) => LEGACY_DOMESTIC_IDS.has(id));
-    const hasLegacyInternational = parsed.international.some((id) => LEGACY_INTERNATIONAL_IDS.has(id));
-    if (hasLegacyDomestic || hasLegacyInternational) {
-      return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
+    if (Array.isArray(parsed.domestic) && Array.isArray(parsed.international)) {
+      const merged = [...parsed.domestic, ...parsed.international];
+      const hasLegacy = merged.some((id) => LEGACY_DOMESTIC_IDS.has(id) || LEGACY_INTERNATIONAL_IDS.has(id));
+      if (hasLegacy) return { sources: DEFAULT_SOURCES };
+      return { sources: merged };
     }
-    return parsed;
+    return { sources: DEFAULT_SOURCES };
   } catch {
-    return { domestic: DEFAULT_DOMESTIC_SOURCES, international: DEFAULT_INTERNATIONAL_SOURCES };
+    return { sources: DEFAULT_SOURCES };
   }
 }
 
@@ -93,6 +103,15 @@ export function getInterestMemoryInternational(): string {
 export function setInterestMemoryInternational(text: string): void {
   try {
     localStorage.setItem(INTEREST_MEMORY_INTERNATIONAL_KEY, text.slice(0, INTEREST_MEMORY_MAX_LEN));
+    window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
+  } catch {}
+}
+
+/** 기억할 관심사 키워드 삭제 (국내·해외 모두) */
+export function clearInterestMemory(): void {
+  try {
+    localStorage.removeItem(INTEREST_MEMORY_DOMESTIC_KEY);
+    localStorage.removeItem(INTEREST_MEMORY_INTERNATIONAL_KEY);
     window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
   } catch {}
 }

@@ -22,10 +22,11 @@ export async function runMarketSummaryPipeline(
 ): Promise<MarketSummaryData | null> {
   const { addSession } = options;
   const selectedSources = getSelectedSources();
-  const intlList = internationalSources.filter((s) => selectedSources.international.includes(s.id));
-  const domList = domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
+  const selectedSet = new Set(selectedSources.sources);
+  const intlList = internationalSources.filter((s) => selectedSet.has(s.id));
+  const domList = domesticSources.filter((s) => selectedSet.has(s.id));
   const sourceList = isInternational ? [...intlList, ...domList] : domList;
-  const sourceIds = isInternational ? [...selectedSources.international, ...selectedSources.domestic] : selectedSources.domestic;
+  const sourceIds = isInternational ? [...intlList.map((s) => s.id), ...domList.map((s) => s.id)] : domList.map((s) => s.id);
   if (sourceList.length === 0) return null;
 
   const startMs = Date.now();

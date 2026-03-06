@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, ExternalLink, X } from "lucide-react";
 import { useSearchState } from "../context/SearchStateContext";
 import { getSelectedSources } from "../utils/persistState";
-import { domesticSources, internationalSources, matchesNewsSearchKeywords } from "../data/newsSources";
+import { allSources, matchesNewsSearchKeywords } from "../data/newsSources";
 import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { filterArticlesByRange } from "../utils/fetchRssFeeds";
 import { getRecentRangeFromSettings } from "../utils/fetchRssFeeds";
@@ -243,9 +243,8 @@ export function SearchPage() {
   } = useSearchState();
 
   const selectedSources = getSelectedSources();
-  const intlSourceList = internationalSources.filter((s) => selectedSources.international.includes(s.id));
-  const domesticSourceList = domesticSources.filter((s) => selectedSources.domestic.includes(s.id));
-  const sourceList = [...intlSourceList, ...domesticSourceList];
+  const selectedSet = new Set(selectedSources.sources);
+  const sourceList = allSources.filter((s) => selectedSet.has(s.id));
   const hasAnySource = sourceList.length > 0;
 
   const [fullViewArticle, setFullViewArticle] = useState<RawRssArticle | null>(null);

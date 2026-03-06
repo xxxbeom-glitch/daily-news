@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, ExternalLink, X } from "lucide-react";
-import { domesticSources, internationalSources } from "../data/newsSources";
+import { allSources } from "../data/newsSources";
+import { getSelectedSources } from "../utils/persistState";
 import { fetchRssFeeds } from "../utils/fetchRssFeeds";
 import { fetchArticleContent } from "../utils/articleReader";
 import { stripHtmlToText } from "../utils/stripHtml";
@@ -141,7 +142,9 @@ export function OverseasNewsPage() {
   const [viewCountVersion, setViewCountVersion] = useState(0);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const sourceList = [...internationalSources, ...domesticSources];
+  const selectedSources = getSelectedSources();
+  const selectedSet = new Set(selectedSources.sources);
+  const sourceList = allSources.filter((s) => selectedSet.has(s.id));
 
   const viewCounts = useMemo(() => getArticleViewCounts(), [viewCountVersion]);
 

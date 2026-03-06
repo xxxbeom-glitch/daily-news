@@ -53,8 +53,8 @@ export function toGoogleNewsRssUrlIntl(site: string): string {
   return `https://news.google.com/rss/search?q=${q}&hl=en&gl=US&ceid=US:en`;
 }
 
-// 국내 언론사 (매일경제 직접 RSS 우선 - 구글뉴스 리다이렉트 대체)
-export const domesticSources: NewsSource[] = [
+// 국내 언론사 (경제)
+const _domesticSources: NewsSource[] = [
   { id: "gn_hankyung", name: "한국경제", rssUrl: toGoogleNewsRssUrl("hankyung.com") },
   { id: "rss_mk_headline", name: "매일경제 헤드라인", rssUrl: "https://www.mk.co.kr/rss/30000001/" },
   { id: "rss_mk_economy", name: "매일경제 경제", rssUrl: "https://www.mk.co.kr/rss/30100041/" },
@@ -69,7 +69,6 @@ export const domesticSources: NewsSource[] = [
   { id: "rss_donga_economy", name: "동아일보 경제", rssUrl: "https://rss.donga.com/economy.xml" },
   { id: "rss_mediatoday_economy", name: "미디어오늘 경제", rssUrl: "https://www.mediatoday.co.kr/rss/S1N3.xml" },
   { id: "rss_seoul_economy", name: "서울신문 경제", rssUrl: "https://www.seoul.co.kr/xml/rss/rss_economy.xml" },
-  { id: "rss_segye_economy", name: "세계일보 경제", rssUrl: "https://www.segye.com/Articles/RSSList/segye_economy.xml" },
   { id: "rss_sisain_economy", name: "시사인 경제", rssUrl: "https://www.sisain.co.kr/rss/S1N7.xml" },
   { id: "rss_sisajournal_economy", name: "시사저널 경제", rssUrl: "https://www.sisajournal.com/rss/S1N54.xml" },
   { id: "rss_ablenews_economy", name: "에이블뉴스 노동/경제", rssUrl: "https://www.ablenews.co.kr/rss/S1N4.xml" },
@@ -100,8 +99,10 @@ export function matchesNewsSearchKeywords(title: string, body?: string): boolean
   return NEWS_SEARCH_KEYWORDS.some((kw) => text.includes(kw));
 }
 
+const DOMESTIC_SOURCE_IDS = new Set(_domesticSources.map((s) => s.id));
+
 export function isDomesticSourceId(id: string): boolean {
-  return domesticSources.some((s) => s.id === id);
+  return DOMESTIC_SOURCE_IDS.has(id);
 }
 
 /** 국내 기사가 해외 시황용으로 사용 가능한지 (키워드 매칭) */
@@ -110,9 +111,8 @@ export function matchesDomesticForOverseasSummary(title: string, body?: string):
   return DOMESTIC_OVERSEAS_MARKET_KEYWORDS.some((kw) => text.includes(kw));
 }
 
-// 해외 시황 (장 마감 후 리포트 위주 - CNBC·MarketWatch·Seeking Alpha 직접 RSS)
-// 국내 언론사 국제 섹션 (경향·국민·뉴시스·동아·미디어오늘·서울·세계·시사인·시사저널·여성·조선)
-export const internationalSources: NewsSource[] = [
+// 해외 시황 (CNBC·MarketWatch·Seeking Alpha + 국내 언론사 국제 섹션)
+const _internationalSources: NewsSource[] = [
   { id: "rss_cnbc_finance", name: "CNBC Finance", rssUrl: "https://www.cnbc.com/id/10000664/device/rss/rss.html" },
   { id: "rss_marketwatch_top", name: "MarketWatch Top Stories", rssUrl: "https://feeds.marketwatch.com/marketwatch/topstories/" },
   { id: "rss_seeking_alpha", name: "Seeking Alpha Market News", rssUrl: "https://seekingalpha.com/market_currents.xml" },
@@ -122,12 +122,17 @@ export const internationalSources: NewsSource[] = [
   { id: "rss_donga_international", name: "동아일보 국제", rssUrl: "https://rss.donga.com/international.xml" },
   { id: "rss_mediatoday_international", name: "미디어오늘 국제", rssUrl: "https://www.mediatoday.co.kr/rss/S1N6.xml" },
   { id: "rss_seoul_international", name: "서울신문 국제", rssUrl: "https://www.seoul.co.kr/xml/rss/rss_international.xml" },
-  { id: "rss_segye_international", name: "세계일보 국제", rssUrl: "https://www.segye.com/Articles/RSSList/segye_international.xml" },
   { id: "rss_sisain_international", name: "시사인 국제/한반도", rssUrl: "https://www.sisain.co.kr/rss/S1N11.xml" },
   { id: "rss_sisajournal_international", name: "시사저널 국제", rssUrl: "https://www.sisajournal.com/rss/S1N59.xml" },
   { id: "rss_womennews_international", name: "여성신문 세계", rssUrl: "https://www.womennews.co.kr/rss/S1N3.xml" },
   { id: "rss_chosun_international", name: "조선일보 국제", rssUrl: "https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml" },
 ];
+
+export const domesticSources = _domesticSources;
+export const internationalSources = _internationalSources;
+
+/** 통합 RSS 소스 (국내·해외 구분 없음) */
+export const allSources: NewsSource[] = [..._domesticSources, ..._internationalSources];
 
 // Mock articles (개발용)
 export const mockArticles: Article[] = [

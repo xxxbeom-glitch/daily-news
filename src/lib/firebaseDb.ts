@@ -9,7 +9,7 @@ import type { ArchiveSession } from "../app/data/newsSources";
 import type { AdminSchedule } from "../app/utils/adminSettings";
 
 export interface FirestoreSettings {
-  selectedSources: { domestic: string[]; international: string[] };
+  selectedSources: { sources: string[] };
   interestMemoryDomestic: string;
   interestMemoryInternational: string;
   selectedModel: "gemini" | "gpt" | "claude";
@@ -30,14 +30,18 @@ export interface FirestoreMeta {
   searchState: unknown; // PersistedSearchState | null
 }
 
-/** 설정 로드 */
+/** 설정 로드 (구 domestic/international 형식 → sources로 마이그레이션) */
 export async function loadSettings(uid: string): Promise<FirestoreSettings | null> {
   const db = getFirebaseDb();
   if (!db) return null;
   const ref = doc(db, "users", uid, "data", "settings");
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
-  return snap.data() as FirestoreSettings;
+  const raw = snap.data() as FirestoreSettings & { domestic?: string[]; international?: string[] };
+  if (Array.isArray(raw.domestic) && Array.isArray(raw.international) && !Array.isArray(raw.selectedSources?.sources)) {
+    return { ...raw, selectedSources: { sources: [...raw.domestic, ...raw.international] } };
+  }
+  return raw as FirestoreSettings;
 }
 
 /** 설정 저장 */
