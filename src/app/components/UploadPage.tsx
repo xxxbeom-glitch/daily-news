@@ -6,6 +6,11 @@ import { getSelectedModel, getSelectedModelId, saveArchiveState } from "../utils
 import { useArchive } from "../context/ArchiveContext";
 import { fetchArticleContent } from "../utils/articleReader";
 import { extractTextFromPdf } from "../utils/pdfExtract";
+import {
+  isCloudinaryEnabled,
+  uploadBase64ToCloudinary,
+  fetchUrlToBase64,
+} from "../utils/cloudinaryUpload";
 
 type CountryTab = "kr" | "us";
 
@@ -16,11 +21,8 @@ const MAX_IMAGES = 20;
 const IMAGE_QUALITY = 0.7;
 const IMAGE_MAX_WIDTH = 1200;
 
-interface UploadedImage {
-  data: string;
-  mimeType: string;
-  name?: string;
-}
+/** data=base64(로컬), url=Cloudinary URL */
+type UploadedImage = { data?: string; mimeType?: string; name?: string; url?: string };
 
 interface UploadedPdf {
   name: string;
@@ -124,7 +126,7 @@ export function UploadPage() {
           setError(`이미지는 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`);
           return prev;
         }
-        if (isDuplicateImage(prev, img.data)) return prev;
+        if (isDuplicateImage(prev, img.data ?? "")) return prev;
         setError(null);
         return [...prev, img];
       });
@@ -227,7 +229,17 @@ export function UploadPage() {
       try {
         const model = getSelectedModel();
         const modelId = getSelectedModelId();
-        const imagesToSend = hasImages ? images.slice(0, MAX_IMAGES) : undefined;
+        const imagesSlice = hasImages ? images.slice(0, MAX_IMAGES) : [];
+        const imagesToSend =
+          imagesSlice.length > 0
+            ? await Promise.all(
+                imagesSlice.map(async (img) => {
+                  if (img.data) return { data: img.data, mimeType: img.mimeType ?? "image/jpeg" };
+                  if (img.url) return fetchUrlToBase64(img.url);
+                  throw new Error("이미지 데이터 없음");
+                })
+              )
+            : undefined;
         setProgressStep(2);
         setProgressPercent(50);
         const data = await generateMarketSummaryFromUploadedData(
@@ -236,6 +248,21 @@ export function UploadPage() {
         );
         setProgressStep(3);
         setProgressPercent(90);
+        let uploadedImagesForSave: { url?: string; data?: string; mimeType?: string; name?: string }[] | undefined;
+        if (hasImages && imagesSlice.length > 0) {
+          if (isCloudinaryEnabled()) {
+            uploadedImagesForSave = await Promise.all(
+              imagesSlice.map(async (img) => {
+                if (img.url) return { url: img.url, name: img.name };
+                if (img.data)
+                  return { url: await uploadBase64ToCloudinary(img.data, img.mimeType ?? "image/jpeg"), name: img.name };
+                throw new Error("이미지 데이터 없음");
+              })
+            );
+          } else {
+            uploadedImagesForSave = imagesSlice;
+          }
+        }
         const now = new Date();
         const title =
           `${now.getMonth() + 1}월 ${now.getDate()}일 ` +
@@ -244,7 +271,7 @@ export function UploadPage() {
         if (editSessionId) {
           updateSession(editSessionId, {
             marketSummary: data,
-            uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
+            uploadedImages: uploadedImagesForSave,
           });
           setSuccessMessage("완료");
           setInputValue("");
@@ -274,7 +301,7 @@ export function UploadPage() {
             ],
             marketSummary: data,
             aiModel: model,
-            uploadedImages: hasImages ? images.slice(0, MAX_IMAGES) : undefined,
+            uploadedImages: uploadedImagesForSave,
           });
           saveArchiveState({ isInternational: false, selectedSessionId: newId });
           setSuccessMessage("완료");
@@ -381,7 +408,7 @@ export function UploadPage() {
               {images.map((img, i) => (
                 <div key={`img-${i}`} className="relative">
                   <img
-                    src={`data:${img.mimeType};base64,${img.data}`}
+                    src={img.url ?? (img.data ? `data:${img.mimeType ?? "image/jpeg"};base64,${img.data}` : "")}
                     alt=""
                     className="w-16 h-16 object-cover rounded border border-white/10"
                   />

@@ -31,8 +31,8 @@ export interface ArchiveSession {
   aiModel?: "gemini" | "gpt" | "claude";
   /** AI 요약 (요약하기 버튼 클릭 후 고정 저장) */
   aiSummary?: string;
-  /** 업로드된 이미지 (UploadPage 한국 탭에서 생성 시 저장, 수정 시 사용) */
-  uploadedImages?: { data: string; mimeType: string; name?: string }[];
+  /** 업로드된 이미지 (data=base64 로컬, url=Cloudinary URL 클라우드) */
+  uploadedImages?: { data?: string; mimeType?: string; name?: string; url?: string }[];
 }
 
 /** 구글뉴스 RSS URL 생성 - 국내 (site:로 언론사 지정) */
