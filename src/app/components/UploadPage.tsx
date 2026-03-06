@@ -17,7 +17,7 @@ type CountryTab = "kr" | "us";
 const ACCEPT_ALL = "image/png,image/jpeg,image/gif,image/webp,application/pdf,.pdf";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const PDF_TYPE = "application/pdf";
-const MAX_IMAGES = 20;
+/** 이미지 개수 제한 없음 (AI 요약 시간은 사용자 수용) */
 const IMAGE_QUALITY = 0.7;
 const IMAGE_MAX_WIDTH = 1200;
 
@@ -124,10 +124,6 @@ export function UploadPage() {
   const addImageIfNotDuplicate = useCallback(
     (img: UploadedImage) => {
       setImages((prev) => {
-        if (prev.length >= MAX_IMAGES) {
-          setError(`이미지는 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`);
-          return prev;
-        }
         if (isDuplicateImage(prev, img.data ?? "")) return prev;
         setError(null);
         return [...prev, img];
@@ -239,7 +235,7 @@ export function UploadPage() {
       try {
         const model = getSelectedModel();
         const modelId = getSelectedModelId();
-        const imagesSlice = hasImages ? images.slice(0, MAX_IMAGES) : [];
+        const imagesSlice = hasImages ? images : [];
         const imagesToSend =
           imagesSlice.length > 0
             ? await Promise.all(
@@ -413,7 +409,7 @@ export function UploadPage() {
             <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
               {images.length > 0 && (
                 <span className="w-full text-white/40 text-xs mb-1">
-                  이미지 {images.length}/{MAX_IMAGES}장
+                  이미지 {images.length}장
                 </span>
               )}
               {images.map((img, i) => (
