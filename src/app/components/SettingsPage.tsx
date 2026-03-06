@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Sparkles, Cpu, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
-import { domesticSources, internationalSources } from "../data/newsSources";
+import { domesticSources, internationalSources, type ArchiveSession } from "../data/newsSources";
 import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId, SELECTED_MODEL_CHANGED_EVENT } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
@@ -221,11 +221,11 @@ function ReportSyncButtons({
   refreshSessionsFromCloud,
   syncAllSessionsToCloud,
 }: {
-  sessions: { id: string }[];
+  sessions: ArchiveSession[];
   isEnabled: boolean;
   uid: string | null;
   refreshSessionsFromCloud: () => Promise<void>;
-  syncAllSessionsToCloud: (sessions: { id: string }[]) => Promise<{ ok: boolean; message: string }>;
+  syncAllSessionsToCloud: (sessions: ArchiveSession[]) => Promise<{ ok: boolean; message: string }>;
 }) {
   const [loading, setLoading] = useState<"pull" | "push" | null>(null);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -315,7 +315,7 @@ function ReportSyncFailureHint() {
       <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
         <li>네트워크 연결 상태</li>
         <li>Firebase Console → Authentication → 승인된 도메인에 접속 URL(또는 IP) 추가 (내부망 192.168.x.x 사용 시)</li>
-        <li>Firestore 규칙: users/{userId}에 read, write 허용 여부</li>
+        <li>{"Firestore 규칙: users/" + "{" + "userId" + "}" + "에 read, write 허용 여부"}</li>
         <li>익명 인증 활성화 여부 (Firebase Console → Authentication → 로그인 방법)</li>
       </ul>
     </details>
