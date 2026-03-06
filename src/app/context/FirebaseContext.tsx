@@ -51,8 +51,7 @@ import {
   getAdminSchedule,
   DEFAULT_MOVERS,
 } from "../utils/adminSettings";
-
-const ARCHIVES_KEY = "newsbrief_archives";
+import { ARCHIVES_STORAGE_KEY, sanitizeSessionsForLocalStorage } from "../utils/archiveStorage";
 
 interface FirebaseContextValue {
   uid: string | null;
@@ -155,7 +154,8 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         }
         if (sessions && sessions.length > 0) {
           try {
-            localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
+            const toSave = sanitizeSessionsForLocalStorage(sessions);
+            localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
             window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
           } catch {}
         }
@@ -223,13 +223,14 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
   const refreshSessionsFromCloud = useCallback(async () => {
     if (!uid) return;
-    try {
-      const sessions = await loadSessions(uid);
       try {
-        localStorage.setItem(ARCHIVES_KEY, JSON.stringify(sessions));
-        window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
-      } catch {}
-    } catch (e) {
+        const sessions = await loadSessions(uid);
+        try {
+          const toSave = sanitizeSessionsForLocalStorage(sessions);
+          localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
+          window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+        } catch {}
+      } catch (e) {
       console.error("[Firebase] refreshSessions 실패", e);
     }
   }, [uid]);

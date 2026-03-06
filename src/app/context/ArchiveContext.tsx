@@ -8,8 +8,7 @@ import {
 } from "react";
 import type { ArchiveSession } from "../data/newsSources";
 import { useFirebase } from "./FirebaseContext";
-
-const STORAGE_KEY = "newsbrief_archives";
+import { ARCHIVES_STORAGE_KEY, sanitizeSessionsForLocalStorage } from "../utils/archiveStorage";
 
 interface ArchiveContextValue {
   sessions: ArchiveSession[];
@@ -27,7 +26,7 @@ function normalizeSessionTitle(title: string): string {
 
 function loadSessions(): ArchiveSession[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(ARCHIVES_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ArchiveSession[];
     if (!Array.isArray(parsed)) return [];
@@ -45,7 +44,16 @@ export function ArchiveProvider({ children }: { children: ReactNode }) {
   const { syncAddSession, syncDeleteSession } = useFirebase();
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    const toSave = sanitizeSessionsForLocalStorage(sessions);
+    try {
+      localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
+    } catch (e) {
+      try {
+        localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave.map((s) => ({ ...s, uploadedImages: undefined }))));
+      } catch {
+        console.warn("[Archive] localStorage 용량 초과, 저장 생략");
+      }
+    }
   }, [sessions]);
 
   useEffect(() => {
