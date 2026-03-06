@@ -236,8 +236,8 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
     ...(totalAssessment ? { totalAssessment } : {}),
     indices: ensureIndexData((parsed.indices as IndexData[]) ?? []),
     indicesSources: ensureSourceRefs((parsed.indicesSources as SourceRef[]) ?? []),
-    keyIssues: [],
-    keyIssuesSources: [],
+    keyIssues: ensureIssueItems((parsed.keyIssues as IssueItem[]) ?? []),
+    keyIssuesSources: ensureSourceRefs((parsed.keyIssuesSources as SourceRef[]) ?? []),
     stockMoversLabel: (parsed.stockMoversLabel as string) ?? (isInternational ? "S&P500" : ""),
     moversUp: ensureStockMovers((parsed.moversUp as StockMover[]) ?? []),
     moversDown: ensureStockMovers((parsed.moversDown as StockMover[]) ?? []),
@@ -1270,18 +1270,20 @@ function buildPromptFromVideo(title: string, description: string): string {
 제목: ${title}
 
 설명:
-${description.slice(0, 8000)}
+${description.slice(0, 12000)}
 
 ## 요청
-위 유튜브 영상 제목과 설명을 바탕으로 해외(미국) 시황 요약을 작성해주세요. 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
+위 유튜브 영상 제목과 설명에 담긴 **모든 시황 관련 내용**을 추출하여 해외(미국) 시황 리포트를 작성해주세요. 반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
 
-### 필수 규칙 (기존 aiSummary.ts와 동일)
-- 문체 [전체 적용]: 반드시 '개조식' 및 '명사형 종결'만 사용.
-  · 개조식: 줄글 금지. 항목별 줄바꿈으로만 분리. 불릿·문장 앞 기호 절대 금지.
-  · 명사형 종결: 문장 끝은 명사 또는 명사형 어미(-음, -기, -함, -됨)로만 맺음.
-  · 금지어: ~다, ~습니다, ~요 등 서술형·경어체 사용 금지. (totalAssessment는 예외)
-- 간결성: 수식어·감정 표현 배제, 사실·핵심 데이터 위주 압축.
-- totalAssessment: 아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평. (keyIssues 폐기)
+### [필수] 내용 충실도
+- **요약이 아님. 리포트임.** 영상 설명에 나온 내용은 빠짐없이 포함할 것.
+- totalAssessment: 5~10문장 이상. 지수 등락·섹터 동향·개별 종목·정책·이벤트 등 구체적 내용을 충실히 서술. 2~3문장에 그치지 말 것.
+- keyIssues: 영상에서 다룬 이슈별로 3~7개 추출. 각 body는 2~4줄로 핵심 내용 포함.
+
+### 문체 규칙
+- totalAssessment: 아나운서 브리핑처럼 서술형·존댓말(~습니다).
+- keyIssues body: 개조식·명사형 종결(-음, -기, -함, -됨). 불릿·기호 금지.
+- 수식어·감정 배제, 사실·데이터 위주. 영상에 없는 내용은 추측하지 말 것.
 
 ### [중요] 대표지수(indices)
 - indices·indicesSources는 반드시 빈 배열 [] 로 반환.
@@ -1291,7 +1293,10 @@ ${description.slice(0, 8000)}
 {
   "date": "YYYY-MM-DD 요요일",
   "regionLabel": "해외 시황 요약",
-  "totalAssessment": "아나운서 브리핑처럼 서술형·존댓말(~습니다)로 총평.",
+  "totalAssessment": "5~10문장 이상의 충실한 총평 (지수·섹터·종목·이벤트 구체적 포함)",
+  "keyIssues": [
+    { "title": "이슈 제목", "body": "2~4줄 본문 (개조식·명사형)" }
+  ],
   "indices": [],
   "indicesSources": [],
   "stockMoversLabel": "M7 및 반도체주 등락율",
