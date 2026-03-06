@@ -2,6 +2,7 @@
  * AI API (Gemini/OpenAI GPT)를 이용한 시황 요약 생성
  */
 
+import { jsonrepair } from "jsonrepair";
 import type { MarketSummaryData, IssueItem, StockMover, IndexData, SourceRef, EarningsItem } from "../data/marketSummary";
 
 export interface RawRssArticle {
@@ -277,11 +278,20 @@ function parseAndNormalize(jsonStr: string, isInternational: boolean): MarketSum
 
 const CLAUDE_MODELS = ["claude-opus-4-6", "claude-opus-4-5-20251101", "claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"];
 
-function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY"): string {
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY" | "VITE_OPENROUTER_API_KEY"): string {
   let key = (import.meta.env[name] as string) ?? "";
   key = key.trim().replace(/^["']|["']$/g, "");
   return key;
 }
+
+/** OpenRouter 모델 ID 매핑 (내부 ID → OpenRouter ID) */
+const OPENROUTER_CLAUDE_MAP: Record<string, string> = {
+  "claude-opus-4-6": "anthropic/claude-sonnet-4",
+  "claude-opus-4-5-20251101": "anthropic/claude-sonnet-4",
+  "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
+  "claude-3-5-sonnet-20241022": "anthropic/claude-3.5-sonnet",
+  "claude-3-5-sonnet-latest": "anthropic/claude-3.5-sonnet",
+};
 
 async function callGemini(prompt: string, modelId?: string): Promise<string> {
   return callGeminiWithOptions(prompt, { modelId });
@@ -474,31 +484,46 @@ export async function generateMarketSummaryFromUploadedData(
     throw new Error("이미지 분석은 Gemini 모델만 지원합니다. 설정에서 Gemini를 선택해주세요.");
   }
 
-  const fullUserPrompt = `${MORNING_HEADLINE_USER_PROMPT}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
+  const imageLimitNote =
+    (images?.length ?? 0) >= 10
+      ? "\n\n[중요] 이미지가 많습니다. keyIssues는 전체 최대 25개로 제한하고, 각 항목 body는 1문장으로 간결히 하세요. 반드시 유효한 JSON만 출력하세요."
+      : "";
+  const fullUserPrompt = `${MORNING_HEADLINE_USER_PROMPT}${imageLimitNote}\n\n## 업로드된 자료\n\n${text?.trim() || "(텍스트 없음 - 이미지만 참고)"}`;
 
-  let rawResponse: string;
-  if (useGemini) {
-    const parts: GeminiPart[] = [];
-    if (images?.length) {
-      for (const img of images) {
-        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+  const callApi = async (): Promise<string> => {
+    if (useGemini) {
+      const parts: GeminiPart[] = [];
+      if (images?.length) {
+        for (const img of images) {
+          parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+        }
       }
+      parts.push({ text: fullUserPrompt });
+      return callGeminiWithOptions("", {
+        modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
+        systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
+        parts,
+      });
+    } else if (useClaude) {
+      const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
+      return callClaude(prompt, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
+    } else {
+      const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
+      return callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
     }
-    parts.push({ text: fullUserPrompt });
-    rawResponse = await callGeminiWithOptions("", {
-      modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
-      systemInstruction: MORNING_HEADLINE_SYSTEM_PROMPT,
-      parts,
-    });
-  } else if (useClaude) {
-    const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
-    rawResponse = await callClaude(prompt, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
-  } else {
-    const prompt = `${MORNING_HEADLINE_SYSTEM_PROMPT}\n\n---\n\n${fullUserPrompt}`;
-    rawResponse = await callOpenAI(prompt, modelId && OPENAI_MODELS.includes(modelId) ? modelId : undefined);
-  }
+  };
 
-  return parseMorningHeadline(rawResponse);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const rawResponse = await callApi();
+      return parseMorningHeadline(rawResponse);
+    } catch (e) {
+      const isJsonError = e instanceof Error && e.message.includes("유효한 JSON");
+      if (isJsonError && attempt === 0) continue;
+      throw e;
+    }
+  }
+  throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
 }
 
 /**
@@ -547,29 +572,67 @@ function extractAndParseJson(text: string): Record<string, unknown> {
 
   const startIdx = raw.indexOf("{");
   if (startIdx === -1) throw new Error("AI 응답에서 JSON 객체를 찾을 수 없습니다.");
-  let depth = 0;
+  let objDepth = 0;
+  let arrDepth = 0;
   let endIdx = -1;
+  let inString = false;
+  let escape = false;
+  let strChar = "";
   for (let i = startIdx; i < raw.length; i++) {
     const c = raw[i];
-    if (c === "{") depth++;
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (c === "\\") escape = true;
+      else if (c === strChar) inString = false;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      inString = true;
+      strChar = c;
+      continue;
+    }
+    if (c === "{") objDepth++;
     else if (c === "}") {
-      depth--;
-      if (depth === 0) {
+      objDepth--;
+      if (objDepth === 0 && arrDepth === 0) {
         endIdx = i;
         break;
       }
-    }
+    } else if (c === "[") arrDepth++;
+    else if (c === "]") arrDepth--;
   }
   raw = endIdx >= 0 ? raw.slice(startIdx, endIdx + 1) : raw.slice(startIdx);
+
+  // 잘린 응답 복구: 닫히지 않은 괄호가 있으면 닫기
+  if (endIdx === -1 && (objDepth > 0 || arrDepth > 0)) {
+    raw = raw.replace(/,\s*$/, "");
+    for (let i = 0; i < arrDepth; i++) raw += "]";
+    for (let i = 0; i < objDepth; i++) raw += "}";
+  }
 
   let repaired = raw
     .replace(/,(\s*[}\]])/g, "$1")
     .replace(/[\u0000-\u001f]/g, (m) => (m === "\n" || m === "\t" ? m : " "));
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const attempts = [
+    () => repaired,
+    () => repaired.replace(/,(\s*[}\]])/g, "$1"),
+  ];
+  for (const getStr of attempts) {
     try {
-      return JSON.parse(repaired) as Record<string, unknown>;
+      return JSON.parse(getStr()) as Record<string, unknown>;
     } catch {
-      repaired = repaired.replace(/,(\s*[}\]])/g, "$1");
+      continue;
+    }
+  }
+  for (const input of [repaired, raw, text.trim()]) {
+    try {
+      const fixed = jsonrepair(input);
+      return JSON.parse(fixed) as Record<string, unknown>;
+    } catch {
+      continue;
     }
   }
   throw new Error("AI 응답이 유효한 JSON이 아닙니다. 다시 시도해주세요.");
@@ -631,10 +694,52 @@ function parseMorningHeadline(jsonStr: string): MarketSummaryData {
   };
 }
 
+/** OpenRouter로 Claude 호출 (지역 제한 회피) */
+async function callClaudeViaOpenRouter(prompt: string, modelId?: string): Promise<string> {
+  const key = getApiKey("VITE_OPENROUTER_API_KEY");
+  if (!key) throw new Error("OpenRouter API 키가 설정되지 않았습니다.");
+  const internalModel = modelId && CLAUDE_MODELS.includes(modelId) ? modelId : CLAUDE_MODELS[0];
+  const openRouterModel = OPENROUTER_CLAUDE_MAP[internalModel] ?? "anthropic/claude-3.5-sonnet";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "HTTP-Referer": window.location.origin,
+      },
+      body: JSON.stringify({
+        model: openRouterModel,
+        max_tokens: 8192,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`);
+    }
+    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const text = json?.choices?.[0]?.message?.content ?? "";
+    if (!text) throw new Error("Claude가 응답을 생성하지 못했습니다.");
+    return text;
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
+}
+
 async function callClaude(prompt: string, modelId?: string): Promise<string> {
+  const openRouterKey = getApiKey("VITE_OPENROUTER_API_KEY");
+  if (openRouterKey) {
+    return callClaudeViaOpenRouter(prompt, modelId);
+  }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    throw new Error("Claude API 키가 설정되지 않았습니다. .env에 VITE_ANTHROPIC_API_KEY를 추가해주세요.");
+    throw new Error("Claude API 키가 설정되지 않았습니다. .env에 VITE_ANTHROPIC_API_KEY 또는 VITE_OPENROUTER_API_KEY를 추가해주세요.");
   }
   const model = modelId && CLAUDE_MODELS.includes(modelId) ? modelId : CLAUDE_MODELS[0];
   const controller = new AbortController();

@@ -30,7 +30,7 @@ async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
   return false;
 }
 
-function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY"): string {
+function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY" | "VITE_OPENROUTER_API_KEY"): string {
   let key = (import.meta.env[name] as string) ?? "";
   return key.trim().replace(/^["']|["']$/g, "");
 }
@@ -60,9 +60,39 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
 }
 
 async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
+  const openRouterKey = getApiKey("VITE_OPENROUTER_API_KEY");
+  if (openRouterKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openRouterKey}`,
+          "HTTP-Referer": window.location.origin,
+        },
+        body: JSON.stringify({
+          model: "anthropic/claude-3.5-sonnet",
+          max_tokens: 5,
+          messages: [{ role: "user", content: "hi" }],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (res.ok) return { ok: true };
+      const msg = data?.error?.message || `HTTP ${res.status}`;
+      return { ok: false, message: msg };
+    } catch (e) {
+      clearTimeout(timeout);
+      const msg = e instanceof Error ? e.message : "연결 실패";
+      return { ok: false, message: msg };
+    }
+  }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 추가)" };
+    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 또는 VITE_OPENROUTER_API_KEY 추가)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
