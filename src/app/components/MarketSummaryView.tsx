@@ -234,10 +234,10 @@ export function MarketSummaryView({
         {header}
         <div className="px-5 pt-6 pb-6">
           {isGlobalMarket && (
-            <>
+            <div className="hidden">
               {renderTable("시장지표", data.indices ?? [])}
               {renderTable("주요 섹터ETF", data.sectorEtf ?? [])}
-            </>
+            </div>
           )}
           <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
             {items.map((item, i) => (
