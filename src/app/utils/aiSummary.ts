@@ -418,7 +418,7 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
 1. **시장지표(indices)**: S&P500, 나스닥(NASDAQ), 다우존스, 금, 은, 구리, WTI (7개만)
 2. **주요 섹터ETF(sectorEtf)**: SPY, QQQ, DIA (3개만)
 3. **뉴스(keyIssues)**: News Brief와 마켓 하이라이트를 각각 별도 블록으로. 제목·본문에서 ■ 네모 불릿은 제거.
-4. **핵심 10개(keyIssuesTop10)**: 뉴스브리프(News Brief) 내용 중 시장 영향도·글로벌 이슈·핵심 수치 기준으로 가장 중요한 10개 항목만 선별. 마켓 하이라이트는 제외. 각 항목은 title(짧은 제목)+body(원문 그대로, 요약 금지).
+4. **핵심 10개(keyIssuesTop10)**: 뉴스브리프(News Brief) 내용 중 시장 영향도·글로벌 이슈·핵심 수치 기준으로 가장 중요한 10개 항목만 선별. 마켓 하이라이트는 제외. 각 항목은 title만 출력(제목 타입, body 생략).
 
 핵심 원칙:
 1. PDF(Global Market Daily, Global Market Insight) 내용만 근거로 삼으세요.
@@ -435,7 +435,7 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
      PDF에 있는 모든 제목·항목 전부 포함. 제목만 가져오지 말 것. 항목 본문 전체 반드시 포함.
    - **마켓 하이라이트**: title="마켓 하이라이트". 기업 소식은 "기업명 : 내용" 형식. 일반 항목은 그대로. 정리만, 요약 금지.
 5. 중복 내용: 동일 사실·수치가 여러 섹션에 반복되면 판단하여 한 곳에 통합. 내용 자르기·삭제 아님. 중복 제거 시에도 정보는 유지.
-6. keyIssuesTop10: 뉴스브리프(News Brief)에서만 시장·경제·지정학적 중요도가 높은 10개만 선별. 마켓 하이라이트는 포함하지 않음. body는 원문 그대로. 요약·축약 금지.
+6. keyIssuesTop10: 뉴스브리프(News Brief)에서만 시장·경제·지정학적 중요도가 높은 10개만 선별. 마켓 하이라이트는 포함하지 않음. 각 항목 title만 출력(제목 한 줄, body 생략).
 7. 한자→한글 치환만. 그 외 원문 유지.
 8. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
 9. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
@@ -449,7 +449,7 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
 1. **시장지표(indices)** - 다음 7개만: S&P500, 나스닥, 다우존스, 금, 은, 구리, WTI
 2. **주요 섹터ETF(sectorEtf)** - 다음 3개만: SPY, QQQ, DIA
 3. **뉴스(keyIssues)** - 정리만. 요약 금지. News Brief: 제목+항목(전체 본문) 형식. 제목만 가져오지 말 것. 각 항목 본문 전체 반드시 포함. 중복 내용(동일 사실·수치 반복)은 판단하여 한 곳에 통합. 마켓 하이라이트: 기업소식은 "기업명 : 내용" 형식.
-4. **핵심 10개(keyIssuesTop10)** - 뉴스브리프(News Brief)에서만 시장·경제·지정학적 중요도가 높은 10개만 선별. 마켓 하이라이트 제외. 각 항목 title+body(원문 그대로).
+4. **핵심 10개(keyIssuesTop10)** - 뉴스브리프(News Brief)에서만 시장·경제·지정학적 중요도가 높은 10개만 선별. 마켓 하이라이트 제외. 각 항목 title만(제목 한 줄, body 생략).
 
 반드시 아래 JSON 형식으로만 응답하세요.
 {
@@ -474,8 +474,8 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
     { "title": "마켓 하이라이트", "body": "일반 항목 내용 그대로\n알파벳 : 기업 소식 한줄\n테슬라 : 기업 소식 한줄" }
   ],
   "keyIssuesTop10": [
-    { "title": "뉴욕증시 이틀 연속 하락", "body": "뉴욕증시는 국제 유가가 원유 공급 불안으로 폭등하면서 미국 산업 전반에 충격을 주면서 이틀 연속 하락 마감." },
-    { "title": "2월 비농업 고용 9만2천명 감소", "body": "미국 노동부는 2월 비농업 부문 고용이 9만2천명 감소했다고 발표." }
+    { "title": "뉴욕증시 이틀 연속 하락" },
+    { "title": "2월 비농업 고용 9만2천명 감소" }
   ]
 }
 반드시 유효한 JSON만 출력하세요.`;

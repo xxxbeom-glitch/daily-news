@@ -229,41 +229,38 @@ export function MarketSummaryView({
       return cleaned.split("\n").map((p) => p.trim()).filter(Boolean);
     };
     const items = dedupeKeyIssues(data.keyIssues);
+    const hasTop10 = isGlobalMarket && (data.keyIssuesTop10?.length ?? 0) > 0;
+    const itemsToShow = hasTop10 ? items.filter((it) => (it.title ?? "").trim() !== "뉴스브리프") : items;
     const headlineContent = (
       <>
         {header}
         <div className="px-5 pt-6 pb-6">
           {isGlobalMarket && (
             <>
-              <BlockTitle emoji="📊">대표 지수</BlockTitle>
+              <BlockTitle>대표 지수</BlockTitle>
               <div className="mt-[14px]">
                 {renderTable("시장지표", data.indices ?? [])}
                 {renderTable("주요 섹터ETF", data.sectorEtf ?? [])}
               </div>
             </>
           )}
-          {isGlobalMarket && (data.keyIssuesTop10?.length ?? 0) > 0 && (
-            <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
-              <BlockTitle emoji="📌">뉴스브리프 핵심 10개</BlockTitle>
-              <div className="mt-[14px] space-y-[14px]">
+          {hasTop10 && (
+            <div className="mt-6">
+              <BlockTitle>뉴스브리프</BlockTitle>
+              <div className="mt-[14px] space-y-[10px]">
                 {data.keyIssuesTop10!.map((item, i) => (
                   <div key={i} className="flex gap-2 items-start">
                     <span style={bulletStyle} className="bg-white/50 block shrink-0" />
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/90">
-                        {(item.title ?? "").replace(/^\s*■\s*/, "")}
-                      </div>
-                      <div style={{ fontSize: 13, lineHeight: 1.6 }} className="text-white/70 mt-1 whitespace-pre-line">
-                        {bodyParagraphs(item.body ?? "").join("\n")}
-                      </div>
+                    <div style={{ fontSize: 14, lineHeight: 1.5, fontWeight: 500 }} className="text-white/90">
+                      {(item.title ?? "").replace(/^\s*■\s*/, "")}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
-            {items.map((item, i) => (
+          <div className={isGlobalMarket && !hasTop10 ? "mt-6" : hasTop10 ? "mt-6" : "mt-0"}>
+            {itemsToShow.map((item, i) => (
               <div
                 key={i}
                 className={
