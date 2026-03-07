@@ -1,14 +1,18 @@
 /**
  * PDF 파일에서 텍스트 추출 (pdfjs-dist)
+ * 모바일 Safari 등에서 워커 로드 실패 시 CDN 폴백 사용
  */
 
 import * as pdfjsLib from "pdfjs-dist";
 
+const PDFJS_VERSION = "5.5.207";
+const WORKER_CDN = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+
 let workerInitialized = false;
 function initWorker() {
   if (workerInitialized) return;
-  const base = typeof window !== "undefined" ? window.location.origin + (import.meta.env.BASE_URL || "/") : "";
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `${base.replace(/\/$/, "")}/pdf.worker.min.mjs`;
+  // 모바일 Safari 등에서 로컬 워커 경로가 실패하는 경우가 있어 CDN 사용
+  pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_CDN;
   workerInitialized = true;
 }
 
