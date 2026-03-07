@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI API (Gemini/OpenAI GPT)를 이용한 시황 요약 생성
  */
 
@@ -422,9 +422,17 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
 핵심 원칙:
 1. PDF(Global Market Daily, Global Market Insight) 내용만 근거로 삼으세요.
 2. 나스닥 지수는 Daily에 없으면 Insight(NASDAQ)에서 추출하세요.
-3. keyIssues 구조 (2개 블록). 이미 요약된 내용이므로 추가 요약 절대 금지. 원문 그대로 가져오기.
-   - **News Brief**: title=PDF의 News Brief 제목. body에 항목 전부 그대로 나열(제목\n 항목\n 항목 형식). 요약하지 말 것.
-   - **마켓 하이라이트**: title="마켓 하이라이트". 기업 소식은 "기업명 : 내용" 형식만 적용. 일반 항목은 그대로. 추가 요약 금지.
+3. keyIssues 구조. [핵심=정리(organization)만. 요약(summarization) 절대 금지.]
+   - **News Brief**: title="뉴스브리프". body 형식:
+     제목1 (예: 뉴욕증시, 유가 폭동·고용 충격에 질식…하락 마감)
+      항목1 전체 내용 (하이픈 아래 문장 전부. 생략·축약 금지)
+      항목2 전체 내용
+      ...
+     제목2 (예: 유럽증시, 글로벌 유가 급등세...)
+      항목1 전체 내용
+      ...
+     PDF에 있는 모든 제목·항목 전부 포함. 제목만 가져오지 말 것. 항목 본문 전체 반드시 포함.
+   - **마켓 하이라이트**: title="마켓 하이라이트". 기업 소식은 "기업명 : 내용" 형식. 일반 항목은 그대로. 정리만, 요약 금지.
 4. 한자→한글 치환만. 그 외 원문 유지.
 5. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
 6. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
@@ -437,7 +445,7 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
 
 1. **시장지표(indices)** - 다음 7개만: S&P500, 나스닥, 다우존스, 금, 은, 구리, WTI
 2. **주요 섹터ETF(sectorEtf)** - 다음 3개만: SPY, QQQ, DIA
-3. **뉴스(keyIssues)** - News Brief, 마켓 하이라이트 각각 title로. News Brief는 항목 전부 나열. 마켓 하이라이트 기업소식은 "기업명 : 내용" 형식.
+3. **뉴스(keyIssues)** - 정리만. 요약 금지. News Brief: 제목+항목(전체 본문) 형식. 제목만 가져오지 말 것. 각 항목 본문 전체 반드시 포함. 마켓 하이라이트: 기업소식은 "기업명 : 내용" 형식.
 
 반드시 아래 JSON 형식으로만 응답하세요.
 {
@@ -458,8 +466,8 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
     { "name": "DIA", "value": "종가", "change": "+0.48%", "isUp": true }
   ],
   "keyIssues": [
-    { "title": "News Brief", "body": "첫번째 항목 내용\n두번째 항목 내용\n세번째 항목 내용 (3개 이상 가능, 문서에 있는 거 전부)" },
-    { "title": "마켓 하이라이트", "body": "일반 항목 내용\n알파벳 : 기업 소식 한줄\n테슬라 : 기업 소식 한줄 (기업 있으면 기업명 : 내용 형식)" }
+    { "title": "뉴스브리프", "body": "뉴욕증시, 유가 폭동·고용 충격에 질식…하락 마감\n 뉴욕증시는 국제 유가가 원유 공급 불안으로 폭등하면서 미국 산업 전반에 충격을 주면서 이틀 연속 하락 마감.\n 미국 노동부 2월 비농업 부문 고용 9만 2천명 감소 발표.\n 유럽증시, 글로벌 유가 급등세 이어지며 일제히 하락\n 유럽 증시 전반 하락.\n (제목+항목 전체 본문. 요약 금지)" },
+    { "title": "마켓 하이라이트", "body": "일반 항목 내용 그대로\n알파벳 : 기업 소식 한줄\n테슬라 : 기업 소식 한줄" }
   ]
 }
 반드시 유효한 JSON만 출력하세요.`;
@@ -619,6 +627,7 @@ export async function generateGlobalMarketDailyFromPdf(
     rawResponse = await callGeminiWithOptions(fullUserPrompt, {
       modelId: modelId && GEMINI_MODELS.includes(modelId) ? modelId : undefined,
       systemInstruction: systemPrompt,
+      maxOutputTokens: 16384,
     });
   } else if (useClaude) {
     rawResponse = await callClaude(`${systemPrompt}\n\n---\n\n${fullUserPrompt}`, modelId && CLAUDE_MODELS.includes(modelId) ? modelId : undefined);
