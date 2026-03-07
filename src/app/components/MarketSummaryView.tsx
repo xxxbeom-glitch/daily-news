@@ -245,13 +245,13 @@ export function MarketSummaryView({
             </>
           )}
           {hasTop10 && (
-            <div className="mt-6">
+            <div className="mt-6 pt-[26px] border-t border-dashed border-white/8">
               <BlockTitle>뉴스브리프</BlockTitle>
               <div className="mt-[14px] space-y-[10px]">
                 {data.keyIssuesTop10!.map((item, i) => (
                   <div key={i} className="flex gap-2 items-start">
                     <span style={bulletStyle} className="bg-white/50 block shrink-0" />
-                    <div style={{ fontSize: 14, lineHeight: 1.5, fontWeight: 500 }} className="text-white/90">
+                    <div style={{ fontSize: 14, lineHeight: 1.5, fontWeight: 500 }} className="text-white/90 whitespace-pre-line">
                       {(item.title ?? "").replace(/^\s*■\s*/, "")}
                     </div>
                   </div>
