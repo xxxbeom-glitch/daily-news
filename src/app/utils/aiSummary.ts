@@ -422,10 +422,10 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
 핵심 원칙:
 1. PDF(Global Market Daily, Global Market Insight) 내용만 근거로 삼으세요.
 2. 나스닥 지수는 Daily에 없으면 Insight(NASDAQ)에서 추출하세요.
-3. keyIssues 구조 (2개 블록):
-   - **News Brief**: title="News Brief". body에 PDF의 News Brief(■뉴스) 항목 전부 나열. 3개 이상이어도 됨. 문서에 있는 거 다 끌어오기. 각 항목 한 줄씩.
-   - **마켓 하이라이트**: title="마켓 하이라이트". body에 일반 항목 + 기업 소식 나열. 기업 소식은 반드시 "기업명 : 내용 (한줄)" 형식. 일반 항목은 그냥 나열. 문서 내용 전부 포함.
-4. 압축·생략 금지. 원문 내용 그대로. 개조식·명사형 종결(-음, -기, -함, -됨). 한자→한글 치환.
+3. keyIssues 구조 (2개 블록). 이미 요약된 내용이므로 추가 요약 절대 금지. 원문 그대로 가져오기.
+   - **News Brief**: title=PDF의 News Brief 제목. body에 항목 전부 그대로 나열(제목\n 항목\n 항목 형식). 요약하지 말 것.
+   - **마켓 하이라이트**: title="마켓 하이라이트". 기업 소식은 "기업명 : 내용" 형식만 적용. 일반 항목은 그대로. 추가 요약 금지.
+4. 한자→한글 치환만. 그 외 원문 유지.
 5. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
 6. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
 
