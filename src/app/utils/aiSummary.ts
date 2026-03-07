@@ -108,7 +108,7 @@ ${articleList}
 - 모든 문자열: 한글로. 기업 표기: "기업명(티커)"
 ${includeTotalAssessment
     ? isInternational
-      ? `- totalAssessment: [필수] 핵심 이슈 3가지로 나누어 작성. 각 항목당 2줄 내외. 개조식·명사형 종결(-음, -기, -함, -됨). 줄바꿈으로 항목 구분. 서술형 긴 문단 금지. 수집된 기사 기반으로만 작성.`
+      ? `- totalAssessment: [필수] 핵심 이슈 3~4가지로 나누어 작성. 각 항목당 2줄 내외. 개조식·명사형 종결(-음, -기, -함, -됨). 줄바꿈으로 항목 구분. 서술형 긴 문단 금지. 수집된 기사 기반으로만 작성.`
       : `- totalAssessment: [필수] 아나운서 브리핑 방식 서술형·존댓말. 수집된 기사 기반으로만 작성. 기사에 없는 내용 금지.`
     : ""}
 
@@ -423,7 +423,7 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
 1. PDF(Global Market Daily, Global Market Insight) 내용만 근거로 삼으세요.
 2. 나스닥 지수는 Daily에 없으면 Insight(NASDAQ)에서 추출하세요.
 3. keyIssues: Daily의 ■뉴스 블록 + Insight의 마켓 하이라이트(• 뉴욕증시..., • 알파벳... 등)를 통합. 제목에 ■ 넣지 마세요.
-4. keyIssues: 핵심 이슈 3가지만 추출. 각 body는 항목당 2줄 내외. 개조식·명사형 종결(-음, -기, -함, -됨). 서술형 긴 문단 금지. 한자→한글 치환.
+4. keyIssues: 핵심 이슈 3~4가지로 추출. 각 body는 항목당 2줄 내외. 개조식·명사형 종결(-음, -기, -함, -됨). 서술형 긴 문단 금지. 한자→한글 치환.
 5. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
 6. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
 

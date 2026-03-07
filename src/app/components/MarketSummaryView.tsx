@@ -246,7 +246,13 @@ export function MarketSummaryView({
             {items.map((item, i) => (
               <div
                 key={i}
-                className={i > 0 ? "pt-[26px] mt-[26px] border-t border-white/8" : "mt-6"}
+                className={
+                  i > 0
+                    ? "pt-[26px] mt-[26px] border-t border-dashed border-white/8"
+                    : isGlobalMarket
+                      ? "pt-[26px] mt-[26px] border-t border-dashed border-white/8"
+                      : "mt-6"
+                }
               >
                     <div style={{ fontSize: 16, lineHeight: 1.5 }} className="text-white font-semibold">
                       {(item.title ?? "").replace(/^\s*■\s*/, "")}
