@@ -433,9 +433,10 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
       ...
      PDF에 있는 모든 제목·항목 전부 포함. 제목만 가져오지 말 것. 항목 본문 전체 반드시 포함.
    - **마켓 하이라이트**: title="마켓 하이라이트". 기업 소식은 "기업명 : 내용" 형식. 일반 항목은 그대로. 정리만, 요약 금지.
-4. 한자→한글 치환만. 그 외 원문 유지.
-5. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
-6. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
+4. 중복 내용: 동일 사실·수치가 여러 섹션에 반복되면 판단하여 한 곳에 통합. 내용 자르기·삭제 아님. 중복 제거 시에도 정보는 유지.
+5. 한자→한글 치환만. 그 외 원문 유지.
+6. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
+7. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
 
 /** Global Market Daily PDF 유저 프롬프트 */
 const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight PDF에서 추출한 텍스트입니다.
@@ -445,7 +446,7 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
 
 1. **시장지표(indices)** - 다음 7개만: S&P500, 나스닥, 다우존스, 금, 은, 구리, WTI
 2. **주요 섹터ETF(sectorEtf)** - 다음 3개만: SPY, QQQ, DIA
-3. **뉴스(keyIssues)** - 정리만. 요약 금지. News Brief: 제목+항목(전체 본문) 형식. 제목만 가져오지 말 것. 각 항목 본문 전체 반드시 포함. 마켓 하이라이트: 기업소식은 "기업명 : 내용" 형식.
+3. **뉴스(keyIssues)** - 정리만. 요약 금지. News Brief: 제목+항목(전체 본문) 형식. 제목만 가져오지 말 것. 각 항목 본문 전체 반드시 포함. 중복 내용(동일 사실·수치 반복)은 판단하여 한 곳에 통합. 마켓 하이라이트: 기업소식은 "기업명 : 내용" 형식.
 
 반드시 아래 JSON 형식으로만 응답하세요.
 {
