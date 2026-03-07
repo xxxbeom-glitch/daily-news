@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI API (Gemini/OpenAI GPT)를 이용한 시황 요약 생성
  */
 
@@ -417,13 +417,15 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
 출력 구성 (다음 3가지만 추출):
 1. **시장지표(indices)**: S&P500, 나스닥(NASDAQ), 다우존스, 금, 은, 구리, WTI (7개만)
 2. **주요 섹터ETF(sectorEtf)**: SPY, QQQ, DIA (3개만)
-3. **뉴스(keyIssues)**: News Brief(■로 시작) + 마켓 하이라이트를 하나로 통합. 제목·본문에서 ■ 네모 불릿은 제거.
+3. **뉴스(keyIssues)**: News Brief와 마켓 하이라이트를 각각 별도 블록으로. 제목·본문에서 ■ 네모 불릿은 제거.
 
 핵심 원칙:
 1. PDF(Global Market Daily, Global Market Insight) 내용만 근거로 삼으세요.
 2. 나스닥 지수는 Daily에 없으면 Insight(NASDAQ)에서 추출하세요.
-3. keyIssues: Daily의 ■뉴스 블록 + Insight의 마켓 하이라이트(• 뉴욕증시..., • 알파벳... 등)를 통합. 제목에 ■ 넣지 마세요.
-4. keyIssues: PDF에 있는 뉴스·마켓 하이라이트 전부 추출. 각 항목은 title + body. body는 요약·압축 금지. 원문의 사실·수치·배경·인용 전부 그대로 포함. 제목 아래 3개 포인트로 정리만(줄바꿈 구분). 포인트는 형식 정리일 뿐, 내용 누락 절대 금지. 개조식·명사형 종결(-음, -기, -함, -됨). 한자→한글 치환.
+3. keyIssues 구조 (2개 블록):
+   - **News Brief**: title="News Brief". body에 PDF의 News Brief(■뉴스) 항목 전부 나열. 3개 이상이어도 됨. 문서에 있는 거 다 끌어오기. 각 항목 한 줄씩.
+   - **마켓 하이라이트**: title="마켓 하이라이트". body에 일반 항목 + 기업 소식 나열. 기업 소식은 반드시 "기업명 : 내용 (한줄)" 형식. 일반 항목은 그냥 나열. 문서 내용 전부 포함.
+4. 압축·생략 금지. 원문 내용 그대로. 개조식·명사형 종결(-음, -기, -함, -됨). 한자→한글 치환.
 5. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
 6. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
 
@@ -435,7 +437,7 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
 
 1. **시장지표(indices)** - 다음 7개만: S&P500, 나스닥, 다우존스, 금, 은, 구리, WTI
 2. **주요 섹터ETF(sectorEtf)** - 다음 3개만: SPY, QQQ, DIA
-3. **뉴스(keyIssues)** - News Brief(■뉴스) + 마켓 하이라이트(• 종목 소식) 통합. 제목에 ■ 넣지 마세요.
+3. **뉴스(keyIssues)** - News Brief, 마켓 하이라이트 각각 title로. News Brief는 항목 전부 나열. 마켓 하이라이트 기업소식은 "기업명 : 내용" 형식.
 
 반드시 아래 JSON 형식으로만 응답하세요.
 {
@@ -455,7 +457,10 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
     { "name": "QQQ", "value": "종가", "change": "+1.53%", "isUp": true },
     { "name": "DIA", "value": "종가", "change": "+0.48%", "isUp": true }
   ],
-  "keyIssues": [{ "title": "제목 (■ 제외)", "body": "1. 요약된 내용1 (원문 내용 충실히)\n2. 요약된 내용2 (원문 내용 충실히)\n3. 요약된 내용3 (원문 내용 충실히) — 압축 금지, 전부 포함" }]
+  "keyIssues": [
+    { "title": "News Brief", "body": "첫번째 항목 내용\n두번째 항목 내용\n세번째 항목 내용 (3개 이상 가능, 문서에 있는 거 전부)" },
+    { "title": "마켓 하이라이트", "body": "일반 항목 내용\n알파벳 : 기업 소식 한줄\n테슬라 : 기업 소식 한줄 (기업 있으면 기업명 : 내용 형식)" }
+  ]
 }
 반드시 유효한 JSON만 출력하세요.`;
 
