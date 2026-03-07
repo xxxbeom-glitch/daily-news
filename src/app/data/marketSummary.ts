@@ -95,6 +95,8 @@ export interface MarketSummaryData {
   commodities?: IndexData[];
   /** 글로벌 마켓 전용: 주요 섹터ETF (SPY, QQQ, DIA) */
   sectorEtf?: IndexData[];
+  /** 글로벌 마켓 전용: 뉴스브리프에서 선별한 핵심 10개 */
+  keyIssuesTop10?: IssueItem[];
   /** 데이터 검증 결과 */
   verificationResult?: {
     matchPercent: number;       // 0~100 (RSS 기사 기준만 산출)

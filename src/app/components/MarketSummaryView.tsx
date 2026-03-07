@@ -242,6 +242,26 @@ export function MarketSummaryView({
               </div>
             </>
           )}
+          {isGlobalMarket && (data.keyIssuesTop10?.length ?? 0) > 0 && (
+            <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
+              <BlockTitle emoji="📌">뉴스브리프 핵심 10개</BlockTitle>
+              <div className="mt-[14px] space-y-[14px]">
+                {data.keyIssuesTop10!.map((item, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span style={bulletStyle} className="bg-white/50 block shrink-0" />
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/90">
+                        {(item.title ?? "").replace(/^\s*■\s*/, "")}
+                      </div>
+                      <div style={{ fontSize: 13, lineHeight: 1.6 }} className="text-white/70 mt-1 whitespace-pre-line">
+                        {bodyParagraphs(item.body ?? "").join("\n")}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className={isGlobalMarket ? "mt-6" : "mt-0"}>
             {items.map((item, i) => (
               <div
