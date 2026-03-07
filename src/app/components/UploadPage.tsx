@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Paperclip } from "lucide-react";
+import { Paperclip, FileText } from "lucide-react";
 import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
 import { getSelectedModel, getSelectedModelId, saveArchiveState } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
@@ -14,7 +14,8 @@ import {
 } from "../utils/cloudinaryUpload";
 type CountryTab = "kr" | "us";
 
-const ACCEPT_ALL = "image/png,image/jpeg,image/gif,image/webp,application/pdf,.pdf";
+const ACCEPT_IMAGES = "image/png,image/jpeg,image/gif,image/webp";
+const ACCEPT_PDF = ".pdf,application/pdf";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const PDF_TYPE = "application/pdf";
 /** 이미지 개수 제한 없음 (AI 요약 시간은 사용자 수용) */
@@ -97,6 +98,7 @@ export function UploadPage() {
   const [progressStep, setProgressStep] = useState<1 | 2 | 3>(1);
   const [progressPercent, setProgressPercent] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const PROGRESS_LABELS: Record<1 | 2 | 3, string> = {
     1: "업로드",
@@ -453,14 +455,24 @@ export function UploadPage() {
             className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
           />
           <div className="flex items-center justify-between gap-2 px-4 py-2 border-t border-white/10 bg-white/[0.02]">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
-              title="첨부"
-            >
-              <Paperclip size={18} />
-            </button>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
+                title="이미지 첨부"
+              >
+                <Paperclip size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
+                title="PDF 첨부"
+              >
+                <FileText size={18} />
+              </button>
+            </div>
             <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
               <button
                 type="button"
@@ -487,7 +499,15 @@ export function UploadPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept={ACCEPT_ALL}
+            accept={ACCEPT_IMAGES}
+            onChange={handleFileChange}
+            multiple
+            className="hidden"
+          />
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept={ACCEPT_PDF}
             onChange={handleFileChange}
             multiple
             className="hidden"
