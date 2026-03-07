@@ -55,7 +55,7 @@ function formatDisplayDate(dateStr: string): string {
 
 function BlockTitle({ emoji, children }: { emoji?: string; children: React.ReactNode }) {
   return (
-    <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t-2 border-white/50 first:border-t-0">
+    <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t border-white/8 first:border-t-0">
       <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">
         {emoji && <span className="mr-2">{emoji}</span>}
         {children}
@@ -79,7 +79,7 @@ function UsedArticlesSection({ articles }: { articles?: Article[] }) {
   return (
     <div
       style={{ fontSize: 11 }}
-      className="text-gray-400 mt-[26px] pt-[26px] pb-6 border-t-2 border-white/50"
+      className="text-gray-400 mt-[26px] pt-[26px] pb-6 border-t border-white/8"
     >
       <div style={{ fontWeight: 600 }} className="text-gray-400 mb-3">
         사용된 기사 ({list.length})
@@ -134,7 +134,7 @@ export function MarketSummaryView({
 
   const dateToShow = displayDate ?? data.date;
   const header = (
-      <div className="flex items-center justify-between px-[17px] pt-[20px] pb-[20px] border-b border-white/50">
+      <div className="flex items-center justify-between px-[17px] pt-[20px] pb-[20px] border-b border-white/8">
       <div>
         <div style={{ fontSize: 11, lineHeight: 1.5 }} className="text-white/90">
           {formatDisplayDate(dateToShow)}
@@ -246,7 +246,7 @@ export function MarketSummaryView({
             {items.map((item, i) => (
               <div
                 key={i}
-                className={i > 0 ? "pt-[26px] mt-[26px] border-t border-dashed border-white/20" : "mt-6"}
+                className={i > 0 ? "pt-[26px] mt-[26px] border-t border-white/8" : "mt-6"}
               >
                     <div style={{ fontSize: 16, lineHeight: 1.5 }} className="text-white font-semibold">
                       {(item.title ?? "").replace(/^\s*■\s*/, "")}
@@ -301,7 +301,7 @@ export function MarketSummaryView({
         <div className="px-5 py-0 pb-6">
 
           {/* 총평 */}
-          <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t-2 border-white/50 first:border-t-0">
+          <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t border-white/8 first:border-t-0">
             <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">{totalAssessmentLabel}</span>
             <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[14px] min-h-[20px]">
               {data.totalAssessment ? data.totalAssessment : data.totalAssessmentError ? "Error" : ""}
@@ -451,7 +451,7 @@ export function MarketSummaryView({
     <>
       {header}
       <div className="px-5 py-0 pb-6">
-        <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t-2 border-white/50 first:border-t-0">
+        <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t border-white/8 first:border-t-0">
           <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">{totalAssessmentLabel}</span>
           <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[14px] min-h-[20px]">
             {data.totalAssessment ? data.totalAssessment : data.totalAssessmentError ? "Error" : ""}
