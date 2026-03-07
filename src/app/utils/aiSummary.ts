@@ -423,7 +423,7 @@ const GLOBAL_MARKET_DAILY_SYSTEM_PROMPT = `역할: 귀하는 Global Market Daily
 1. PDF(Global Market Daily, Global Market Insight) 내용만 근거로 삼으세요.
 2. 나스닥 지수는 Daily에 없으면 Insight(NASDAQ)에서 추출하세요.
 3. keyIssues: Daily의 ■뉴스 블록 + Insight의 마켓 하이라이트(• 뉴욕증시..., • 알파벳... 등)를 통합. 제목에 ■ 넣지 마세요.
-4. keyIssues: 핵심 이슈 3~4가지로 추출. 각 body는 서술형 한 문단 금지. 반드시 3개 포인트로 개조식 나열(줄바꿈으로 구분). 각 포인트 1~2줄. 명사형 종결(-음, -기, -함, -됨). 한자→한글 치환.
+4. keyIssues: PDF에 있는 뉴스·마켓 하이라이트 전부 추출. 각 항목은 title + body. body는 요약·압축 금지. 원문의 사실·수치·배경·인용 전부 그대로 포함. 제목 아래 3개 포인트로 정리만(줄바꿈 구분). 포인트는 형식 정리일 뿐, 내용 누락 절대 금지. 개조식·명사형 종결(-음, -기, -함, -됨). 한자→한글 치환.
 5. 수치(종가, 등락률)는 원문 그대로. isUp은 등락률 부호(+/−)에 따라 true/false.
 6. 경제지표, Technical Point, 통화표 등 그 외 데이터는 추출하지 마세요.`;
 
@@ -455,7 +455,7 @@ const GLOBAL_MARKET_DAILY_USER_PROMPT = `아래는 Global Market Daily·Insight 
     { "name": "QQQ", "value": "종가", "change": "+1.53%", "isUp": true },
     { "name": "DIA", "value": "종가", "change": "+0.48%", "isUp": true }
   ],
-  "keyIssues": [{ "title": "제목 (■ 제외)", "body": "1. 포인트1 (1~2줄)\n2. 포인트2 (1~2줄)\n3. 포인트3 (1~2줄) — 서술형 금지, 개조식만" }]
+  "keyIssues": [{ "title": "제목 (■ 제외)", "body": "1. 요약된 내용1 (원문 내용 충실히)\n2. 요약된 내용2 (원문 내용 충실히)\n3. 요약된 내용3 (원문 내용 충실히) — 압축 금지, 전부 포함" }]
 }
 반드시 유효한 JSON만 출력하세요.`;
 
