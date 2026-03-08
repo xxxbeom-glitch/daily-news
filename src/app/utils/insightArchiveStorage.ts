@@ -30,3 +30,8 @@ export function addInsightArchive(item: InsightArchiveItem): void {
   items.unshift(item);
   saveInsightArchives(items);
 }
+
+export function removeInsightArchive(id: string): void {
+  const items = loadInsightArchives().filter((i) => i.id !== id);
+  saveInsightArchives(items);
+}

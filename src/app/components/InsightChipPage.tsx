@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Clipboard, X, Loader2 } from "lucide-react";
 import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
-import { addInsightArchive, loadInsightArchives } from "../utils/insightArchiveStorage";
+import { addInsightArchive, loadInsightArchives, removeInsightArchive } from "../utils/insightArchiveStorage";
 import { saveInsightChipState, loadInsightChipState } from "../utils/persistState";
 import type { InsightArchiveItem } from "../data/insightReport";
 import { getSelectedModelId } from "../utils/persistState";
@@ -249,14 +249,28 @@ export function InsightChipPage() {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {selectedArchive ? (
             <div>
-              <button
-                type="button"
-                onClick={() => setSelectedArchive(null)}
-                className="mb-3 text-[#618EFF] hover:underline"
-                style={{ fontSize: 13 }}
-              >
-                목록으로
-              </button>
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedArchive(null)}
+                  className="text-white hover:underline"
+                  style={{ fontSize: 13 }}
+                >
+                  목록
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeInsightArchive(selectedArchive.id);
+                    setSelectedArchive(null);
+                    setArchiveItems(loadInsightArchives());
+                  }}
+                  className="text-white/70 hover:text-red-400 transition-colors"
+                  style={{ fontSize: 13 }}
+                >
+                  삭제하기
+                </button>
+              </div>
               <InsightReportView
                 data={selectedArchive.report}
                 title={selectedArchive.title}
@@ -276,7 +290,7 @@ export function InsightChipPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedArchive(item)}
-                  className="w-full h-[56px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
+                  className="w-full h-[72px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
                 >
                   <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
                     {item.title || item.url}
