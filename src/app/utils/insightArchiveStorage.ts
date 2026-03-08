@@ -11,7 +11,12 @@ export function loadInsightArchives(): InsightArchiveItem[] {
     const raw = localStorage.getItem(INSIGHT_ARCHIVES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as InsightArchiveItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    const items = Array.isArray(parsed) ? parsed : [];
+    return [...items].sort((a, b) => {
+      const tsA = a.publishedAt ? new Date(a.publishedAt).getTime() : new Date(a.createdAt).getTime();
+      const tsB = b.publishedAt ? new Date(b.publishedAt).getTime() : new Date(b.createdAt).getTime();
+      return tsB - tsA;
+    });
   } catch {
     return [];
   }

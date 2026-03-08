@@ -7,20 +7,23 @@ import type { InsightReportData } from "../data/insightReport";
 
 const lineStyle = { lineHeight: 1.5 as const };
 
-function formatArticleDate(publishedAt?: string): string {
+function formatArticleDate(publishedAt?: string, options?: { withLabel?: boolean; dateOnly?: boolean }): string {
   if (!publishedAt) return "";
   try {
     const d = new Date(publishedAt);
-    if (isNaN(d.getTime())) return publishedAt;
-    return d.toLocaleString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (isNaN(d.getTime())) return options?.withLabel ? `발행: ${publishedAt}` : publishedAt;
+    const formatted = options?.dateOnly
+      ? `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`
+      : d.toLocaleString("ko-KR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+    return options?.withLabel ? `발행: ${formatted}` : formatted;
   } catch {
-    return publishedAt;
+    return options?.withLabel ? `발행: ${publishedAt}` : publishedAt;
   }
 }
 
@@ -83,7 +86,11 @@ export function InsightReportView({
     /매도|팔 것|매도.*추천|매도.*권유/.test(strategyPrefix) ? "text-red-400" :
     "text-white/70";
 
-  const dateDisplay = formatArticleDate(publishedAt) || (createdAt ? formatArticleDate(createdAt) : "");
+  const dateDisplay = publishedAt
+    ? formatArticleDate(publishedAt, { withLabel: true, dateOnly: true })
+    : createdAt
+      ? formatArticleDate(createdAt, { withLabel: true, dateOnly: true })
+      : "";
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] mt-0 mb-6 mx-0">

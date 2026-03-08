@@ -129,11 +129,35 @@ function tryExtractPublishedAt(doc: Document, html: string): string | undefined 
   if (d) return d;
   const t = doc.querySelector("time[datetime]")?.getAttribute("datetime")?.trim();
   if (t) return t;
-  const ldJson = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
-  if (ldJson) {
+  const itemprop = doc.querySelector("[itemprop='datePublished']")?.getAttribute("content")?.trim()
+    ?? doc.querySelector("[itemprop='datePublished']")?.getAttribute("datetime")?.trim();
+  if (itemprop) return itemprop;
+  const naverSelectors = [
+    "span.media_end_head_info_dateline_time",
+    "span.media_end_head_info_datestamp_time._ARTICLE_DATE_TIME",
+    "span.media_end_head_info_datestamp_time",
+  ];
+  for (const sel of naverSelectors) {
+    const el = doc.querySelector(sel);
+    const dataTime = el?.getAttribute("data-date-time")?.trim();
+    if (dataTime) return dataTime;
+    const text = el?.textContent?.trim();
+    if (text && /\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}/.test(text)) return text;
+  }
+  const ldJsonRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let ldJsonM;
+  while ((ldJsonM = ldJsonRegex.exec(html)) !== null) {
+    const inner = ldJsonM[1]?.trim();
+      if (!inner) continue;
     try {
-      const parsed = JSON.parse(ldJson[1]) as { datePublished?: string };
+      const parsed = JSON.parse(inner) as { datePublished?: string; "@graph"?: Array<{ datePublished?: string }> };
       if (parsed?.datePublished) return parsed.datePublished;
+      const graph = parsed?.["@graph"];
+      if (Array.isArray(graph)) {
+        for (const g of graph) {
+          if (g?.datePublished) return g.datePublished;
+        }
+      }
     } catch {
       /* ignore */
     }
