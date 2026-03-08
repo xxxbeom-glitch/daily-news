@@ -5,6 +5,7 @@
 
 const SEARCH_STATE_KEY = "dailynews_search_state";
 const ARCHIVE_STATE_KEY = "dailynews_archive_state";
+const INSIGHT_CHIP_STATE_KEY = "newsbrief_insight_chip_state";
 const SELECTED_SOURCES_KEY = "newsbrief_selected_sources";
 const INTEREST_MEMORY_DOMESTIC_KEY = "newsbrief_interest_memory_domestic";
 const INTEREST_MEMORY_INTERNATIONAL_KEY = "newsbrief_interest_memory_international";
@@ -218,6 +219,29 @@ export function loadArchiveState(): PersistedArchiveState | null {
     const parsed = JSON.parse(raw) as PersistedArchiveState;
     if (!parsed || typeof parsed.isInternational !== "boolean") return null;
     return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export interface PersistedInsightChipState {
+  activeTab: "분석" | "아카이빙";
+  chips: string[];
+  result: unknown;
+  selectedArchiveId: string | null;
+}
+
+export function saveInsightChipState(state: PersistedInsightChipState): void {
+  try {
+    sessionStorage.setItem(INSIGHT_CHIP_STATE_KEY, JSON.stringify(state));
+  } catch {}
+}
+
+export function loadInsightChipState(): PersistedInsightChipState | null {
+  try {
+    const raw = sessionStorage.getItem(INSIGHT_CHIP_STATE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedInsightChipState;
   } catch {
     return null;
   }

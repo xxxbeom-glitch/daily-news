@@ -1,12 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Clipboard, X, Loader2 } from "lucide-react";
 import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
-import { addInsightArchive } from "../utils/insightArchiveStorage";
+import { addInsightArchive, loadInsightArchives } from "../utils/insightArchiveStorage";
+import { saveInsightChipState, loadInsightChipState } from "../utils/persistState";
 import type { InsightArchiveItem } from "../data/insightReport";
 import { getSelectedModelId } from "../utils/persistState";
 
-/** 인사이트 칩은 Gemini 3 Flash 기본 사용 */
 function getInsightModel(): "gemini" {
   return "gemini";
 }
@@ -17,14 +17,55 @@ export function InsightChipPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<InsightArchiveItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"분석" | "아카이빙">("분석");
+  const [archiveItems, setArchiveItems] = useState<InsightArchiveItem[]>([]);
+  const [selectedArchive, setSelectedArchive] = useState<InsightArchiveItem | null>(null);
+  const hasRestoredRef = useRef(false);
+
+  useEffect(() => {
+    setArchiveItems(loadInsightArchives());
+  }, [result, activeTab]);
+
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    const saved = loadInsightChipState();
+    if (saved) {
+      if (saved.activeTab) setActiveTab(saved.activeTab);
+      if (Array.isArray(saved.chips) && saved.chips.length > 0) setChips(saved.chips);
+      if (saved.result && typeof saved.result === "object") {
+        const r = saved.result as InsightArchiveItem;
+        if (r.report && r.id) setResult(r);
+      }
+      if (saved.selectedArchiveId) {
+        const items = loadInsightArchives();
+        const found = items.find((i) => i.id === saved.selectedArchiveId);
+        if (found) setSelectedArchive(found);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    saveInsightChipState({
+      activeTab,
+      chips,
+      result: result ? { ...result } : null,
+      selectedArchiveId: selectedArchive?.id ?? null,
+    });
+  }, [activeTab, chips, result, selectedArchive]);
 
   const handlePasteFromClipboard = useCallback(async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (text.trim()) {
-        const url = text.trim();
-        const hasProtocol = /^https?:\/\//i.test(url);
-        setInputValue(hasProtocol ? url : `https://${url}`);
+        const url = /^https?:\/\//i.test(text.trim()) ? text.trim() : `https://${text.trim()}`;
+        try {
+          new URL(url);
+          setChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+          setError(null);
+        } catch {
+          setError("유효하지 않은 URL입니다.");
+        }
       }
     } catch {
       setError("클립보드 접근에 실패했습니다.");
@@ -37,13 +78,12 @@ export function InsightChipPage() {
     const url = /^https?:\/\//i.test(v) ? v : `https://${v}`;
     try {
       new URL(url);
+      setChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+      setInputValue("");
+      setError(null);
     } catch {
       setError("유효하지 않은 URL입니다.");
-      return;
     }
-    setChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
-    setInputValue("");
-    setError(null);
   }, [inputValue]);
 
   const removeChip = useCallback((url: string) => {
@@ -72,6 +112,7 @@ export function InsightChipPage() {
         url: res.url,
         title: res.title,
         source: res.source,
+        publishedAt: res.publishedAt,
         createdAt: new Date().toISOString(),
         report: res.report,
         aiModel: getInsightModel(),
@@ -85,117 +126,172 @@ export function InsightChipPage() {
     }
   }, [chips]);
 
-  const handleKeyDown = (e: React.KeyboardEvent, isInput: boolean) => {
-    if (e.key === "Enter") {
-      if (isInput) addChipFromInput();
-      else runAnalysis();
-    }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") addChipFromInput();
   };
 
   return (
-    <div className="flex flex-col min-h-full px-4 py-4">
-      <div className="flex flex-col gap-3 mb-4">
-        <div className="flex gap-2 items-center">
-          <div className="flex-1 flex items-center gap-2 rounded-[10px] border border-white/10 bg-white/5 px-3 py-2.5">
-            <input
-              type="text"
-              placeholder="URL 링크 입력"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, true)}
-              className="flex-1 min-w-0 bg-transparent text-white placeholder-white/40 outline-none"
-              style={{ fontSize: 14 }}
-              disabled={analyzing}
-            />
-            <button
-              type="button"
-              onClick={handlePasteFromClipboard}
-              className="p-2 rounded-[6px] text-white/50 hover:text-white/90 hover:bg-white/5 transition-colors shrink-0"
-              title="클립보드 붙여넣기"
-              disabled={analyzing}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
+      <div className="flex items-stretch gap-2 mb-4 shrink-0">
+        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 rounded-[10px] border border-white/10 bg-white/5 px-3 py-2 min-h-10">
+          {chips.map((url) => (
+            <div
+              key={url}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/10 px-2.5 py-1 shrink-0"
             >
-              <Clipboard size={18} />
-            </button>
-          </div>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/90 truncate max-w-[160px] hover:underline"
+                style={{ fontSize: 12 }}
+              >
+                {url}
+              </a>
+              <button
+                type="button"
+                onClick={() => removeChip(url)}
+                className="p-0.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                title="제거"
+                disabled={analyzing}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          <input
+            type="text"
+            placeholder={chips.length === 0 ? "URL 링크 입력" : ""}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 min-w-[120px] bg-transparent text-white placeholder-white/40 outline-none py-1"
+            style={{ fontSize: 12 }}
+            disabled={analyzing}
+          />
           <button
             type="button"
-            onClick={addChipFromInput}
-            className="py-2.5 px-3 rounded-[10px] border border-[#618EFF]/40 bg-[#618EFF]/20 text-[#618EFF] hover:bg-[#618EFF]/30 transition-colors shrink-0"
-            style={{ fontSize: 13, fontWeight: 500 }}
+            onClick={handlePasteFromClipboard}
+            className="p-1.5 rounded-[6px] text-white/50 hover:text-white/90 hover:bg-white/5 transition-colors shrink-0"
+            title="클립보드 붙여넣기"
             disabled={analyzing}
           >
-            추가
+            <Clipboard size={16} />
           </button>
         </div>
 
-        {chips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {chips.map((url) => (
-              <div
-                key={url}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-1.5 max-w-full"
-              >
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white/90 truncate max-w-[200px] hover:underline text-sm"
-                >
-                  {url}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => removeChip(url)}
-                  className="p-0.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-                  title="제거"
-                  disabled={analyzing}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {chips.length > 0 && (
+        <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
           <button
             type="button"
-            onClick={runAnalysis}
-            disabled={analyzing}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-[#618EFF]/20 border border-[#618EFF]/40 text-[#618EFF] hover:bg-[#618EFF]/30 disabled:opacity-50 transition-colors"
-            style={{ fontSize: 14, fontWeight: 600 }}
+            onClick={() => { setActiveTab("분석"); setSelectedArchive(null); }}
+            className={`flex-1 min-w-[52px] h-full flex items-center justify-center transition-colors border-r border-white/10 ${
+              activeTab === "분석" ? "text-white" : "opacity-40"
+            }`}
+            style={{ fontSize: 12 }}
           >
-            {analyzing ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                분석 중…
-              </>
-            ) : (
-              "분석 실행"
-            )}
+            분석
           </button>
-        )}
-
-        {error && (
-          <div className="px-3 py-2 rounded-[8px] bg-red-500/10 border border-red-500/30 text-red-400" style={{ fontSize: 13 }}>
-            {error}
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("아카이빙")}
+            className={`flex-1 min-w-[52px] h-full flex items-center justify-center transition-colors ${
+              activeTab === "아카이빙" ? "text-white" : "opacity-40"
+            }`}
+            style={{ fontSize: 12 }}
+          >
+            아카이빙
+          </button>
+        </div>
       </div>
 
-      {result && (
-        <InsightReportView
-          data={result.report}
-          title={result.title}
-          source={result.source}
-          dateStr={new Date(result.createdAt).toLocaleDateString("ko-KR", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            weekday: "short",
-          })}
-          aiModel={result.aiModel}
-        />
+      {activeTab === "분석" && (
+        <>
+          {chips.length > 0 && (
+            <button
+              type="button"
+              onClick={runAnalysis}
+              disabled={analyzing}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-[#618EFF]/20 border border-[#618EFF]/40 text-[#618EFF] hover:bg-[#618EFF]/30 disabled:opacity-50 transition-colors mb-4"
+              style={{ fontSize: 14, fontWeight: 600 }}
+            >
+              {analyzing ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  분석 중…
+                </>
+              ) : (
+                "분석 실행"
+              )}
+            </button>
+          )}
+
+          {error && (
+            <div className="mb-4 px-3 py-2 rounded-[8px] bg-red-500/10 border border-red-500/30 text-red-400" style={{ fontSize: 13 }}>
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <InsightReportView
+                data={result.report}
+                title={result.title}
+                publishedAt={result.publishedAt}
+                createdAt={result.createdAt}
+                aiModel={result.aiModel}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === "아카이빙" && (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {selectedArchive ? (
+            <div>
+              <button
+                type="button"
+                onClick={() => setSelectedArchive(null)}
+                className="mb-3 text-[#618EFF] hover:underline"
+                style={{ fontSize: 13 }}
+              >
+                목록으로
+              </button>
+              <InsightReportView
+                data={selectedArchive.report}
+                title={selectedArchive.title}
+                publishedAt={selectedArchive.publishedAt}
+                createdAt={selectedArchive.createdAt}
+                aiModel={selectedArchive.aiModel}
+              />
+            </div>
+          ) : archiveItems.length === 0 ? (
+            <div className="py-12 text-center text-white/50" style={{ fontSize: 14 }}>
+              아카이브된 인사이트가 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {archiveItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedArchive(item)}
+                  className="w-full text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors"
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
+                    {item.title || item.url}
+                  </div>
+                  <div style={{ fontSize: 12 }} className="text-white/40 mt-1">
+                    {item.source && `${item.source} · `}
+                    {item.publishedAt
+                      ? new Date(item.publishedAt).toLocaleString("ko-KR")
+                      : new Date(item.createdAt).toLocaleDateString("ko-KR")}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

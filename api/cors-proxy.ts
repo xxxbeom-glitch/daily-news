@@ -35,6 +35,8 @@ const ALLOWED_DOMAIN_SUFFIXES = [
   ".donga.com",
   ".khan.co.kr",
   ".joongang.co.kr",
+  ".naver.com",
+  ".naver.jp",
 ];
 
 function isAllowedUrl(urlStr: string): boolean {

@@ -14,6 +14,7 @@ export interface InsightAnalysisResult {
   url: string;
   title: string;
   source?: string;
+  publishedAt?: string;
   report: InsightReportData;
   ok: boolean;
   error?: string;
@@ -32,6 +33,7 @@ export async function runInsightAnalysis(
       url: input.url,
       title: scraped.title,
       source: scraped.source,
+      publishedAt: scraped.publishedAt,
       report: {
         articleSummary: [],
         keyPoints: "",
@@ -56,6 +58,7 @@ export async function runInsightAnalysis(
       url: scraped.url,
       title: scraped.title,
       source: scraped.source,
+      publishedAt: scraped.publishedAt,
       report,
       ok: true,
     };
@@ -64,6 +67,7 @@ export async function runInsightAnalysis(
       url: scraped.url,
       title: scraped.title,
       source: scraped.source,
+      publishedAt: scraped.publishedAt,
       report: {
         articleSummary: [],
         keyPoints: "",

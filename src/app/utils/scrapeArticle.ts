@@ -59,6 +59,8 @@ export interface ScrapedArticle {
   title: string;
   body: string;
   source?: string;
+  /** 기사 발행 일시 (ISO8601 또는 파싱된 문자열) */
+  publishedAt?: string;
   ok: boolean;
   error?: string;
 }
@@ -93,6 +95,8 @@ export async function scrapeArticleFromUrl(url: string): Promise<ScrapedArticle>
     doc.querySelector("meta[property='og:title']")?.getAttribute("content") ??
     "";
 
+  const publishedAt = tryExtractPublishedAt(doc, text);
+
   const body = extractTextFromHtml(text).slice(0, MAX_BODY_LENGTH);
   if (body.length < 50) {
     const fallback = doc.body?.textContent?.trim().replace(/\s+/g, " ").slice(0, MAX_BODY_LENGTH) ?? "";
@@ -101,6 +105,7 @@ export async function scrapeArticleFromUrl(url: string): Promise<ScrapedArticle>
       title,
       body: fallback,
       source: tryExtractSource(trimmed),
+      publishedAt,
       ok: fallback.length >= 50,
       error: fallback.length < 50 ? "본문을 추출할 수 없습니다." : undefined,
     };
@@ -111,8 +116,29 @@ export async function scrapeArticleFromUrl(url: string): Promise<ScrapedArticle>
     title,
     body,
     source: tryExtractSource(trimmed),
+    publishedAt,
     ok: true,
   };
+}
+
+function tryExtractPublishedAt(doc: Document, html: string): string | undefined {
+  const sel = doc.querySelector("meta[property='article:published_time']");
+  const v = sel?.getAttribute("content")?.trim();
+  if (v) return v;
+  const d = doc.querySelector("meta[name='date']")?.getAttribute("content")?.trim();
+  if (d) return d;
+  const t = doc.querySelector("time[datetime]")?.getAttribute("datetime")?.trim();
+  if (t) return t;
+  const ldJson = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (ldJson) {
+    try {
+      const parsed = JSON.parse(ldJson[1]) as { datePublished?: string };
+      if (parsed?.datePublished) return parsed.datePublished;
+    } catch {
+      /* ignore */
+    }
+  }
+  return undefined;
 }
 
 function tryExtractSource(url: string): string {
@@ -128,6 +154,8 @@ function tryExtractSource(url: string): string {
       "chosun.com": "조선일보",
       "donga.com": "동아일보",
       "khan.co.kr": "경향신문",
+      "n.news.naver.com": "네이버뉴스",
+      "news.naver.com": "네이버뉴스",
     };
     return known[host] ?? host;
   } catch {

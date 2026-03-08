@@ -20,6 +20,8 @@ export interface InsightArchiveItem {
   url: string;
   title?: string;
   source?: string;
+  /** 기사 발행 일시 (ISO8601 등) */
+  publishedAt?: string;
   createdAt: string;
   report: InsightReportData;
   aiModel: "gemini" | "gpt" | "claude";

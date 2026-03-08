@@ -10,7 +10,6 @@ import { UploadPage } from "./components/UploadPage";
 import { MarketDashboardPage } from "./components/MarketDashboardPage";
 import { ScrapPage } from "./components/ScrapPage";
 import { InsightChipPage } from "./components/InsightChipPage";
-import { ArchivePage } from "./components/ArchivePage";
 
 export const router = createBrowserRouter([
   {
@@ -32,7 +31,6 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <SettingsPageWrapper /> },
           { path: "scrap", element: <ScrapPage /> },
-          { path: "archive", element: <ArchivePage /> },
           { path: "login", element: <LoginPage /> },
           { path: "admin", element: <AdminPage /> },
         ],
