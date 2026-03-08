@@ -112,7 +112,7 @@ export function InsightReportView({
         </div>
 
         <div className="px-5 pt-6 pb-6">
-          <BlockTitle>[기사 요약]</BlockTitle>
+          <BlockTitle>기사 요약</BlockTitle>
           <div className="mt-[14px] space-y-[10px]">
             {(data.articleSummary.length > 0 ? data.articleSummary : ["(요약 없음)"]).map((item, i) => (
               <div key={i} className="flex gap-2 items-start">
@@ -124,12 +124,12 @@ export function InsightReportView({
             ))}
           </div>
 
-          <BlockTitle>[핵심 포인트]</BlockTitle>
+          <BlockTitle>핵심 포인트</BlockTitle>
           <div style={{ fontSize: 14, lineHeight: 1.6 }} className="text-white/80 mt-[14px]">
             {data.keyPoints || "(분석 없음)"}
           </div>
 
-          <BlockTitle>[투자 의견]</BlockTitle>
+          <BlockTitle>투자 의견</BlockTitle>
           <div className="mt-[14px] space-y-[12px]">
             <div className="flex items-center gap-3 flex-wrap">
               <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white/90">
