@@ -121,10 +121,55 @@ export async function scrapeArticleFromUrl(url: string): Promise<ScrapedArticle>
   };
 }
 
+/** "입력 2026.03.09. 오전 12:32" 형태를 ISO8601로 변환 */
+function parseNaverDatetimeText(text: string): string | undefined {
+  const dateMatch = text.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (!dateMatch) return undefined;
+  const [, y, m, d] = dateMatch;
+  const year = parseInt(y!, 10);
+  const month = parseInt(m!, 10) - 1;
+  const day = parseInt(d!, 10);
+
+  const amMatch = text.match(/오전\s*(\d{1,2})\s*[:\s]\s*(\d{1,2})/);
+  const pmMatch = text.match(/오후\s*(\d{1,2})\s*[:\s]\s*(\d{1,2})/);
+  let hour = 0;
+  let minute = 0;
+  if (amMatch) {
+    let h = parseInt(amMatch[1], 10);
+    if (h === 12) h = 0;
+    hour = h;
+    minute = parseInt(amMatch[2], 10);
+  } else if (pmMatch) {
+    let h = parseInt(pmMatch[1], 10);
+    if (h !== 12) h += 12;
+    hour = h;
+    minute = parseInt(pmMatch[2], 10);
+  } else {
+    const timeMatch = text.match(/(\d{1,2})\s*[:\s.]\s*(\d{1,2})/);
+    if (timeMatch) {
+      hour = parseInt(timeMatch[1], 10);
+      minute = parseInt(timeMatch[2], 10);
+    }
+  }
+
+  const date = new Date(year, month, day, hour, minute, 0);
+  if (isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
+/** 기존 ISO/날짜 문자열을 표준화 (data-date-time 등이 "2026.03.09. 00:32" 형태일 수 있음) */
+function normalizeToIso(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return value;
+  const parsed = parseNaverDatetimeText(value);
+  if (parsed) return parsed;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? value : d.toISOString();
+}
+
 function tryExtractPublishedAt(doc: Document, html: string): string | undefined {
   const sel = doc.querySelector("meta[property='article:published_time']");
   const v = sel?.getAttribute("content")?.trim();
-  if (v) return v;
+  if (v) return normalizeToIso(v);
   const d = doc.querySelector("meta[name='date']")?.getAttribute("content")?.trim();
   if (d) return d;
   const t = doc.querySelector("time[datetime]")?.getAttribute("datetime")?.trim();
@@ -140,9 +185,13 @@ function tryExtractPublishedAt(doc: Document, html: string): string | undefined 
   for (const sel of naverSelectors) {
     const el = doc.querySelector(sel);
     const dataTime = el?.getAttribute("data-date-time")?.trim();
-    if (dataTime) return dataTime;
+    if (dataTime) return normalizeToIso(dataTime);
     const text = el?.textContent?.trim();
-    if (text && /\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}/.test(text)) return text;
+    if (text && /\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}/.test(text)) {
+      const parsed = parseNaverDatetimeText(text);
+      if (parsed) return parsed;
+      return text;
+    }
   }
   const ldJsonRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let ldJsonM;

@@ -87,9 +87,9 @@ export function InsightReportView({
     "text-white/70";
 
   const dateDisplay = publishedAt
-    ? formatArticleDate(publishedAt, { withLabel: true, dateOnly: true })
+    ? formatArticleDate(publishedAt, { withLabel: true })
     : createdAt
-      ? formatArticleDate(createdAt, { withLabel: true, dateOnly: true })
+      ? formatArticleDate(createdAt, { withLabel: true })
       : "";
 
   return (
