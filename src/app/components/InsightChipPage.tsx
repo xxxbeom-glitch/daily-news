@@ -199,7 +199,7 @@ export function InsightChipPage() {
             }`}
             style={{ fontSize: 12 }}
           >
-            아카이빙
+            결과
           </button>
         </div>
       </div>
@@ -276,7 +276,7 @@ export function InsightChipPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedArchive(item)}
-                  className="w-full text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors"
+                  className="w-full h-[56px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
                 >
                   <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
                     {item.title || item.url}
