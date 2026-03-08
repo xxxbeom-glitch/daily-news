@@ -38,6 +38,7 @@ VITE_FIREBASE_APP_ID=1:123:web:abc
 - `users/{uid}/data/admin` - 관리자 설정
 - `users/{uid}/data/meta` - 아카이브/검색 UI 상태
 - `users/{uid}/sessions/{sessionId}` - 시황 요약 세션 (날짜별)
+- `users/{uid}/insightArchives/{itemId}` - 인사이트 칩 아카이브
 
 .env에 위 3개 변수가 없으면 Firebase 없이 기존처럼 localStorage만 사용됩니다.
 

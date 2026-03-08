@@ -6,6 +6,7 @@
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase";
 import type { ArchiveSession } from "../app/data/newsSources";
+import type { InsightArchiveItem } from "../app/data/insightReport";
 import type { AdminSchedule } from "../app/utils/adminSettings";
 
 export interface FirestoreSettings {
@@ -148,5 +149,36 @@ export async function deleteSessionFromFirestore(uid: string, sessionId: string)
   const db = getFirebaseDb();
   if (!db) return;
   const ref = doc(db, "users", uid, "sessions", sessionId);
+  await deleteDoc(ref);
+}
+
+/** 인사이트 아카이브 전체 로드 */
+export async function loadInsightArchivesFromFirestore(uid: string): Promise<InsightArchiveItem[]> {
+  const db = getFirebaseDb();
+  if (!db) return [];
+  const col = collection(db, "users", uid, "insightArchives");
+  const snap = await getDocs(col);
+  const items = snap.docs.map((d) => ({ ...d.data(), id: d.id } as InsightArchiveItem));
+  return items.sort((a, b) => {
+    const tsA = a.publishedAt ? new Date(a.publishedAt).getTime() : new Date(a.createdAt).getTime();
+    const tsB = b.publishedAt ? new Date(b.publishedAt).getTime() : new Date(b.createdAt).getTime();
+    return tsB - tsA;
+  });
+}
+
+/** 인사이트 아카이브 추가/덮어쓰기 */
+export async function addInsightArchiveToFirestore(uid: string, item: InsightArchiveItem): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) throw new Error("Firestore가 초기화되지 않았습니다.");
+  const ref = doc(db, "users", uid, "insightArchives", item.id);
+  const payload = sanitizeForFirestore(item) as Record<string, unknown>;
+  await setDoc(ref, payload, { merge: true });
+}
+
+/** 인사이트 아카이브 삭제 */
+export async function deleteInsightArchiveFromFirestore(uid: string, itemId: string): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  const ref = doc(db, "users", uid, "insightArchives", itemId);
   await deleteDoc(ref);
 }

@@ -312,6 +312,99 @@ function ReportSyncButtons({
   );
 }
 
+/** 인사이트 칩 동기화 버튼 */
+function InsightChipSyncButtons({
+  isEnabled,
+  uid,
+  refreshInsightArchivesFromCloud,
+  syncAllInsightArchivesToCloud,
+}: {
+  isEnabled: boolean;
+  uid: string | null;
+  refreshInsightArchivesFromCloud: () => Promise<void>;
+  syncAllInsightArchivesToCloud: (items: import("../data/insightReport").InsightArchiveItem[]) => Promise<{ ok: boolean; message: string }>;
+}) {
+  const [loading, setLoading] = useState<"pull" | "push" | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handlePull = async () => {
+    if (!uid) {
+      setResult({ ok: false, message: "데이터 동기화를 사용하려면 설정 > 로그인 필요" });
+      setTimeout(() => setResult(null), 4000);
+      return;
+    }
+    setLoading("pull");
+    setResult(null);
+    try {
+      await refreshInsightArchivesFromCloud();
+      setResult({ ok: true, message: "클라우드에서 가져왔습니다" });
+    } catch (e) {
+      setResult({ ok: false, message: e instanceof Error ? e.message : "인사이트 칩 가져오기 실패" });
+    } finally {
+      setLoading(null);
+    }
+    setTimeout(() => setResult(null), 4000);
+  };
+
+  const handlePush = async () => {
+    if (!uid) {
+      setResult({ ok: false, message: "로그인 필요" });
+      setTimeout(() => setResult(null), 4000);
+      return;
+    }
+    setLoading("push");
+    setResult(null);
+    try {
+      const items = (await import("../utils/insightArchiveStorage")).loadInsightArchives();
+      const res = await syncAllInsightArchivesToCloud(items);
+      setResult(res);
+    } finally {
+      setLoading(null);
+    }
+    setTimeout(() => setResult(null), 4000);
+  };
+
+  if (!isEnabled) return null;
+
+  return (
+    <div className="space-y-2">
+      <p style={{ fontSize: 12, fontWeight: 600 }} className="text-white/60">
+        인사이트 칩
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handlePull}
+          disabled={loading !== null || !uid}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors"
+          style={{ fontSize: 13 }}
+        >
+          <CloudDownload size={16} />
+          {loading === "pull" ? "가져오는 중…" : "가져오기"}
+        </button>
+        <button
+          type="button"
+          onClick={handlePush}
+          disabled={loading !== null || !uid}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors"
+          style={{ fontSize: 13 }}
+        >
+          <CloudUpload size={16} />
+          {loading === "push" ? "업로드 중…" : "업로드"}
+        </button>
+      </div>
+      {result && (
+        <p
+          style={{ fontSize: 12 }}
+          className={result.ok ? "text-emerald-400/90" : "text-red-400/90"}
+        >
+          {result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** 동기화 실패 시 확인 사항 */
 function ReportSyncFailureHint() {
   return (
@@ -896,13 +989,24 @@ export function SettingsPage() {
           <div className="px-4 py-3 border-b border-white/6">
             <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">데이터 동기화</p>
           </div>
-          <div className="p-4 space-y-3">
-            <ReportSyncButtons
-              sessions={sessions}
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <p style={{ fontSize: 12, fontWeight: 600 }} className="text-white/60">
+                스크랩한 기사
+              </p>
+              <ReportSyncButtons
+                sessions={sessions}
+                isEnabled={firebase.isEnabled}
+                uid={firebase.uid}
+                refreshSessionsFromCloud={firebase.refreshSessionsFromCloud}
+                syncAllSessionsToCloud={firebase.syncAllSessionsToCloud}
+              />
+            </div>
+            <InsightChipSyncButtons
               isEnabled={firebase.isEnabled}
               uid={firebase.uid}
-              refreshSessionsFromCloud={firebase.refreshSessionsFromCloud}
-              syncAllSessionsToCloud={firebase.syncAllSessionsToCloud}
+              refreshInsightArchivesFromCloud={firebase.refreshInsightArchivesFromCloud}
+              syncAllInsightArchivesToCloud={firebase.syncAllInsightArchivesToCloud}
             />
             <ReportSyncFailureHint />
           </div>

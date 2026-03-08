@@ -25,6 +25,9 @@ import {
   saveMeta as saveMetaToDb,
   addSessionToFirestore,
   deleteSessionFromFirestore,
+  loadInsightArchivesFromFirestore,
+  addInsightArchiveToFirestore,
+  deleteInsightArchiveFromFirestore,
 } from "../../lib/firebaseDb";
 import type { ArchiveSession } from "../data/newsSources";
 import {
@@ -52,6 +55,8 @@ import {
   DEFAULT_MOVERS,
 } from "../utils/adminSettings";
 import { ARCHIVES_STORAGE_KEY, sanitizeSessionsForLocalStorage } from "../utils/archiveStorage";
+import { INSIGHT_ARCHIVES_KEY } from "../utils/insightArchiveStorage";
+import type { InsightArchiveItem } from "../data/insightReport";
 
 interface FirebaseContextValue {
   uid: string | null;
@@ -61,6 +66,10 @@ interface FirebaseContextValue {
   refreshSessionsFromCloud: () => Promise<void>;
   /** 로컬 세션 전체를 Firestore에 업로드 (수동 동기화) */
   syncAllSessionsToCloud: (sessions: ArchiveSession[]) => Promise<{ ok: boolean; message: string }>;
+  refreshInsightArchivesFromCloud: () => Promise<void>;
+  syncAddInsightArchive: (item: InsightArchiveItem) => Promise<void>;
+  syncDeleteInsightArchive: (itemId: string) => Promise<void>;
+  syncAllInsightArchivesToCloud: (items: InsightArchiveItem[]) => Promise<{ ok: boolean; message: string }>;
   syncSettings: (state: {
     selectedSources?: SelectedSourcesState;
     interestMemoryDomestic?: string;
@@ -117,11 +126,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const [settings, admin, meta, sessions] = await Promise.all([
+        const [settings, admin, meta, sessions, insightArchives] = await Promise.all([
           loadSettings(uid),
           loadAdmin(uid),
           loadMeta(uid),
           loadSessions(uid),
+          loadInsightArchivesFromFirestore(uid),
         ]);
         if (cancelled) return;
         if (settings) {
@@ -157,6 +167,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
             const toSave = sanitizeSessionsForLocalStorage(sessions);
             localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
             window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+          } catch {}
+        }
+        if (insightArchives && insightArchives.length > 0) {
+          try {
+            localStorage.setItem(INSIGHT_ARCHIVES_KEY, JSON.stringify(insightArchives));
+            window.dispatchEvent(new CustomEvent("newsbrief_insight_archives_loaded", { detail: insightArchives }));
           } catch {}
         }
       } finally {
@@ -223,17 +239,84 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
   const refreshSessionsFromCloud = useCallback(async () => {
     if (!uid) return;
+    try {
+      const sessions = await loadSessions(uid);
       try {
-        const sessions = await loadSessions(uid);
-        try {
-          const toSave = sanitizeSessionsForLocalStorage(sessions);
-          localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
-          window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
-        } catch {}
-      } catch (e) {
+        const toSave = sanitizeSessionsForLocalStorage(sessions);
+        localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
+        window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+      } catch {}
+    } catch (e) {
       console.error("[Firebase] refreshSessions 실패", e);
     }
   }, [uid]);
+
+  const refreshInsightArchivesFromCloud = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const items = await loadInsightArchivesFromFirestore(uid);
+      try {
+        localStorage.setItem(INSIGHT_ARCHIVES_KEY, JSON.stringify(items));
+        window.dispatchEvent(new CustomEvent("newsbrief_insight_archives_loaded", { detail: items }));
+      } catch {}
+    } catch (e) {
+      console.error("[Firebase] refreshInsightArchives 실패", e);
+    }
+  }, [uid]);
+
+  const syncAddInsightArchive = useCallback(
+    async (item: InsightArchiveItem) => {
+      if (!uid) return;
+      try {
+        await addInsightArchiveToFirestore(uid, item);
+      } catch (e) {
+        console.error("[Firebase] addInsightArchive 실패", e);
+      }
+    },
+    [uid]
+  );
+
+  const syncDeleteInsightArchive = useCallback(
+    async (itemId: string) => {
+      if (!uid) return;
+      try {
+        await deleteInsightArchiveFromFirestore(uid, itemId);
+      } catch (e) {
+        console.warn("[Firebase] deleteInsightArchive 실패", e);
+      }
+    },
+    [uid]
+  );
+
+  const syncAllInsightArchivesToCloud = useCallback(
+    async (items: InsightArchiveItem[]): Promise<{ ok: boolean; message: string }> => {
+      if (!uid) {
+        return { ok: false, message: "로그인되지 않았습니다." };
+      }
+      if (items.length === 0) {
+        return { ok: true, message: "동기화할 인사이트 칩이 없습니다." };
+      }
+      let success = 0;
+      let lastError: string | null = null;
+      for (const item of items) {
+        try {
+          await addInsightArchiveToFirestore(uid, item);
+          success++;
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : String(e);
+          console.error("[Firebase] syncInsightArchive 실패", item.id, e);
+        }
+      }
+      if (success === items.length) {
+        return { ok: true, message: `${items.length}건 동기화 완료` };
+      }
+      if (success > 0) {
+        return { ok: false, message: `${success}/${items.length}건만 성공. ${lastError ?? ""}` };
+      }
+      return { ok: false, message: lastError ?? "동기화 실패" };
+    },
+    [uid]
+  );
 
   const syncAddSession = useCallback(
     async (session: ArchiveSession) => {
@@ -355,6 +438,10 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     isReady,
     isEnabled: enabled,
     refreshSessionsFromCloud,
+    refreshInsightArchivesFromCloud,
+    syncAddInsightArchive,
+    syncDeleteInsightArchive,
+    syncAllInsightArchivesToCloud,
     syncSettings,
     syncAdmin,
     syncMeta,
@@ -377,5 +464,23 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
 export function useFirebase() {
   const ctx = useContext(FirebaseContext);
-  return ctx ?? { uid: null, user: null, isReady: true, isEnabled: false, refreshSessionsFromCloud: async () => {}, syncSettings: async () => {}, syncAdmin: async () => {}, syncMeta: async () => {}, syncAddSession: async () => {}, syncDeleteSession: async () => {}, syncAllSessionsToCloud: async () => ({ ok: false, message: "Firebase 미활성화" }) };
+  const noop = async () => {};
+  const noopSync = async () => ({ ok: false, message: "Firebase 미활성화" });
+  return ctx ?? {
+    uid: null,
+    user: null,
+    isReady: true,
+    isEnabled: false,
+    refreshSessionsFromCloud: noop,
+    refreshInsightArchivesFromCloud: noop,
+    syncAddInsightArchive: noop,
+    syncDeleteInsightArchive: noop,
+    syncAllInsightArchivesToCloud: noopSync,
+    syncSettings: noop,
+    syncAdmin: noop,
+    syncMeta: noop,
+    syncAddSession: noop,
+    syncDeleteSession: noop,
+    syncAllSessionsToCloud: noopSync,
+  };
 }

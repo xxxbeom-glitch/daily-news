@@ -4,6 +4,7 @@ import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
 import { addInsightArchive, loadInsightArchives, removeInsightArchive } from "../utils/insightArchiveStorage";
 import { saveInsightChipState, loadInsightChipState } from "../utils/persistState";
+import { useFirebase } from "../context/FirebaseContext";
 import type { InsightArchiveItem } from "../data/insightReport";
 import { getSelectedModelId } from "../utils/persistState";
 
@@ -12,6 +13,7 @@ function getInsightModel(): "gemini" {
 }
 
 export function InsightChipPage() {
+  const firebase = useFirebase();
   const [inputValue, setInputValue] = useState("");
   const [chips, setChips] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -44,6 +46,15 @@ export function InsightChipPage() {
   useEffect(() => {
     setArchiveItems(loadInsightArchives());
   }, [result, activeTab]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<InsightArchiveItem[]>;
+      if (ev.detail && Array.isArray(ev.detail)) setArchiveItems(ev.detail);
+    };
+    window.addEventListener("newsbrief_insight_archives_loaded", handler);
+    return () => window.removeEventListener("newsbrief_insight_archives_loaded", handler);
+  }, []);
 
   useEffect(() => {
     if (hasRestoredRef.current) return;
@@ -137,6 +148,7 @@ export function InsightChipPage() {
         aiModel: getInsightModel(),
       };
       addInsightArchive(item);
+      firebase.syncAddInsightArchive(item);
       setResult(item);
     } catch (e) {
       setError(e instanceof Error ? e.message : "분석 중 오류가 발생했습니다.");
@@ -281,6 +293,7 @@ export function InsightChipPage() {
                   type="button"
                   onClick={() => {
                     removeInsightArchive(selectedArchive.id);
+                    firebase.syncDeleteInsightArchive(selectedArchive.id);
                     setSelectedArchive(null);
                     setArchiveItems(loadInsightArchives());
                   }}
