@@ -25,11 +25,24 @@ const ALLOWED_HOSTS = new Set([
   "cors.x2u.in",
 ]);
 
+const ALLOWED_DOMAIN_SUFFIXES = [
+  ".hankyung.com",
+  ".mk.co.kr",
+  ".yna.co.kr",
+  ".sbs.co.kr",
+  ".hani.co.kr",
+  ".chosun.com",
+  ".donga.com",
+  ".khan.co.kr",
+  ".joongang.co.kr",
+];
+
 function isAllowedUrl(urlStr: string): boolean {
   try {
     const u = new URL(urlStr);
     if (u.protocol !== "https:") return false;
-    return ALLOWED_HOSTS.has(u.hostname) || u.hostname.endsWith(".hankyung.com") || u.hostname.endsWith(".mk.co.kr") || u.hostname.endsWith(".yna.co.kr");
+    if (ALLOWED_HOSTS.has(u.hostname)) return true;
+    return ALLOWED_DOMAIN_SUFFIXES.some((s) => u.hostname === s.slice(1) || u.hostname.endsWith(s));
   } catch {
     return false;
   }

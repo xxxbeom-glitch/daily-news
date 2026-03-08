@@ -909,6 +909,19 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* 아카이빙 */}
+      <section className="mb-4">
+        <Link
+          to="/settings/archive"
+          className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
+        >
+          <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
+            <span style={{ fontSize: 14, fontWeight: 600 }}>아카이빙</span>
+            <ChevronRight size={20} className="text-white/40 shrink-0" />
+          </div>
+        </Link>
+      </section>
+
       {/* 스크랩한 기사 */}
       <section className="mb-4">
         <Link

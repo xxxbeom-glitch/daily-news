@@ -44,7 +44,7 @@ export function setAdminShowNewsTab(value: boolean): void {
 }
 
 /** 사용 가능한 엔진 모델 */
-export const GEMINI_MODELS = ["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+export const GEMINI_MODELS = ["gemini-3-flash", "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
 export const CLAUDE_MODELS = ["claude-opus-4-6", "claude-opus-4-5-20251101", "claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"];
 export const OPENAI_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"];
 export const ALL_MODEL_IDS = [...GEMINI_MODELS, ...CLAUDE_MODELS, ...OPENAI_MODELS];

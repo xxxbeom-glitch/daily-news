@@ -31,13 +31,23 @@ function HeaderContent() {
       <nav className="flex items-end gap-6 mx-4 mb-3 pb-1 border-b border-white/10">
             <Link
               to="/market"
-              className={`pb-2 text-sm transition-colors ${
+              className={`pb-2 text-sm transition-colors hidden ${
                 location.pathname === "/market"
                   ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}
             >
               오늘의 시장
+            </Link>
+            <Link
+              to="/insight-chip"
+              className={`pb-2 text-sm transition-colors ${
+                location.pathname === "/insight-chip"
+                  ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
+                  : "text-white/50 hover:text-white/70"
+              }`}
+            >
+              인사이트 칩
             </Link>
             <Link
               to="/"

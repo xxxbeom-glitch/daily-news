@@ -4,7 +4,11 @@
 
 import { jsonrepair } from "jsonrepair";
 import type { MarketSummaryData, IssueItem, StockMover, IndexData, SourceRef, EarningsItem } from "../data/marketSummary";
+import type { InsightReportData } from "../data/insightReport";
 import { fetchIndices } from "./fetchMarketData";
+
+/** 인사이트 칩 기본 모델: Gemini 3 Flash 우선, 미지원 시 gemini-2.5-flash fallback */
+const GEMINI_INSIGHT_MODELS = ["gemini-3-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
 
 export interface RawRssArticle {
   title: string;
@@ -15,7 +19,7 @@ export interface RawRssArticle {
   body?: string;
 }
 
-const GEMINI_MODELS = ["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+const GEMINI_MODELS = ["gemini-3-flash", "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
 const OPENAI_MODEL = "gpt-4o-mini";
 
 function buildArticleContext(articles: RawRssArticle[], maxItems = 25): string {
@@ -909,6 +913,81 @@ async function callOpenAI(prompt: string, modelId?: string): Promise<string> {
     clearTimeout(timeout);
     throw e;
   }
+}
+
+/**
+ * 인사이트 칩: 기사 본문 → 3단계 투자 인사이트 리포트 생성 (Gemini 3 Flash 기본)
+ */
+export async function generateInsightReportFromArticle(
+  input: { title: string; body: string },
+  opts?: { modelId?: string }
+): Promise<InsightReportData> {
+  const { title, body } = input;
+  const text = String(body ?? "").trim().slice(0, 12000);
+  if (!text) {
+    throw new Error("분석할 기사 본문이 없습니다.");
+  }
+
+  const prompt = `아래는 금융·경제 기사입니다. 단순 요약을 넘어, 기사 내용이 시장 및 특정 종목에 미칠 영향을 논리적으로 추론하여 인사이트 리포트를 작성해주세요.
+
+## 기사
+제목: ${(title ?? "").slice(0, 500)}
+본문:
+${text}
+
+## 요청
+반드시 아래 JSON 형식으로만 응답하고, 다른 텍스트는 포함하지 마세요.
+
+### [기사 요약]
+팩트 중심으로 3행 불렛포인트 요약. 기사에 없는 내용은 작성하지 마세요.
+
+### [핵심 포인트]
+기사가 시장/기업 가치에 미치는 영향 분석. 1~2줄 서술형.
+
+### [투자 의견]
+- 점수(score): 해당 뉴스의 중요도를 1~10 정수로 산출.
+- 신호(signal): "좋음" | "나쁨" | "중립" 중 하나.
+- 전략(strategy): 지금 상황에서 **매수(살 것인지)** 아니면 **매도(팔 것인지)**를 명확히 판단하고, 그 이유와 대응 방법을 2~4문장으로 작성.
+
+### 출력 JSON 형식
+{
+  "articleSummary": ["요약 항목1", "요약 항목2", "요약 항목3"],
+  "keyPoints": "핵심 포인트 1~2줄.",
+  "score": 7,
+  "signal": "좋음",
+  "strategy": "매수 추천. 이유와 대응 방법."
+}
+반드시 유효한 JSON만 출력하세요.`;
+
+  const modelId = opts?.modelId && GEMINI_INSIGHT_MODELS.includes(opts.modelId)
+    ? opts.modelId
+    : GEMINI_INSIGHT_MODELS[0];
+  const rawResponse = await callGemini(prompt, modelId);
+  return parseInsightReport(rawResponse);
+}
+
+function parseInsightReport(jsonStr: string): InsightReportData {
+  const parsed = extractAndParseJson(jsonStr) as Record<string, unknown>;
+  const summaryRaw = parsed.articleSummary;
+  const articleSummary = Array.isArray(summaryRaw)
+    ? summaryRaw.slice(0, 3).map((s) => String(s ?? "").trim()).filter(Boolean)
+    : [];
+  const keyPoints = String(parsed.keyPoints ?? "").trim();
+  const score = Math.max(1, Math.min(10, parseInt(String(parsed.score ?? 5), 10) || 5));
+  const signalRaw = String(parsed.signal ?? "중립").trim();
+  const signal =
+    signalRaw === "좋음" || signalRaw === "나쁨"
+      ? signalRaw
+      : "중립";
+  const strategy = String(parsed.strategy ?? "").trim();
+
+  return {
+    articleSummary,
+    keyPoints,
+    score,
+    signal: signal as "좋음" | "나쁨" | "중립",
+    strategy,
+  };
 }
 
 /**
