@@ -32,7 +32,7 @@ export function InsightChipPage() {
     const saved = loadInsightChipState();
     if (saved) {
       if (saved.activeTab) setActiveTab(saved.activeTab);
-      if (Array.isArray(saved.chips) && saved.chips.length > 0) setChips(saved.chips);
+      if (Array.isArray(saved.chips) && saved.chips.length > 0) setChips([saved.chips[0]]);
       if (saved.result && typeof saved.result === "object") {
         const r = saved.result as InsightArchiveItem;
         if (r.report && r.id) setResult(r);
@@ -61,7 +61,7 @@ export function InsightChipPage() {
         const url = /^https?:\/\//i.test(text.trim()) ? text.trim() : `https://${text.trim()}`;
         try {
           new URL(url);
-          setChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+          setChips([url]);
           setError(null);
         } catch {
           setError("유효하지 않은 URL입니다.");
@@ -78,7 +78,7 @@ export function InsightChipPage() {
     const url = /^https?:\/\//i.test(v) ? v : `https://${v}`;
     try {
       new URL(url);
-      setChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+      setChips([url]);
       setInputValue("");
       setError(null);
     } catch {
@@ -133,11 +133,11 @@ export function InsightChipPage() {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
       <div className="flex items-stretch gap-2 mb-4 shrink-0">
-        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 rounded-[10px] border border-white/10 bg-white/5 px-3 py-2 min-h-10">
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-white/5 px-3 py-1 h-10 overflow-hidden">
           {chips.map((url) => (
             <div
               key={url}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/10 px-2.5 py-1 shrink-0"
+              className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/10 px-2 py-0.5 shrink-0"
             >
               <a
                 href={url}
@@ -165,14 +165,14 @@ export function InsightChipPage() {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 min-w-[120px] bg-transparent text-white placeholder-white/40 outline-none py-1"
+            className="flex-1 min-w-[120px] bg-transparent text-white placeholder-white/40 outline-none py-0"
             style={{ fontSize: 12 }}
             disabled={analyzing}
           />
           <button
             type="button"
             onClick={handlePasteFromClipboard}
-            className="p-1.5 rounded-[6px] text-white/50 hover:text-white/90 hover:bg-white/5 transition-colors shrink-0"
+            className="p-1 rounded-[6px] text-white/50 hover:text-white/90 hover:bg-white/5 transition-colors shrink-0"
             title="클립보드 붙여넣기"
             disabled={analyzing}
           >
