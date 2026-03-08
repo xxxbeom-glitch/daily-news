@@ -949,13 +949,17 @@ ${text}
 - 신호(signal): "좋음" | "나쁨" | "중립" 중 하나.
 - 전략(strategy): 지금 상황에서 **매수(살 것인지)** 아니면 **매도(팔 것인지)**를 명확히 판단하고, 그 이유와 대응 방법을 2~4문장으로 작성.
 
+### [라벨]
+- labels: 기사에서 언급된 관련 종목명(기업명), 섹터, 테마 키워드를 최대 5개까지 추출. 기사에 없는 키워드는 추가하지 마세요.
+
 ### 출력 JSON 형식
 {
   "articleSummary": ["요약 항목1", "요약 항목2", "요약 항목3"],
   "keyPoints": "핵심 포인트 1~2줄.",
   "score": 7,
   "signal": "좋음",
-  "strategy": "매수 추천. 이유와 대응 방법."
+  "strategy": "매수 추천. 이유와 대응 방법.",
+  "labels": ["종목명", "섹터명", "테마키워드"]
 }
 반드시 유효한 JSON만 출력하세요.`;
 
@@ -980,6 +984,10 @@ function parseInsightReport(jsonStr: string): InsightReportData {
       ? signalRaw
       : "중립";
   const strategy = String(parsed.strategy ?? "").trim();
+  const labelsRaw = parsed.labels;
+  const labels = Array.isArray(labelsRaw)
+    ? labelsRaw.slice(0, 5).map((s) => String(s ?? "").trim()).filter(Boolean)
+    : [];
 
   return {
     articleSummary,
@@ -987,6 +995,7 @@ function parseInsightReport(jsonStr: string): InsightReportData {
     score,
     signal: signal as "좋음" | "나쁨" | "중립",
     strategy,
+    labels,
   };
 }
 

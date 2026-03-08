@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import { Clipboard, X, Loader2 } from "lucide-react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { Clipboard, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
 import { addInsightArchive, loadInsightArchives, removeInsightArchive } from "../utils/insightArchiveStorage";
@@ -20,7 +20,26 @@ export function InsightChipPage() {
   const [activeTab, setActiveTab] = useState<"분석" | "아카이빙">("분석");
   const [archiveItems, setArchiveItems] = useState<InsightArchiveItem[]>([]);
   const [selectedArchive, setSelectedArchive] = useState<InsightArchiveItem | null>(null);
+  const [filterLabel, setFilterLabel] = useState<string | null>(null);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
   const hasRestoredRef = useRef(false);
+
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of archiveItems) {
+      for (const l of item.report?.labels ?? []) {
+        if (l?.trim()) set.add(l.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [archiveItems]);
+
+  const filteredItems = useMemo(() => {
+    if (!filterLabel) return archiveItems;
+    return archiveItems.filter(
+      (i) => i.report?.labels?.some((l) => String(l).trim() === filterLabel) ?? false
+    );
+  }, [archiveItems, filterLabel]);
 
   useEffect(() => {
     setArchiveItems(loadInsightArchives());
@@ -284,25 +303,78 @@ export function InsightChipPage() {
               아카이브된 인사이트가 없습니다.
             </div>
           ) : (
-            <div className="space-y-3">
-              {archiveItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedArchive(item)}
-                  className="w-full h-[72px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
-                >
-                  <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
-                    {item.title || item.url}
+            <div>
+              {allLabels.length > 0 && (
+                <div className="mb-3 rounded-[10px] border border-white/10 bg-white/5 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setTagsExpanded((e) => !e)}
+                    className="w-full flex items-center justify-between text-left"
+                    style={{ fontSize: 12 }}
+                  >
+                    <span className="text-white/70">전체 태그</span>
+                    {tagsExpanded ? <ChevronUp size={16} className="text-white/50" /> : <ChevronDown size={16} className="text-white/50" />}
+                  </button>
+                  <div className={`flex flex-wrap gap-2 mt-2 ${tagsExpanded ? "" : "overflow-hidden max-h-8"}`}>
+                    {allLabels.map((label, i) => {
+                      const isActive = filterLabel === label;
+                      const colors = ["bg-emerald-500/20 text-emerald-300", "bg-blue-500/20 text-blue-300", "bg-amber-500/20 text-amber-300", "bg-purple-500/20 text-purple-300", "bg-cyan-500/20 text-cyan-300"];
+                      const colorClass = colors[i % colors.length];
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => setFilterLabel(isActive ? null : label)}
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-opacity ${colorClass} ${isActive ? "ring-1 ring-white/50" : ""}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div style={{ fontSize: 12 }} className="text-white/40 mt-1">
-                    {item.source && `${item.source} · `}
-                    {item.publishedAt
-                      ? new Date(item.publishedAt).toLocaleString("ko-KR")
-                      : new Date(item.createdAt).toLocaleDateString("ko-KR")}
+                </div>
+              )}
+              {filterLabel && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span style={{ fontSize: 12 }} className="text-white/50">
+                    "{filterLabel}" 필터 중
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFilterLabel(null)}
+                    className="text-[#618EFF] hover:underline"
+                    style={{ fontSize: 12 }}
+                  >
+                    해제
+                  </button>
+                </div>
+              )}
+              <div className="space-y-3">
+                {filteredItems.length === 0 ? (
+                  <div className="py-8 text-center text-white/50" style={{ fontSize: 13 }}>
+                    해당 태그를 포함한 리포트가 없습니다.
                   </div>
-                </button>
-              ))}
+                ) : (
+                  filteredItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedArchive(item)}
+                      className="w-full h-[72px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
+                        {item.title || item.url}
+                      </div>
+                      <div style={{ fontSize: 12 }} className="text-white/40 mt-1">
+                        {item.source && `${item.source} · `}
+                        {item.publishedAt
+                          ? new Date(item.publishedAt).toLocaleString("ko-KR")
+                          : new Date(item.createdAt).toLocaleDateString("ko-KR")}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

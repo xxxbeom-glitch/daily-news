@@ -68,6 +68,17 @@ export function InsightReportView({
   const signalColor =
     data.signal === "좋음" ? "text-emerald-400" : data.signal === "나쁨" ? "text-red-400" : "text-white/70";
 
+  const scoreColor =
+    data.score >= 9 ? "text-red-400" :
+    data.score >= 7 ? "text-amber-400" :
+    data.score >= 4 ? "text-yellow-500/90" :
+    "text-white/50";
+
+  const strategyColor =
+    /매수|살 것|추천.*긍정|적극.*매수/.test(data.strategy || "") ? "text-emerald-400" :
+    /매도|팔 것|매도.*추천|매도.*권유/.test(data.strategy || "") ? "text-red-400" :
+    "text-white/70";
+
   const dateDisplay = formatArticleDate(publishedAt) || (createdAt ? formatArticleDate(createdAt) : "");
 
   return (
@@ -113,7 +124,7 @@ export function InsightReportView({
               <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white/90">
                 점수:
               </span>
-              <span style={{ fontSize: 14 }} className="text-white">
+              <span style={{ fontSize: 14 }} className={scoreColor}>
                 {data.score}/10
               </span>
               <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white/90">
@@ -127,7 +138,7 @@ export function InsightReportView({
               <div style={{ fontSize: 13, fontWeight: 600 }} className="text-white/70 mb-2">
                 전략
               </div>
-              <div style={{ fontSize: 14, ...lineStyle }} className="text-white/90 whitespace-pre-line">
+              <div style={{ fontSize: 14, ...lineStyle }} className={`${strategyColor} whitespace-pre-line`}>
                 {data.strategy || "(전략 없음)"}
               </div>
             </div>
@@ -145,6 +156,23 @@ export function InsightReportView({
                 ))}
               </div>
             </div>
+
+            {(data.labels?.length ?? 0) > 0 && (
+              <div className="mt-[22px] pt-[18px] border-t border-white/6 flex flex-wrap gap-2">
+                {data.labels!.map((label, i) => {
+                  const colors = ["bg-emerald-500/20 text-emerald-300", "bg-blue-500/20 text-blue-300", "bg-amber-500/20 text-amber-300", "bg-purple-500/20 text-purple-300", "bg-cyan-500/20 text-cyan-300"];
+                  const colorClass = colors[i % colors.length];
+                  return (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${colorClass}`}
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -13,6 +13,8 @@ export interface InsightReportData {
   signal: "좋음" | "나쁨" | "중립";
   /** [투자 의견] 전략: 매수/매도 판단, 이유, 대응 방법 */
   strategy: string;
+  /** 관련 종목·섹터·테마 키워드 (최대 5개) */
+  labels?: string[];
 }
 
 export interface InsightArchiveItem {
