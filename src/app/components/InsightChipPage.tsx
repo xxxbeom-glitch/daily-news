@@ -26,14 +26,22 @@ export function InsightChipPage() {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const hasRestoredRef = useRef(false);
 
-  const allLabels = useMemo(() => {
+  const { allLabels, labelCounts } = useMemo(() => {
     const set = new Set<string>();
+    const counts = new Map<string, number>();
     for (const item of archiveItems) {
       for (const l of item.report?.labels ?? []) {
-        if (l?.trim()) set.add(l.trim());
+        const label = String(l).trim();
+        if (label) {
+          set.add(label);
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+        }
       }
     }
-    return Array.from(set).sort();
+    return {
+      allLabels: Array.from(set).sort(),
+      labelCounts: counts,
+    };
   }, [archiveItems]);
 
   const filteredItems = useMemo(() => {
@@ -341,6 +349,7 @@ export function InsightChipPage() {
                           className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-opacity ${colorClass} ${isActive ? "ring-1 ring-white/50" : ""}`}
                         >
                           {label}
+                          <span className="ml-1 opacity-80">({labelCounts.get(label) ?? 0})</span>
                         </button>
                       );
                     })}
