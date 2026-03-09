@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
+    "@seyoungsong/hanjadict": "^0.4.5",
     "firebase": "^12.10.0",
     "html2canvas": "^1.4.1",
     "jsonrepair": "^3.13.2",

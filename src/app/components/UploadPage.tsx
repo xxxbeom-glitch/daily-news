@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Paperclip, FileText } from "lucide-react";
+import { Paperclip, FileText, X, Clipboard } from "lucide-react";
 import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
 import { getSelectedModel, getSelectedModelId, saveArchiveState } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
@@ -89,6 +89,8 @@ export function UploadPage() {
   const navigate = useNavigate();
   const editSessionId = (location.state as { editSessionId?: string } | null)?.editSessionId;
   const [tab, setTab] = useState<CountryTab>("kr");
+  const [urlChips, setUrlChips] = useState<string[]>([]);
+  const [urlInputValue, setUrlInputValue] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [pdfs, setPdfs] = useState<UploadedPdf[]>([]);
@@ -121,6 +123,42 @@ export function UploadPage() {
 
   const removePdf = useCallback((index: number) => {
     setPdfs((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const addUrlChip = useCallback(() => {
+    const v = urlInputValue.trim();
+    if (!v) return;
+    const url = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+    try {
+      new URL(url);
+      setUrlChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+      setUrlInputValue("");
+      setError(null);
+    } catch {
+      setError("유효하지 않은 URL입니다.");
+    }
+  }, [urlInputValue]);
+
+  const removeUrlChip = useCallback((url: string) => {
+    setUrlChips((prev) => prev.filter((u) => u !== url));
+  }, []);
+
+  const handlePasteFromClipboardUrl = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text.trim()) {
+        const url = /^https?:\/\//i.test(text.trim()) ? text.trim() : `https://${text.trim()}`;
+        try {
+          new URL(url);
+          setUrlChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+          setError(null);
+        } catch {
+          setError("유효하지 않은 URL입니다.");
+        }
+      }
+    } catch {
+      setError("클립보드 접근에 실패했습니다.");
+    }
   }, []);
 
   const addImageIfNotDuplicate = useCallback(
@@ -181,29 +219,44 @@ export function UploadPage() {
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (file) {
-            compressImage(file)
-              .then((compressed) => addImageIfNotDuplicate(compressed))
-              .catch((err) => setError(err instanceof Error ? err.message : "이미지 압축 실패"));
+      if (items) {
+        for (const item of items) {
+          if (item.type.startsWith("image/")) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+              compressImage(file)
+                .then((compressed) => addImageIfNotDuplicate(compressed))
+                .catch((err) => setError(err instanceof Error ? err.message : "이미지 압축 실패"));
+            }
+            return;
           }
-          break;
+        }
+      }
+      const text = e.clipboardData?.getData("text");
+      if (text?.trim() && tab === "kr") {
+        const trimmed = text.trim();
+        if (/^https?:\/\//i.test(trimmed) || /^[a-z0-9-]+\.(com|kr|org|net)/i.test(trimmed)) {
+          e.preventDefault();
+          const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+          try {
+            new URL(url);
+            setUrlChips((prev) => (prev.includes(url) ? prev : [...prev, url]));
+            setError(null);
+          } catch {}
         }
       }
     },
-    [addImageIfNotDuplicate]
+    [addImageIfNotDuplicate, tab]
   );
 
   const handleAnalyze = useCallback(async () => {
     if (tab === "kr") {
       const hasImages = images.length > 0;
       const hasText = inputValue.trim().length > 0;
-      if (!hasImages && !hasText) {
-        setError("이미지를 첨부하거나 텍스트를 입력하세요.");
+      const hasUrls = urlChips.length > 0;
+      if (!hasImages && !hasText && !hasUrls) {
+        setError("이미지·기사 링크·텍스트 중 하나 이상을 입력하세요.");
         return;
       }
 
@@ -214,21 +267,23 @@ export function UploadPage() {
       setProgressPercent(5);
 
       let finalText = inputValue.trim();
-      const urlMatches = finalText.match(/\bhttps?:\/\/[^\s]+/g);
-      if (urlMatches?.length) {
+      const urlsFromText = finalText.match(/\bhttps?:\/\/[^\s]+/g) ?? [];
+      const allUrls = [...new Set([...urlChips, ...urlsFromText.map((u) => u.trim())])];
+      if (allUrls.length > 0) {
         const contents: string[] = [];
-        for (let i = 0; i < urlMatches.length; i++) {
+        for (let i = 0; i < allUrls.length; i++) {
           try {
-            setProgressPercent(5 + Math.round(((i + 1) / urlMatches.length) * 15));
-            const { title, textContent } = await fetchArticleContent(urlMatches[i].trim());
+            setProgressPercent(5 + Math.round(((i + 1) / allUrls.length) * 15));
+            const { title, textContent } = await fetchArticleContent(allUrls[i]);
             const part = [title ? `[제목] ${title}` : "", textContent ?? ""].filter(Boolean).join("\n\n");
             if (part) contents.push(part);
           } catch {
-            contents.push(`[URL] ${urlMatches[i]}`);
+            contents.push(`[URL] ${allUrls[i]}`);
           }
         }
         if (contents.length > 0) {
-          finalText = contents.join("\n\n---\n\n");
+          const urlText = contents.join("\n\n---\n\n");
+          finalText = finalText ? `${urlText}\n\n---\n\n${finalText}` : urlText;
         }
       }
       setProgressStep(2);
@@ -283,6 +338,8 @@ export function UploadPage() {
           });
           setSuccessMessage("완료");
           setInputValue("");
+          setUrlChips([]);
+          setUrlInputValue("");
           setImages([]);
           navigate("/", { replace: true });
         } else {
@@ -314,6 +371,8 @@ export function UploadPage() {
           saveArchiveState({ isInternational: false, selectedSessionId: newId });
           setSuccessMessage("완료");
           setInputValue("");
+          setUrlChips([]);
+          setUrlInputValue("");
           setImages([]);
           navigate("/", { replace: true });
         }
@@ -393,10 +452,10 @@ export function UploadPage() {
         setLoading(false);
       }
     }
-  }, [tab, inputValue, images, pdfs, addSession, updateSession, editSessionId, navigate]);
+  }, [tab, inputValue, urlChips, images, pdfs, addSession, updateSession, editSessionId, navigate]);
 
   const canSubmit =
-    (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0)) ||
+    (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0 || urlChips.length > 0)) ||
     (tab === "us" && pdfs.length > 0);
 
   const handleCancel = useCallback(() => {
@@ -407,6 +466,34 @@ export function UploadPage() {
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-[120px]" onPaste={handlePaste}>
         <div className="rounded-[12px] border border-white/15 bg-white/5 overflow-hidden">
+          {tab === "kr" && urlChips.length > 0 && (
+            <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
+              {urlChips.map((url) => (
+                <div
+                  key={url}
+                  className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/10 px-2 py-1 shrink-0"
+                >
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/90 truncate max-w-[180px] hover:underline text-xs"
+                  >
+                    {url}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => removeUrlChip(url)}
+                    disabled={loading}
+                    className="p-0.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                    title="제거"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {(images.length > 0 || pdfs.length > 0) && (
             <div className="flex flex-wrap gap-2 p-3 border-b border-white/10">
               {images.length > 0 && (
@@ -447,10 +534,42 @@ export function UploadPage() {
               ))}
             </div>
           )}
+          {tab === "kr" && (
+            <div className="flex items-stretch gap-2 px-4 py-3 border-b border-white/10">
+              <div className="flex-1 min-w-0 flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-white/5 px-3 py-1 h-10 overflow-hidden">
+                <input
+                  type="text"
+                  value={urlInputValue}
+                  onChange={(e) => setUrlInputValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addUrlChip()}
+                  placeholder={urlChips.length === 0 ? "기사 링크 입력 (Enter 또는 붙여넣기)" : ""}
+                  className="flex-1 min-w-[120px] bg-transparent text-white placeholder-white/40 outline-none py-0 text-sm"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={handlePasteFromClipboardUrl}
+                  className="p-1 rounded-[6px] text-white/50 hover:text-white/90 hover:bg-white/5 transition-colors shrink-0"
+                  title="클립보드 붙여넣기"
+                  disabled={loading}
+                >
+                  <Clipboard size={16} />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={addUrlChip}
+                disabled={loading || !urlInputValue.trim()}
+                className="shrink-0 h-10 px-3 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors text-sm"
+              >
+                추가
+              </button>
+            </div>
+          )}
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="이미지(Ctrl+V)·PDF 첨부, 기사 링크·텍스트 입력"
+            placeholder={tab === "kr" ? "추가 텍스트 입력 (선택)" : "PDF는 위 버튼으로 첨부"}
             rows={5}
             className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
           />
