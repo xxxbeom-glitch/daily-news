@@ -78,13 +78,6 @@ export function InsightReportView({
     "text-white/50";
 
   const strategyText = data.strategy || "(전략 없음)";
-  const firstPeriodIdx = strategyText.indexOf(".");
-  const strategyPrefix = firstPeriodIdx >= 0 ? strategyText.slice(0, firstPeriodIdx + 1) : strategyText;
-  const strategyRest = firstPeriodIdx >= 0 ? strategyText.slice(firstPeriodIdx + 1).trim() : "";
-  const strategyPrefixColor =
-    /매수|살 것|추천.*긍정|적극.*매수/.test(strategyPrefix) ? "text-emerald-400" :
-    /매도|팔 것|매도.*추천|매도.*권유/.test(strategyPrefix) ? "text-red-400" :
-    "text-white/70";
 
   const dateDisplay = publishedAt
     ? formatArticleDate(publishedAt, { withLabel: true })
@@ -150,14 +143,7 @@ export function InsightReportView({
                 전략
               </div>
               <div style={{ fontSize: 14, ...lineStyle }} className="text-white/90 whitespace-pre-line">
-                {strategyPrefix ? (
-                  <>
-                    <span className={strategyPrefixColor}>{strategyPrefix}</span>
-                    {strategyRest ? ` ${strategyRest}` : ""}
-                  </>
-                ) : (
-                  strategyText
-                )}
+                {strategyText}
               </div>
             </div>
 

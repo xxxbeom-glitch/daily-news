@@ -134,10 +134,10 @@ export async function fetchArticleContent(url: string): Promise<ArticleReaderRes
     const body = doc.body?.cloneNode(true) as Element | null;
     if (body) {
       body.querySelectorAll("script, style, nav, header, footer, aside, iframe, .ad, .advertisement, .related, .sidebar").forEach((n) => n.remove());
-      textContent = extractTextWithStructure(body).slice(0, 15000) || null;
+      textContent = extractTextWithStructure(body).slice(0, 50000) || null;
     }
   }
-  if (textContent) textContent = textContent.slice(0, 35000);
+  if (textContent) textContent = textContent.slice(0, 80000);
 
   const result: ArticleReaderResult = { title: finalTitle, textContent, excerpt: null, byline: null };
   if (articleCache.size >= ARTICLE_CACHE_MAX) {
