@@ -60,14 +60,14 @@ function HeaderContent() {
               리포트
             </Link>
             <Link
-              to="/upload"
+              to="/company-analysis"
               className={`pb-2 text-sm transition-colors ${
-                location.pathname === "/upload"
+                location.pathname === "/company-analysis"
                   ? "text-white font-semibold border-b-2 border-white -mb-[2px] pb-1"
                   : "text-white/50 hover:text-white/70"
               }`}
             >
-              업로드
+              기업분석
             </Link>
             <Link
               to="/settings"

@@ -84,3 +84,12 @@ html, body {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+/* 바텀시트 슬라이드 업 */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out forwards;
+}

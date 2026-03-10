@@ -83,11 +83,21 @@ function compressImage(file: File): Promise<UploadedImage> {
   });
 }
 
-export function UploadPage() {
+interface UploadPageProps {
+  onClose?: () => void;
+  initialEditSessionId?: string;
+}
+
+export function UploadPage({ onClose, initialEditSessionId }: UploadPageProps = {}) {
   const { sessions, addSession, updateSession } = useArchive();
   const location = useLocation();
   const navigate = useNavigate();
-  const editSessionId = (location.state as { editSessionId?: string } | null)?.editSessionId;
+  const editSessionId = initialEditSessionId ?? (location.state as { editSessionId?: string } | null)?.editSessionId;
+
+  const goBack = useCallback(() => {
+    if (onClose) onClose();
+    else navigate("/", { replace: true });
+  }, [onClose, navigate]);
   const [tab, setTab] = useState<CountryTab>("kr");
   const [urlChips, setUrlChips] = useState<string[]>([]);
   const [urlInputValue, setUrlInputValue] = useState("");
@@ -341,7 +351,7 @@ export function UploadPage() {
           setUrlChips([]);
           setUrlInputValue("");
           setImages([]);
-          navigate("/", { replace: true });
+          goBack();
         } else {
           const newId = `session-${Date.now()}-kr`;
           addSession({
@@ -374,7 +384,7 @@ export function UploadPage() {
           setUrlChips([]);
           setUrlInputValue("");
           setImages([]);
-          navigate("/", { replace: true });
+          goBack();
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : "분석 실패";
@@ -441,7 +451,7 @@ export function UploadPage() {
         saveArchiveState({ isInternational: true, selectedSessionId: newId });
         setSuccessMessage("완료");
         setPdfs([]);
-        navigate("/", { replace: true });
+        goBack();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "분석 실패";
         const detail = err instanceof Error && err.stack ? `${msg}\n${err.stack}` : msg;
@@ -452,15 +462,15 @@ export function UploadPage() {
         setLoading(false);
       }
     }
-  }, [tab, inputValue, urlChips, images, pdfs, addSession, updateSession, editSessionId, navigate]);
+  }, [tab, inputValue, urlChips, images, pdfs, addSession, updateSession, editSessionId, goBack]);
 
   const canSubmit =
     (tab === "kr" && (inputValue.trim().length > 0 || images.length > 0 || urlChips.length > 0)) ||
     (tab === "us" && pdfs.length > 0);
 
   const handleCancel = useCallback(() => {
-    navigate("/", { replace: true });
-  }, [navigate]);
+    goBack();
+  }, [goBack]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">

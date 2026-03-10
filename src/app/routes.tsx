@@ -10,6 +10,7 @@ import { UploadPage } from "./components/UploadPage";
 import { MarketDashboardPage } from "./components/MarketDashboardPage";
 import { ScrapPage } from "./components/ScrapPage";
 import { InsightChipPage } from "./components/InsightChipPage";
+import { CompanyAnalysisPage } from "./components/CompanyAnalysisPage";
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
       { index: true, element: <ReportPageWrapper /> },
       { path: "market", element: <MarketDashboardPage /> },
       { path: "insight-chip", element: <InsightChipPage /> },
+      { path: "company-analysis", element: <CompanyAnalysisPage /> },
       { path: "search", element: <SearchPageWrapper /> },
       { path: "test", element: <TestPage /> },
       { path: "upload", element: <UploadPage /> },

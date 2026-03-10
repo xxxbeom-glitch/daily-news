@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, BookmarkX, Pencil } from "lucide-react";
+import { ChevronDown, BookmarkX, Pencil, Upload } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
 import { useAdminSettings } from "../context/AdminSettingsContext";
 import { saveArchiveState, loadArchiveState } from "../utils/persistState";
 import type { ArchiveSession } from "../data/newsSources";
 import { MarketSummaryView } from "./MarketSummaryView";
+import { BottomSheet } from "./BottomSheet";
+import { UploadPage } from "./UploadPage";
 
 const CONFIRM_MS = 2500;
 
@@ -19,6 +21,8 @@ export function ReportPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isInternational, setIsInternational] = useState(() => loadArchiveState()?.isInternational ?? true);
+  const [uploadSheetOpen, setUploadSheetOpen] = useState(false);
+  const [uploadEditSessionId, setUploadEditSessionId] = useState<string | undefined>(undefined);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const hasRestoredRef = useRef(false);
@@ -90,6 +94,16 @@ export function ReportPage() {
     }
   };
 
+  const openUploadSheet = (editId?: string) => {
+    setUploadEditSessionId(editId);
+    setUploadSheetOpen(true);
+  };
+
+  const closeUploadSheet = () => {
+    setUploadSheetOpen(false);
+    setUploadEditSessionId(undefined);
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
       <div className="flex items-stretch gap-2 mb-4 shrink-0">
@@ -152,7 +166,7 @@ export function ReportPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setDropdownOpen(false);
-                        navigate("/upload", { state: { editSessionId: s.id } });
+                        openUploadSheet(s.id);
                       }}
                       className="p-1.5 rounded-[6px] text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors"
                       title="수정"
@@ -176,8 +190,12 @@ export function ReportPage() {
                 </div>
               </div>
             ))}
-          </div>
-          )}
+        </div>
+      )}
+
+      <BottomSheet open={uploadSheetOpen} onClose={closeUploadSheet} title="리포트 작성">
+        <UploadPage onClose={closeUploadSheet} initialEditSessionId={uploadEditSessionId} />
+      </BottomSheet>
         </div>
 
         {/* 국가 탭 */}
@@ -205,6 +223,16 @@ export function ReportPage() {
         </div>
       </div>
 
+      <button
+        type="button"
+        onClick={() => openUploadSheet()}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-[#618EFF]/40 bg-[#618EFF]/20 text-[#618EFF] hover:bg-[#618EFF]/30 transition-colors mb-4 shrink-0"
+        style={{ fontSize: 14, fontWeight: 600 }}
+      >
+        <Upload size={18} />
+        업로드 하기
+      </button>
+
       {/* 시황 요약 단일 뷰 - 현재 화면 높이 내에서만 스크롤 */}
       {hideMarket && selectedSession ? (
         <div className="flex-1 min-h-0 flex items-center justify-center py-12 overflow-hidden">
@@ -227,7 +255,7 @@ export function ReportPage() {
             showEditButton={!!(selectedSession.uploadedImages?.length || selectedSession.sources?.includes("test2") || selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") || selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓"))}
             onEdit={
               selectedSession.uploadedImages?.length || selectedSession.sources?.includes("test2") || selectedSession.marketSummary?.regionLabel?.includes?.("한국경제") || selectedSession.marketSummary?.regionLabel?.includes?.("글로벌 마켓")
-                ? () => navigate("/upload", { state: { editSessionId: selectedSession.id } })
+                ? () => openUploadSheet(selectedSession.id)
                 : undefined
             }
             displayDate={
