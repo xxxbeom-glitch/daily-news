@@ -25,10 +25,13 @@ export function CompanyAnalysisResultView({
   data,
   embedded = true,
   onDelete,
+  sectorCounts,
 }: {
   data: CompanyAnalysisResult;
   embedded?: boolean;
   onDelete?: () => void;
+  /** 전체 아카이브 기준 섹터별 건수 (갯수 많은 순 정렬용) */
+  sectorCounts?: Map<string, number>;
 }) {
   const meta = data.metadata;
   const containerClass = embedded
@@ -120,8 +123,9 @@ export function CompanyAnalysisResultView({
           {(data.sectors?.length ?? 0) > 0 && (
             <div className="mt-[22px] pt-[18px] border-t border-white/6 flex flex-wrap gap-2">
               {[...(data.sectors ?? [])]
-                .sort((a, b) => a.localeCompare(b, "ko"))
+                .sort((a, b) => (sectorCounts?.get(b) ?? 0) - (sectorCounts?.get(a) ?? 0))
                 .map((sector, i) => {
+                  const count = sectorCounts?.get(sector) ?? 1;
                   const colors = ["bg-emerald-500/20 text-emerald-300", "bg-blue-500/20 text-blue-300", "bg-amber-500/20 text-amber-300", "bg-purple-500/20 text-purple-300", "bg-cyan-500/20 text-cyan-300"];
                   const colorClass = colors[i % colors.length];
                   return (
@@ -130,7 +134,7 @@ export function CompanyAnalysisResultView({
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}
                     >
                       {sector}
-                      <span className="ml-1 opacity-80">(1)</span>
+                      <span className="ml-1 opacity-80">({count})</span>
                     </span>
                   );
                 })}

@@ -176,6 +176,7 @@ export function CompanyAnalysisPage() {
               <CompanyAnalysisResultView
                 data={result}
                 embedded={true}
+                sectorCounts={sectorCounts}
               />
             </div>
           )}
@@ -189,6 +190,7 @@ export function CompanyAnalysisPage() {
               <CompanyAnalysisResultView
                 data={selectedArchive.result}
                 embedded={false}
+                sectorCounts={sectorCounts}
                 onDelete={() => {
                   removeCompanyAnalysisArchive(selectedArchive.id);
                   const next = loadCompanyAnalysisArchives();

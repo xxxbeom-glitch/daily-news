@@ -19,7 +19,6 @@ import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 
-const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const API_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 60분마다
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
