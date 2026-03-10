@@ -25,10 +25,13 @@ import {
   saveMeta as saveMetaToDb,
   addSessionToFirestore,
   deleteSessionFromFirestore,
+  deleteAllSessionsFromFirestore,
   loadInsightArchivesFromFirestore,
   addInsightArchiveToFirestore,
   deleteInsightArchiveFromFirestore,
-  loadCompanyAnalysisArchivesFromFirestore,
+  subscribeSessions,
+  subscribeInsightArchives,
+  subscribeCompanyAnalysisArchives,
   addCompanyAnalysisArchiveToFirestore,
   deleteCompanyAnalysisArchiveFromFirestore,
 } from "../../lib/firebaseDb";
@@ -69,6 +72,8 @@ interface FirebaseContextValue {
   isReady: boolean;
   isEnabled: boolean;
   refreshSessionsFromCloud: () => Promise<void>;
+  /** 클라우드 세션 전체 삭제 */
+  syncDeleteAllSessions: () => Promise<void>;
   /** 로컬 세션 전체를 Firestore에 업로드 (수동 동기화) */
   syncAllSessionsToCloud: (sessions: ArchiveSession[]) => Promise<{ ok: boolean; message: string }>;
   refreshInsightArchivesFromCloud: () => Promise<void>;
@@ -434,6 +439,15 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     [uid]
   );
 
+  const syncDeleteAllSessions = useCallback(async () => {
+    if (!uid) return;
+    try {
+      await deleteAllSessionsFromFirestore(uid);
+    } catch (e) {
+      console.error("[Firebase] deleteAllSessions failed", e);
+    }
+  }, [uid]);
+
   const syncAllSessionsToCloud = useCallback(
     async (sessions: ArchiveSession[]): Promise<{ ok: boolean; message: string }> => {
       if (!uid) {
@@ -507,12 +521,56 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     };
   }, [enabled, uid, syncSettings, syncAdmin, syncMeta]);
 
+  useEffect(() => {
+    if (!enabled || !uid) return;
+    const unsubSessions = subscribeSessions(
+      uid,
+      (sessions) => {
+        if (!loadCompleteRef.current) return;
+        try {
+          const toSave = sanitizeSessionsForLocalStorage(sessions);
+          localStorage.setItem(ARCHIVES_STORAGE_KEY, JSON.stringify(toSave));
+          window.dispatchEvent(new CustomEvent("newsbrief_sessions_loaded", { detail: sessions }));
+        } catch {}
+      },
+      (e) => console.warn("[Firebase] sessions listener error", e)
+    );
+    const unsubInsights = subscribeInsightArchives(
+      uid,
+      (items) => {
+        if (!loadCompleteRef.current) return;
+        try {
+          localStorage.setItem(INSIGHT_ARCHIVES_KEY, JSON.stringify(items));
+          window.dispatchEvent(new CustomEvent("newsbrief_insight_archives_loaded", { detail: items }));
+        } catch {}
+      },
+      (e) => console.warn("[Firebase] insightArchives listener error", e)
+    );
+    const unsubCompany = subscribeCompanyAnalysisArchives(
+      uid,
+      (items) => {
+        if (!loadCompleteRef.current) return;
+        try {
+          localStorage.setItem(COMPANY_ANALYSIS_ARCHIVES_KEY, JSON.stringify(items));
+          window.dispatchEvent(new CustomEvent("newsbrief_company_analysis_archives_loaded", { detail: items }));
+        } catch {}
+      },
+      (e) => console.warn("[Firebase] companyAnalysisArchives listener error", e)
+    );
+    return () => {
+      unsubSessions();
+      unsubInsights();
+      unsubCompany();
+    };
+  }, [enabled, uid]);
+
   const value: FirebaseContextValue = {
     uid,
     user,
     isReady,
     isEnabled: enabled,
     refreshSessionsFromCloud,
+    syncDeleteAllSessions,
     refreshInsightArchivesFromCloud,
     refreshCompanyAnalysisArchivesFromCloud,
     syncAddInsightArchive,
@@ -551,6 +609,7 @@ export function useFirebase() {
     isReady: true,
     isEnabled: false,
     refreshSessionsFromCloud: noop,
+    syncDeleteAllSessions: noop,
     refreshInsightArchivesFromCloud: noop,
     refreshCompanyAnalysisArchivesFromCloud: noop,
     syncAddInsightArchive: noop,

@@ -339,6 +339,7 @@ export function SettingsPage() {
   const [systemInstructionSaved, setSystemInstructionSaved] = useState(false);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [apiExpanded, setApiExpanded] = useState(false);
+  const [backupExpanded, setBackupExpanded] = useState(false);
 
   const effectiveSources = useMemo(() => getEffectiveSources(), [customSourcesVersion]);
 
@@ -516,7 +517,8 @@ export function SettingsPage() {
   }, [runCheck]);
 
   const handleClearAllClick = () => setDeleteConfirm(true);
-  const handleClearAllConfirm = () => {
+  const handleClearAllConfirm = async () => {
+    await firebase.syncDeleteAllSessions();
     clearAllSessions();
     setDeleteConfirm(false);
   };
@@ -606,10 +608,10 @@ export function SettingsPage() {
         firebase.syncAllCompanyAnalysisArchivesToCloud(companyItems),
       ]);
       const ok = sessionsRes.ok && insightRes.ok && companyRes.ok;
-      const msg = ok ? "Synced to cloud." : [sessionsRes.message, insightRes.message, companyRes.message].filter(Boolean).join(" / ");
+      const msg = ok ? "Uploaded to cloud." : [sessionsRes.message, insightRes.message, companyRes.message].filter(Boolean).join(" / ");
       setExportStatus({ type: "backup", ok, message: msg });
     } catch (e) {
-      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "Sync failed" });
+      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "Upload failed" });
     } finally {
       setBackupLoading(false);
       setTimeout(() => setExportStatus(null), 4000);
@@ -972,10 +974,20 @@ export function SettingsPage() {
       {/* Data Backup */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <div className="flex items-center justify-between px-4 h-[72px]">
-            <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white">Data Backup</span>
-          </div>
-          <div className="px-4 pb-4 pt-0 border-t border-white/6 space-y-2">
+          <button
+            type="button"
+            onClick={() => setBackupExpanded((v) => !v)}
+            className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
+            style={{ fontSize: 14, fontWeight: 600 }}
+          >
+            <span>Data Backup</span>
+            <ChevronDown
+              size={16}
+              className={`text-white/60 transition-transform shrink-0 ${backupExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+          {backupExpanded && (
+          <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-2">
             {firebase.isEnabled && (
               <>
                 <button
@@ -991,7 +1003,7 @@ export function SettingsPage() {
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:text-white/90 hover:bg-white/8 transition-colors disabled:opacity-50"
                   style={{ fontSize: 14 }}>
                   <Cloud size={16} />
-                  Sync to Cloud
+                  Upload to Cloud
                 </button>
               </>
             )}
@@ -1053,6 +1065,7 @@ export function SettingsPage() {
               Backs up Reports, Insights, Company Analysis, and Settings to a ZIP file.
             </p>
           </div>
+          )}
         </div>
       </section>
 

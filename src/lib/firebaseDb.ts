@@ -3,7 +3,7 @@
  * users/{uid}/settings, users/{uid}/admin, users/{uid}/sessions/{sessionId}
  */
 
-import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase";
 import type { ArchiveSession } from "../app/data/newsSources";
 import type { InsightArchiveItem } from "../app/data/insightReport";
@@ -209,4 +209,78 @@ export async function deleteCompanyAnalysisArchiveFromFirestore(uid: string, ite
   if (!db) return;
   const ref = doc(db, "users", uid, "companyAnalysisArchives", itemId);
   await deleteDoc(ref);
+}
+
+/** 세션 전체 삭제 */
+export async function deleteAllSessionsFromFirestore(uid: string): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  const col = collection(db, "users", uid, "sessions");
+  const snap = await getDocs(col);
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+}
+
+/** 실시간 리스너: 세션 목록 (변경 시 onSessions 호출) */
+export function subscribeSessions(
+  uid: string,
+  onSessions: (sessions: ArchiveSession[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const db = getFirebaseDb();
+  if (!db) return () => {};
+  const col = collection(db, "users", uid, "sessions");
+  return onSnapshot(
+    col,
+    (snap) => {
+      const sessions = snap.docs
+        .map((d) => ({ ...d.data(), id: d.id } as ArchiveSession))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      onSessions(sessions);
+    },
+    (err) => onError?.(err)
+  );
+}
+
+/** 실시간 리스너: 인사이트 아카이브 */
+export function subscribeInsightArchives(
+  uid: string,
+  onItems: (items: InsightArchiveItem[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const db = getFirebaseDb();
+  if (!db) return () => {};
+  const col = collection(db, "users", uid, "insightArchives");
+  return onSnapshot(
+    col,
+    (snap) => {
+      const items = snap.docs.map((d) => ({ ...d.data(), id: d.id } as InsightArchiveItem));
+      items.sort((a, b) => {
+        const tsA = a.publishedAt ? new Date(a.publishedAt).getTime() : new Date(a.createdAt).getTime();
+        const tsB = b.publishedAt ? new Date(b.publishedAt).getTime() : new Date(b.createdAt).getTime();
+        return tsB - tsA;
+      });
+      onItems(items);
+    },
+    (err) => onError?.(err)
+  );
+}
+
+/** 실시간 리스너: 기업분석 아카이브 */
+export function subscribeCompanyAnalysisArchives(
+  uid: string,
+  onItems: (items: CompanyAnalysisArchiveItem[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const db = getFirebaseDb();
+  if (!db) return () => {};
+  const col = collection(db, "users", uid, "companyAnalysisArchives");
+  return onSnapshot(
+    col,
+    (snap) => {
+      const items = snap.docs.map((d) => ({ ...d.data(), id: d.id } as CompanyAnalysisArchiveItem));
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      onItems(items);
+    },
+    (err) => onError?.(err)
+  );
 }
