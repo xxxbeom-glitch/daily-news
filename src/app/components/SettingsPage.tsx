@@ -327,6 +327,7 @@ export function SettingsPage() {
   const [aiEngineExpanded, setAiEngineExpanded] = useState(false);
   const [systemInstructionExpanded, setSystemInstructionExpanded] = useState(false);
   const [systemInstructionEdit, setSystemInstructionEdit] = useState(() => getCompanyAnalysisSystemInstruction());
+  const [systemInstructionSaved, setSystemInstructionSaved] = useState(false);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [apiExpanded, setApiExpanded] = useState(false);
 
@@ -342,6 +343,8 @@ export function SettingsPage() {
 
   const handleSaveSystemInstruction = () => {
     setCompanyAnalysisSystemInstruction(systemInstructionEdit.trim() || DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION);
+    setSystemInstructionSaved(true);
+    setTimeout(() => setSystemInstructionSaved(false), 2000);
   };
 
   const handleResetSystemInstruction = () => {
@@ -651,21 +654,28 @@ export function SettingsPage() {
                 className="w-full min-h-[180px] px-3 py-2 rounded-[8px] border border-white/15 bg-white/5 text-white placeholder-white/40 resize-y font-mono"
                 style={{ fontSize: 12, lineHeight: 1.5 }}
               />
-              <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={handleSaveSystemInstruction}
-                  className="px-4 py-2 rounded-[8px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium"
-                >
-                  저장
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetSystemInstruction}
-                  className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white/80 border border-white/15 text-sm"
-                >
-                  기본값 복원
-                </button>
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveSystemInstruction}
+                    className="px-4 py-2 rounded-[8px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium"
+                  >
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetSystemInstruction}
+                    className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white/80 border border-white/15 text-sm"
+                  >
+                    기본값 복원
+                  </button>
+                </div>
+                {systemInstructionSaved && (
+                  <span style={{ fontSize: 12 }} className="text-emerald-400">
+                    저장되었습니다.
+                  </span>
+                )}
               </div>
             </div>
           )}
