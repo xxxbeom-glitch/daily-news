@@ -320,6 +320,7 @@ export function SettingsPage() {
   }>({ gpt: "error", gemini: "error", anthropic: "error", dataGoKr: "nokey", finnhub: "nokey", yahoo: "ok", errorMessage: "", apiErrorMessages: {} });
   const [lastCheckTime, setLastCheckTime] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
+  const [checkingApiKey, setCheckingApiKey] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
@@ -424,6 +425,46 @@ export function SettingsPage() {
     }
     runCheck();
   }, [lastCheckTime, runCheck]);
+
+  const handleCheckSingleApi = useCallback(
+    async (key: "gemini" | "gpt" | "anthropic" | "dataGoKr" | "finnhub") => {
+      if (checkingApiKey) return;
+      setCheckingApiKey(key);
+      try {
+        const checks: Record<typeof key, () => Promise<{ ok: boolean; message?: string }>> = {
+          gemini: checkGeminiApi,
+          gpt: checkOpenAIApi,
+          anthropic: checkAnthropicApi,
+          dataGoKr: () =>
+            getApiKey("VITE_DATA_GO_KR_SERVICE_KEY")
+              ? checkDataGoKrApi()
+              : Promise.resolve({ ok: false, message: "nokey" }),
+          finnhub: () =>
+            getApiKey("VITE_FINNHUB_API_KEY")
+              ? checkFinnhubApi()
+              : Promise.resolve({ ok: false, message: "nokey" }),
+        };
+        const result = await checks[key]();
+        const status =
+          key === "dataGoKr" || key === "finnhub"
+            ? (result.message === "nokey" ? "nokey" : result.ok ? "ok" : "error")
+            : result.ok
+              ? "ok"
+              : "error";
+        setApiStatus((prev) => ({
+          ...prev,
+          [key]: status,
+          apiErrorMessages: {
+            ...prev.apiErrorMessages,
+            [key]: result.ok || result.message === "nokey" ? "" : result.message ?? "",
+          },
+        }));
+      } finally {
+        setCheckingApiKey(null);
+      }
+    },
+    [checkingApiKey]
+  );
 
   // ?? ??1??+ 6관리자 (스크랩한 기사 보기? - 관리자 로그인)
   useEffect(() => {
@@ -568,13 +609,10 @@ export function SettingsPage() {
             style={{ fontSize: 14, fontWeight: 600 }}
           >
             <span>AI 모델</span>
-            <span className="flex items-center gap-2 text-white/60 font-normal truncate max-w-[60%]">
-              {getModelLabel(selectedModelId)}
-              <ChevronDown
-                size={16}
-                className={`transition-transform shrink-0 ${aiEngineExpanded ? "rotate-180" : ""}`}
-              />
-            </span>
+            <ChevronDown
+              size={16}
+              className={`text-white/60 transition-transform shrink-0 ${aiEngineExpanded ? "rotate-180" : ""}`}
+            />
           </button>
           {aiEngineExpanded && (
             <div className="px-4 pb-4 pt-4 border-t border-white/6 divide-y divide-white/6 max-h-[280px] overflow-y-auto">
@@ -634,9 +672,6 @@ export function SettingsPage() {
             style={{ fontSize: 14, fontWeight: 600 }}
           >
             <span>System Instruction</span>
-            <span className="text-white/50 text-xs truncate max-w-[50%]">
-              기업분석 JSON 양식
-            </span>
             <ChevronDown
               size={16}
               className={`text-white/60 shrink-0 transition-transform ${systemInstructionExpanded ? "rotate-180" : ""}`}
@@ -797,30 +832,18 @@ export function SettingsPage() {
       {/* API 설정 */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <div className="flex items-center justify-between px-4 h-[72px]">
-            <button
-              type="button"
-              onClick={() => setApiExpanded((v) => !v)}
-              className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
-              style={{ fontSize: 14, fontWeight: 600 }}
-            >
-              API 설정
-              <ChevronDown
-                size={16}
-                className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
-              />
-            </button>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isChecking}
-              className="flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-white/5 px-2.5 py-1.5 text-white/60 hover:text-white/80 hover:bg-white/8 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-              style={{ fontSize: 12 }}
-            >
-              <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              연결 확인
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setApiExpanded((v) => !v)}
+            className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
+            style={{ fontSize: 14, fontWeight: 600 }}
+          >
+            <span>API 설정</span>
+            <ChevronDown
+              size={16}
+              className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
           {apiExpanded && (
           <div className="border-t border-white/6 divide-y divide-white/6 px-4 pb-4 pt-4">
           {[
@@ -833,25 +856,40 @@ export function SettingsPage() {
           ].map(({ key, label }) => {
             const errMsg = apiStatus.apiErrorMessages?.[key];
             const isError = apiStatus[key] === "error";
+            const isCheckable = key !== "yahoo";
+            const isThisChecking = checkingApiKey === key;
             return (
               <div key={key} className="py-3">
-                <div className="flex items-center justify-between">
-                  <span style={{ fontSize: 14 }} className="text-white/90">{label}</span>
-                  <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-                    {isChecking ? (
-                      "연결중"
-                    ) : apiStatus[key] === "ok" ? (
-                      <>
-                        <CheckCircle2 size={14} />
-                        연결됨
-                      </>
-                    ) : (
-                      <>
-                        <XCircle size={14} />
-                        {apiStatus[key] === "nokey" ? "키 미설정" : "실패"}
-                      </>
+                <div className="flex items-center justify-between gap-2">
+                  <span style={{ fontSize: 14 }} className="text-white/90 flex-1 min-w-0">{label}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
+                      {isThisChecking ? (
+                        "연결중"
+                      ) : apiStatus[key] === "ok" ? (
+                        <>
+                          <CheckCircle2 size={14} />
+                          연결됨
+                        </>
+                      ) : (
+                        <>
+                          <XCircle size={14} />
+                          {apiStatus[key] === "nokey" ? "키 미설정" : "실패"}
+                        </>
+                      )}
+                    </span>
+                    {isCheckable && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckSingleApi(key)}
+                        disabled={!!checkingApiKey}
+                        className="p-1.5 rounded-[6px] text-white/50 hover:text-white/80 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="연결 확인"
+                      >
+                        <RefreshCw size={14} className={isThisChecking ? "animate-spin" : ""} />
+                      </button>
                     )}
-                  </span>
+                  </div>
                 </div>
                 {isError && errMsg && (
                   <p style={{ fontSize: 11 }} className="text-amber-400/90 mt-1.5 break-words" title={errMsg}>
