@@ -71,22 +71,6 @@ export function CompanyAnalysisResultView({
         </div>
 
         <div className="px-5 pt-6 pb-6">
-          {(data.sectors?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-2 pb-5 border-b border-white/8">
-              {data.sectors!.map((sector, i) => {
-                const colors = ["bg-emerald-500/20 text-emerald-300", "bg-blue-500/20 text-blue-300", "bg-amber-500/20 text-amber-300", "bg-purple-500/20 text-purple-300", "bg-cyan-500/20 text-cyan-300"];
-                const colorClass = colors[i % colors.length];
-                return (
-                  <span
-                    key={i}
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${colorClass}`}
-                  >
-                    {sector}
-                  </span>
-                );
-              })}
-            </div>
-          )}
           {data.analysis_sections.map((section, i) => (
             <div key={i}>
               <BlockTitle isFirst={i === 0}>{section.title || `분석 ${i + 1}`}</BlockTitle>
@@ -132,6 +116,26 @@ export function CompanyAnalysisResultView({
               </div>
             )}
           </div>
+
+          {(data.sectors?.length ?? 0) > 0 && (
+            <div className="mt-[22px] pt-[18px] border-t border-white/6 flex flex-wrap gap-2">
+              {[...(data.sectors ?? [])]
+                .sort((a, b) => a.localeCompare(b, "ko"))
+                .map((sector, i) => {
+                  const colors = ["bg-emerald-500/20 text-emerald-300", "bg-blue-500/20 text-blue-300", "bg-amber-500/20 text-amber-300", "bg-purple-500/20 text-purple-300", "bg-cyan-500/20 text-cyan-300"];
+                  const colorClass = colors[i % colors.length];
+                  return (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${colorClass}`}
+                    >
+                      {sector}
+                      <span className="ml-1 opacity-80">(1)</span>
+                    </span>
+                  );
+                })}
+            </div>
+          )}
         </div>
       </div>
     </div>

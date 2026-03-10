@@ -20,7 +20,14 @@ import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const API_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 60분마다
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
+
+/** 오전 6시~밤 12시(자정) 구간인지 */
+function isWithinApiCheckHours(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 6 && hour < 24;
+}
 
 const RSS_CHECK_TIMEOUT_MS = 10000;
 
@@ -466,12 +473,21 @@ export function SettingsPage() {
     [checkingApiKey]
   );
 
-  // ?? ??1??+ 6관리자 (스크랩한 기사 보기? - 관리자 로그인)
+  // 설정 페이지 마운트 시 + API 설정 펼침 시 연결 확인
   useEffect(() => {
     runCheck();
+  }, [runCheck]);
+
+  useEffect(() => {
+    if (apiExpanded) runCheck();
+  }, [apiExpanded, runCheck]);
+
+  // 오전 6시~밤 12시 구간에서 60분마다 자동 연결 확인 (탭 활성 시에만)
+  useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const schedule = () => {
       if (document.hidden) return;
+      if (!isWithinApiCheckHours()) return;
       runCheck();
     };
     const onVisibilityChange = () => {
@@ -481,10 +497,16 @@ export function SettingsPage() {
           intervalId = null;
         }
       } else {
-        if (!intervalId) intervalId = setInterval(schedule, SIX_HOURS_MS);
+        if (!intervalId) {
+          if (isWithinApiCheckHours()) runCheck();
+          intervalId = setInterval(schedule, API_CHECK_INTERVAL_MS);
+        }
       }
     };
-    if (!document.hidden) intervalId = setInterval(schedule, SIX_HOURS_MS);
+    if (!document.hidden) {
+      if (isWithinApiCheckHours()) runCheck();
+      intervalId = setInterval(schedule, API_CHECK_INTERVAL_MS);
+    }
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
