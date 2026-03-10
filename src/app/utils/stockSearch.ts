@@ -50,10 +50,9 @@ async function searchViaDataGoKr(query: string): Promise<StockSearchResult[]> {
   const key = getDataGoKrKey();
   if (!key) return [];
 
-  const basDt = getLatestBaseDate();
   const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
-  const base = "/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2";
-  const url = `${base}/getStockBasicInfo?serviceKey=${serviceKey}&pageNo=1&numOfRows=15&resultType=json&basDt=${basDt}&corpNm=${encodeURIComponent(query)}`;
+  const base = "/api/data-go-kr/1160100/service/GetCorpBasicInfoService_V2";
+  const url = `${base}/getCorpOutline_V2?serviceKey=${serviceKey}&pageNo=1&numOfRows=15&resultType=json&corpNm=${encodeURIComponent(query)}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
 
@@ -84,10 +83,11 @@ async function searchViaDataGoKr(query: string): Promise<StockSearchResult[]> {
     const results: StockSearchResult[] = [];
     for (const x of items.slice(0, 15)) {
       const code = String(x.srtnCd ?? x.itmCd ?? x.stckCd ?? "").trim();
-      const name = String(x.stckIssuCorpNm ?? x.corpNm ?? x.itmNm ?? "").trim();
+      const name = String(x.corpNm ?? x.stckIssuCorpNm ?? x.itmNm ?? "").trim();
       const mkt = String(x.mktNm ?? x.seNm ?? "").toUpperCase();
-      if (!code || code.length < 5) continue;
-      const code6 = code.padStart(6, "0").slice(-6);
+      if (!name || !code || code.length < 5) continue;
+      const code6 = code.replace(/\D/g, "").padStart(6, "0").slice(-6);
+      if (code6.length < 5) continue;
       const suffix = mkt.includes("코스닥") || mkt.includes("KOSDAQ") ? ".KQ" : ".KS";
       results.push({
         symbol: code6 + suffix,

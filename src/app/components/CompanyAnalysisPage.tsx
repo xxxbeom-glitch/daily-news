@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { searchStocks, type StockSearchResult } from "../utils/stockSearch";
 
 function getMarketLabel(symbol: string, exchange: string): string {
@@ -11,8 +11,8 @@ function getMarketLabel(symbol: string, exchange: string): string {
 export function CompanyAnalysisPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isInternational, setIsInternational] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [selectedItems, setSelectedItems] = useState<StockSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
 
   const hasSearched = searchQuery.trim().length >= 2;
@@ -77,7 +77,42 @@ export function CompanyAnalysisPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4">
+        {selectedItems.length > 0 && (
+          <div className="rounded-[10px] border border-white/10 bg-white/5 overflow-hidden shrink-0">
+            <div className="px-4 py-3 border-b border-white/8">
+              <span style={{ fontSize: 13, fontWeight: 600 }} className="text-white/80">
+                선택한 기업 ({selectedItems.length})
+              </span>
+            </div>
+            <div className="divide-y divide-white/8">
+              {selectedItems.map((item) => (
+                <div
+                  key={item.symbol}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-white/[0.03]"
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: 12 }} className="text-white/40 mt-0.5">
+                      {item.symbol} · {getMarketLabel(item.symbol, item.exchange)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItems((prev) => prev.filter((s) => s.symbol !== item.symbol))}
+                    className="p-1.5 rounded-[6px] text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                    title="제거"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {!hasSearched ? (
           <div className="flex-1 min-h-0 flex items-center justify-center py-12">
             <p style={{ fontSize: 14 }} className="text-white/40 text-center">
@@ -99,13 +134,18 @@ export function CompanyAnalysisPage() {
           </div>
         ) : (
           <div className="rounded-[10px] border border-white/10 bg-white/5 overflow-hidden shadow-sm">
-            <div className="max-h-[400px] overflow-y-auto divide-y divide-white/8">
-              {filteredResults.map((item) => (
-                <div key={item.symbol}>
+            <div className="max-h-[300px] overflow-y-auto divide-y divide-white/8">
+              {filteredResults.map((item) => {
+                const isSelected = selectedItems.some((s) => s.symbol === item.symbol);
+                return (
                   <button
+                    key={item.symbol}
                     type="button"
-                    onClick={() => setExpandedId(expandedId === item.symbol ? null : item.symbol)}
-                    className="w-full h-[72px] text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-white/[0.07] transition-colors"
+                    onClick={() => {
+                      if (!isSelected) setSelectedItems((prev) => [...prev, item]);
+                    }}
+                    disabled={isSelected}
+                    className="w-full h-[72px] text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-white/[0.07] transition-colors disabled:opacity-60 disabled:cursor-default"
                   >
                     <div className="flex-1 min-w-0">
                       <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
@@ -115,23 +155,9 @@ export function CompanyAnalysisPage() {
                         {item.symbol} · {getMarketLabel(item.symbol, item.exchange)}
                       </div>
                     </div>
-                    {expandedId === item.symbol ? (
-                      <ChevronUp size={18} className="text-white/50 shrink-0" />
-                    ) : (
-                      <ChevronDown size={18} className="text-white/50 shrink-0" />
-                    )}
                   </button>
-                  {expandedId === item.symbol && (
-                    <div className="px-4 py-4 border-t border-white/10 bg-white/[0.02]">
-                      <div className="rounded-[10px] border border-white/8 bg-white/5 px-4 py-6">
-                        <p style={{ fontSize: 13 }} className="text-white/50 text-center">
-                          분석 결과 영역 (출력 내용 정의 예정)
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

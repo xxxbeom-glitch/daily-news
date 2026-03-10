@@ -167,24 +167,11 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   }
 }
 
-function getLatestBaseDate(): string {
-  const now = new Date();
-  const day = now.getDay();
-  let diff = 1;
-  if (day === 0) diff = 2;
-  else if (day === 6) diff = 1;
-  else if (day === 1 && now.getHours() < 14) diff = 3;
-  else if (now.getHours() < 14) diff = 1;
-  now.setDate(now.getDate() - diff);
-  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-}
-
 async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
   if (!key) return { ok: false, message: "API 키 미설정" };
-  const basDt = getLatestBaseDate();
   const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
-  const url = `/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2/getStockBasicInfo?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&basDt=${basDt}&corpNm=삼성`;
+  const url = `/api/data-go-kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&corpNm=삼성`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
@@ -204,7 +191,7 @@ async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
     if (code === "00" || (code === undefined && json?.response?.body != null)) return { ok: true };
     const err = msg || code || "UNKNOWN_ERROR";
     if (err.includes("SERVICE_KEY") || err.includes("REGISTERED") || /인증/.test(err)) return { ok: false, message: `인증키 오류: ${err}` };
-    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: `데이터 없음 (basDt=${basDt})` };
+    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: "데이터 없음" };
     return { ok: false, message: err };
   } catch (e) {
     clearTimeout(timeout);
