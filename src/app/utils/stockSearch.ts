@@ -1,9 +1,9 @@
 import { fetchViaCorsProxy } from "./corsProxy";
 
 /**
- * 관심종목 검색 - Finnhub + Yahoo Finance
- * - 공공데이터 API와 충돌 없음: 공공데이터는 지수(코스피/코스닥)·개별종목 시세용이고,
- *   종목 검색 기능은 없음. Finnhub이 국내(.KS/.KQ)·해외 종목 모두 검색 가능.
+ * 관심종목 검색
+ * - 국내(한국): 공공데이터포털 금융위원회 주식발행정보 1차, Finnhub → Yahoo 폴백
+ * - 해외(미국): Finnhub → Yahoo
  */
 /** 종목 검색 결과 (국내 .KS/.KQ, 해외 등) */
 export interface StockSearchResult {
@@ -20,10 +20,86 @@ function isDomesticSymbol(symbol: string): boolean {
   return symbol.endsWith(".KS") || symbol.endsWith(".KQ");
 }
 
+function getDataGoKrKey(): string {
+  let key = (import.meta.env.VITE_DATA_GO_KR_SERVICE_KEY as string) ?? "";
+  key = key.trim().replace(/^["']|["']$/g, "");
+  return key;
+}
+
 function getFinnhubKey(): string {
   let key = (import.meta.env.VITE_FINNHUB_API_KEY as string) ?? "";
   key = key.trim().replace(/^["']|["']$/g, "");
   return key;
+}
+
+/** 최근 확정 영업일 (YYYYMMDD) - 금융위 API 기준 */
+function getLatestBaseDate(): string {
+  const now = new Date();
+  const day = now.getDay();
+  let diff = 1;
+  if (day === 0) diff = 2;
+  else if (day === 6) diff = 1;
+  else if (day === 1 && now.getHours() < 14) diff = 3;
+  else if (now.getHours() < 14) diff = 1;
+  now.setDate(now.getDate() - diff);
+  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/** 공공데이터포털 금융위원회 주식발행정보 - 주식발행회사명으로 종목 검색 (국내) */
+async function searchViaDataGoKr(query: string): Promise<StockSearchResult[]> {
+  const key = getDataGoKrKey();
+  if (!key) return [];
+
+  const basDt = getLatestBaseDate();
+  const base = "/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2";
+  const url = `${base}/getStockBasicInfo?serviceKey=${encodeURIComponent(key)}&pageNo=1&numOfRows=15&resultType=json&basDt=${basDt}&corpNm=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+
+    const json = (await res.json()) as {
+      response?: {
+        header?: { resultCode?: string };
+        body?: { items?: unknown; totalCount?: number };
+      };
+    };
+    if (json?.response?.header?.resultCode && json.response.header.resultCode !== "00") return [];
+
+    const raw = json?.response?.body?.items;
+    const items: Array<Record<string, unknown>> = [];
+    if (Array.isArray(raw)) items.push(...raw);
+    else if (raw && typeof raw === "object" && Array.isArray((raw as { item?: unknown }).item))
+      items.push(...((raw as { item: unknown[] }).item as Record<string, unknown>[]);
+    else if (raw && typeof raw === "object" && (raw as { item?: unknown }).item)
+      items.push((raw as { item: Record<string, unknown> }).item);
+
+    if (items.length === 0) return [];
+
+    const results: StockSearchResult[] = [];
+    for (const x of items.slice(0, 15)) {
+      const code = String(x.srtnCd ?? x.itmCd ?? x.stckCd ?? "").trim();
+      const name = String(x.stckIssuCorpNm ?? x.corpNm ?? x.itmNm ?? "").trim();
+      const mkt = String(x.mktNm ?? x.seNm ?? "").toUpperCase();
+      if (!code || code.length < 5) continue;
+      const code6 = code.padStart(6, "0").slice(-6);
+      const suffix = mkt.includes("코스닥") || mkt.includes("KOSDAQ") ? ".KQ" : ".KS";
+      results.push({
+        symbol: code6 + suffix,
+        name: name || code6,
+        exchange: mkt.includes("코스닥") || mkt.includes("KOSDAQ") ? "KQC" : "KSC",
+        type: "EQUITY",
+        isDomestic: true,
+      });
+    }
+    return results;
+  } catch {
+    clearTimeout(timeout);
+    return [];
+  }
 }
 
 /** Finnhub 검색 API (API 키 있으면 CORS 없이 직접 호출) */
@@ -86,9 +162,31 @@ async function searchViaYahoo(query: string): Promise<StockSearchResult[]> {
   }
 }
 
-export async function searchStocks(query: string): Promise<StockSearchResult[]> {
+export interface SearchStocksOptions {
+  /** true면 국내 종목만(공공데이터 1차) */
+  domesticOnly?: boolean;
+}
+
+export async function searchStocks(
+  query: string,
+  options?: SearchStocksOptions
+): Promise<StockSearchResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
+
+  const domesticOnly = options?.domesticOnly ?? false;
+
+  if (domesticOnly) {
+    const dataGoKrResults = await searchViaDataGoKr(trimmed);
+    if (dataGoKrResults.length > 0) return dataGoKrResults;
+
+    const finnhubResults = await searchViaFinnhub(trimmed);
+    const domestic = finnhubResults.filter((r) => r.isDomestic);
+    if (domestic.length > 0) return domestic;
+
+    const yahooResults = await searchViaYahoo(trimmed);
+    return yahooResults.filter((r) => r.isDomestic);
+  }
 
   const finnhubResults = await searchViaFinnhub(trimmed);
   if (finnhubResults.length > 0) return finnhubResults;

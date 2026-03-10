@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Sparkles, Cpu, Bot, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, CloudDownload, CloudUpload, Plus } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
-import { useFirebase } from "../context/FirebaseContext";
-import { getEffectiveSources, type ArchiveSession } from "../data/newsSources";
+import { getEffectiveSources } from "../data/newsSources";
 import { addCustomSource, removeCustomSource, isCustomSourceId } from "../utils/customRssStorage";
 import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId as persistSetSelectedModelId } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
@@ -38,7 +37,7 @@ async function checkRssFeed(url: string, sourceId?: string): Promise<boolean> {
   return false;
 }
 
-function getApiKey(name: "VITE_GEMINI_API_KEY" | "VITE_OPENAI_API_KEY" | "VITE_ANTHROPIC_API_KEY" | "VITE_OPENROUTER_API_KEY"): string {
+function getApiKey(name: string): string {
   let key = (import.meta.env[name] as string) ?? "";
   return key.trim().replace(/^["']|["']$/g, "");
 }
@@ -62,7 +61,7 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "스크랩한 기사";
+    const msg = e instanceof Error ? e.message : "네트워크 오류";
     return { ok: false, message: msg };
   }
 }
@@ -94,7 +93,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
       return { ok: false, message: msg };
     } catch (e) {
       clearTimeout(timeout);
-      const msg = e instanceof Error ? e.message : "스크랩한 기사";
+      const msg = e instanceof Error ? e.message : "네트워크 오류";
       return { ok: false, message: msg };
     }
   }
@@ -127,7 +126,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "스크랩한 기사";
+    const msg = e instanceof Error ? e.message : "네트워크 오류";
     return { ok: false, message: msg };
   }
 }
@@ -163,8 +162,46 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "스크랩한 기사";
+    const msg = e instanceof Error ? e.message : "네트워크 오류";
     return { ok: false, message: msg };
+  }
+}
+
+async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
+  if (!key) return { ok: false, message: "API 키 미설정" };
+  const basDt = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}01`;
+  const url = `/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2/getStockBasicInfo?serviceKey=${encodeURIComponent(key)}&pageNo=1&numOfRows=1&resultType=json&basDt=${basDt}&corpNm=삼성`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
+    const json = (await res.json()) as { response?: { header?: { resultCode?: string } } };
+    const code = json?.response?.header?.resultCode;
+    return { ok: code === "00" || code === undefined, message: code !== "00" && code ? code : undefined };
+  } catch (e) {
+    clearTimeout(timeout);
+    return { ok: false, message: e instanceof Error ? e.message : "네트워크 오류" };
+  }
+}
+
+async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
+  const key = getApiKey("VITE_FINNHUB_API_KEY");
+  if (!key) return { ok: false, message: "API 키 미설정" };
+  const url = `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${key}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
+    const data = (await res.json()) as { c?: number };
+    return { ok: data && typeof data.c === "number" };
+  } catch (e) {
+    clearTimeout(timeout);
+    return { ok: false, message: e instanceof Error ? e.message : "네트워크 오류" };
   }
 }
 
@@ -176,10 +213,13 @@ async function checkConnectionStatus(
     gpt: "ok" | "error";
     gemini: "ok" | "error";
     anthropic: "ok" | "error";
+    dataGoKr: "ok" | "error" | "nokey";
+    finnhub: "ok" | "error" | "nokey";
+    yahoo: "ok" | "error";
     errorMessage: string;
   };
 }> {
-  const [sourceResults, geminiResult, gptResult, anthropicResult] = await Promise.all([
+  const [sourceResults, geminiResult, gptResult, anthropicResult, dataGoKrResult, finnhubResult] = await Promise.all([
     Promise.all(
       sources
         .filter((s) => s.id !== "finnhub")
@@ -191,11 +231,14 @@ async function checkConnectionStatus(
     checkGeminiApi(),
     checkOpenAIApi(),
     checkAnthropicApi(),
+    getApiKey("VITE_DATA_GO_KR_SERVICE_KEY") ? checkDataGoKrApi() : Promise.resolve({ ok: false, message: "nokey" }),
+    getApiKey("VITE_FINNHUB_API_KEY") ? checkFinnhubApi() : Promise.resolve({ ok: false, message: "nokey" }),
   ]);
 
   const sourceStatus = Object.fromEntries(sourceResults);
   const translateError = (msg: string | undefined): string => {
     if (!msg) return "네트워크 오류";
+    if (msg === "nokey") return "키 미설정";
     if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "할당량초과";
     if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API 키오류";
     const lower = msg.toLowerCase();
@@ -209,149 +252,25 @@ async function checkConnectionStatus(
   if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
   if (errors.length === 0) errors.push("정상");
 
+  const dataGoKrKey = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
+  const finnhubKey = getApiKey("VITE_FINNHUB_API_KEY");
+
   return {
     sourceStatus,
     apiStatus: {
       gpt: gptResult.ok ? "ok" : "error",
       gemini: geminiResult.ok ? "ok" : "error",
       anthropic: anthropicResult.ok ? "ok" : "error",
+      dataGoKr: !dataGoKrKey ? "nokey" : dataGoKrResult.ok ? "ok" : "error",
+      finnhub: !finnhubKey ? "nokey" : finnhubResult.ok ? "ok" : "error",
+      yahoo: "ok",
       errorMessage: errors.join(" / "),
     },
   };
 }
 
-/** 스크랩한 기사 + 인사이트 칩 통합 동기화 버튼 */
-function DataSyncButtons({
-  sessions,
-  isEnabled,
-  uid,
-  refreshSessionsFromCloud,
-  syncAllSessionsToCloud,
-  refreshInsightArchivesFromCloud,
-  syncAllInsightArchivesToCloud,
-}: {
-  sessions: ArchiveSession[];
-  isEnabled: boolean;
-  uid: string | null;
-  refreshSessionsFromCloud: () => Promise<void>;
-  syncAllSessionsToCloud: (sessions: ArchiveSession[]) => Promise<{ ok: boolean; message: string }>;
-  refreshInsightArchivesFromCloud: () => Promise<void>;
-  syncAllInsightArchivesToCloud: (items: import("../data/insightReport").InsightArchiveItem[]) => Promise<{ ok: boolean; message: string }>;
-}) {
-  const [loading, setLoading] = useState<"pull" | "push" | null>(null);
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-
-  const handlePull = async () => {
-    if (!uid) {
-      setResult({ ok: false, message: "데이터 동기화를 사용하려면 설정 > 로그인 필요" });
-      setTimeout(() => setResult(null), 4000);
-      return;
-    }
-    setLoading("pull");
-    setResult(null);
-    try {
-      await Promise.all([refreshSessionsFromCloud(), refreshInsightArchivesFromCloud()]);
-      setResult({ ok: true, message: "클라우드에서 가져왔습니다" });
-    } catch (e) {
-      setResult({ ok: false, message: e instanceof Error ? e.message : "가져오기 실패" });
-    } finally {
-      setLoading(null);
-    }
-    setTimeout(() => setResult(null), 4000);
-  };
-
-  const handlePush = async () => {
-    if (!uid) {
-      setResult({ ok: false, message: "로그인 필요" });
-      setTimeout(() => setResult(null), 4000);
-      return;
-    }
-    setLoading("push");
-    setResult(null);
-    try {
-      const items = (await import("../utils/insightArchiveStorage")).loadInsightArchives();
-      const [resSessions, resInsight] = await Promise.all([
-        syncAllSessionsToCloud(sessions),
-        syncAllInsightArchivesToCloud(items),
-      ]);
-      const ok = resSessions.ok && resInsight.ok;
-      const msg = ok
-        ? "동기화 완료"
-        : [resSessions.ok ? "" : resSessions.message, resInsight.ok ? "" : resInsight.message]
-            .filter(Boolean)
-            .join(" / ") || "동기화 실패";
-      setResult({ ok, message: msg });
-    } finally {
-      setLoading(null);
-    }
-    setTimeout(() => setResult(null), 4000);
-  };
-
-  if (!isEnabled) {
-    return (
-      <p style={{ fontSize: 13 }} className="text-white/50">
-        Firebase가 비활성화되어 있습니다. (.env에 VITE_FIREBASE_* 추가)
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handlePull}
-          disabled={loading !== null || !uid}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors"
-          style={{ fontSize: 13 }}
-        >
-          <CloudDownload size={16} />
-          {loading === "pull" ? "가져오는 중…" : "클라우드에서 가져오기"}
-        </button>
-        <button
-          type="button"
-          onClick={handlePush}
-          disabled={loading !== null || !uid}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 disabled:opacity-50 transition-colors"
-          style={{ fontSize: 13 }}
-        >
-          <CloudUpload size={16} />
-          {loading === "push" ? "업로드 중…" : "클라우드에 업로드"}
-        </button>
-      </div>
-      {result && (
-        <p
-          style={{ fontSize: 12 }}
-          className={result.ok ? "text-emerald-400/90" : "text-red-400/90"}
-        >
-          {result.message}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** 동기화 실패 시 확인 사항 */
-function ReportSyncFailureHint() {
-  return (
-    <details className="mt-2">
-      <summary style={{ fontSize: 12 }} className="text-white/40 cursor-pointer hover:text-white/60">
-        동기화 실패 시 확인 사항
-      </summary>
-      <ul style={{ fontSize: 11, lineHeight: 1.6 }} className="text-white/40 mt-2 pl-4 space-y-1 list-disc">
-        <li>스크랩한 기사 보기</li>
-        <li>Firestore 문서 1MB 제한: 리포트가 크면 uploadedImages 제외 후 저장됩니다.</li>
-        <li>Firebase Console &gt; Authentication &gt; 허용된 도메인에 URL(또는 IP) 추가 (예: 192.168.x.x)</li>
-        <li>{"Firestore 규칙: users/{userId}에 read, write 권한 부여"}</li>
-        <li>규칙 저장 후 동기화 재시도 (Firebase Console &gt; Authentication)</li>
-      </ul>
-    </details>
-  );
-}
-
 export function SettingsPage() {
   const { sessions, clearAllSessions } = useArchive();
-  const firebase = useFirebase();
   const [selectedModelId, setSelectedModelId] = useState(getSelectedModelId());
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() => getSelectedSources().sources);
   const [newRssName, setNewRssName] = useState("");
@@ -362,8 +281,11 @@ export function SettingsPage() {
     gpt: "ok" | "error";
     gemini: "ok" | "error";
     anthropic: "ok" | "error";
+    dataGoKr: "ok" | "error" | "nokey";
+    finnhub: "ok" | "error" | "nokey";
+    yahoo: "ok" | "error";
     errorMessage: string;
-  }>({ gpt: "error", gemini: "error", anthropic: "error", errorMessage: "" });
+  }>({ gpt: "error", gemini: "error", anthropic: "error", dataGoKr: "nokey", finnhub: "nokey", yahoo: "ok", errorMessage: "" });
   const [lastCheckTime, setLastCheckTime] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -779,52 +701,46 @@ export function SettingsPage() {
                 className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
               />
             </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isChecking}
+              className="flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-white/5 px-2.5 py-1.5 text-white/60 hover:text-white/80 hover:bg-white/8 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+              style={{ fontSize: 12 }}
+            >
+              <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
+              연결 확인
+            </button>
           </div>
           {apiExpanded && (
           <div className="border-t border-white/6 divide-y divide-white/6 px-4 pb-4 pt-4">
           {[
-            { key: "gemini" as const, label: "Gemini", icon: Sparkles },
-            { key: "anthropic" as const, label: "Claude", icon: Bot },
-            { key: "gpt" as const, label: "ChatGPT", icon: Cpu },
-          ].map(({ key, label, icon: Icon }) => (
+            { key: "gemini" as const, label: "Gemini" },
+            { key: "anthropic" as const, label: "Claude" },
+            { key: "gpt" as const, label: "ChatGPT" },
+            { key: "dataGoKr" as const, label: "공공데이터포털 (금융)" },
+            { key: "finnhub" as const, label: "Finnhub" },
+            { key: "yahoo" as const, label: "Yahoo Finance" },
+          ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-2">
-                {Icon && <Icon size={16} className="text-white/70" />}
-                <span style={{ fontSize: 14 }} className="text-white/90">{label}</span>
-              </div>
+              <span style={{ fontSize: 14 }} className="text-white/90">{label}</span>
               <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-                {apiStatus[key] === "ok" ? (
+                {isChecking ? (
+                  "연결중"
+                ) : apiStatus[key] === "ok" ? (
                   <>
                     <CheckCircle2 size={14} />
-                    로그인
+                    연결됨
                   </>
                 ) : (
                   <>
                     <XCircle size={14} />
-                    실패
+                    {apiStatus[key] === "nokey" ? "키 미설정" : "실패"}
                   </>
                 )}
               </span>
             </div>
           ))}
-          <div className="pt-2">
-            <div style={{ fontSize: 12 }} className="text-white/40 mb-1">
-              로그인? :
-            </div>
-            <div
-              className="rounded-[8px] bg-white/5 border border-white/8 px-3 py-2"
-              style={{ fontSize: 13, lineHeight: 1.5 }}
-            >
-              <span className={apiStatus.gpt === "ok" && apiStatus.gemini === "ok" && apiStatus.anthropic === "ok" ? "text-emerald-400/90" : "text-red-400/90"}>
-                {apiStatus.errorMessage}
-              </span>
-              {apiStatus.errorMessage.includes("로그인?") && (
-                <p style={{ fontSize: 11 }} className="text-white/45 mt-2">
-                  VPN ?? ?? ?? ?? 데이터 동기화 로그인.
-                </p>
-              )}
-            </div>
-          </div>
           </div>
           )}
         </div>
@@ -909,41 +825,7 @@ export function SettingsPage() {
       </section>
       )}
 
-      {/* 내보내기*/}
-      <section className="mb-4">
-        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/6">
-            <p style={{ fontSize: 14, fontWeight: 600 }} className="text-white">데이터 동기화</p>
-          </div>
-          <div className="p-4 space-y-3">
-            <DataSyncButtons
-              sessions={sessions}
-              isEnabled={firebase.isEnabled}
-              uid={firebase.uid}
-              refreshSessionsFromCloud={firebase.refreshSessionsFromCloud}
-              syncAllSessionsToCloud={firebase.syncAllSessionsToCloud}
-              refreshInsightArchivesFromCloud={firebase.refreshInsightArchivesFromCloud}
-              syncAllInsightArchivesToCloud={firebase.syncAllInsightArchivesToCloud}
-            />
-            <ReportSyncFailureHint />
-          </div>
-        </div>
-      </section>
-
-      {/* 스크랩한 기사 */}
-      <section className="mb-4">
-        <Link
-          to="/settings/scrap"
-          className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
-        >
-          <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>스크랩한 기사</span>
-            <ChevronRight size={20} className="text-white/40 shrink-0" />
-          </div>
-        </Link>
-      </section>
-
-      {/* 로그인?*/}
+      {/* 로그인 */}
       <section className="mb-4">
         <Link
           to="/settings/login"
