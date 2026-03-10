@@ -5,6 +5,45 @@
 import React from "react";
 import type { CompanyAnalysisResult } from "../utils/companyAnalysisApi";
 
+const CONNECTED_SECTION_TITLE = "어느 기업과 연결되어 있는가?";
+
+/** content에서 mentionedCompanies에 해당하는 회사명을 밑줄+초록 스타일로 강조. excludedCompany는 제외 */
+function renderSectionContentWithHighlights(
+  content: string,
+  mentionedCompanies: string[] | undefined,
+  excludedCompany: string
+): React.ReactNode {
+  if (!content) return "(내용 없음)";
+  const toHighlight = (mentionedCompanies ?? []).filter(
+    (c) => c && c !== excludedCompany && !excludedCompany.includes(c)
+  );
+  if (toHighlight.length === 0) return content;
+
+  const escaped = toHighlight
+    .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(`(${escaped.join("|")})`, "g");
+  const highlightSet = new Set(toHighlight);
+
+  return content.split(/(\n)/).map((part, i) => {
+    if (part === "\n") return <br key={i} />;
+    const tokens = part.split(pattern);
+    return (
+      <React.Fragment key={i}>
+        {tokens.map((t, j) =>
+          highlightSet.has(t) ? (
+            <span key={j} className="underline text-emerald-400">
+              {t}
+            </span>
+          ) : (
+            t
+          )
+        )}
+      </React.Fragment>
+    );
+  });
+}
+
 function BlockTitle({ children, isFirst }: { children: React.ReactNode; isFirst?: boolean }) {
   return (
     <div
@@ -76,17 +115,27 @@ export function CompanyAnalysisResultView({
         </div>
 
         <div className="px-5 pt-6 pb-6">
-          {data.analysis_sections.map((section, i) => (
-            <div key={i}>
-              <BlockTitle isFirst={i === 0}>{section.title || `분석 ${i + 1}`}</BlockTitle>
-              <div
-                style={{ fontSize: 14, lineHeight: 1.6 }}
-                className="text-white/90 mt-[14px] whitespace-pre-line"
-              >
-                {section.content || "(내용 없음)"}
+          {data.analysis_sections.map((section, i) => {
+            const isConnectedSection = section.title === CONNECTED_SECTION_TITLE;
+            const content = isConnectedSection && section.mentioned_companies?.length
+              ? renderSectionContentWithHighlights(
+                  section.content,
+                  section.mentioned_companies,
+                  meta.company_name
+                )
+              : (section.content || "(내용 없음)");
+            return (
+              <div key={i}>
+                <BlockTitle isFirst={i === 0}>{section.title || `분석 ${i + 1}`}</BlockTitle>
+                <div
+                  style={{ fontSize: 14, lineHeight: 1.6 }}
+                  className="text-white/90 mt-[14px] whitespace-pre-line"
+                >
+                  {content}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <BlockTitle isFirst={data.analysis_sections.length === 0}>핵심 요약</BlockTitle>
           <div className="mt-[14px] space-y-[12px]">

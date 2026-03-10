@@ -14,7 +14,12 @@ export interface CompanyAnalysisResult {
   };
   /** 기업이 속한 섹터 (예: 반도체, 2차전지, 자동차) */
   sectors?: string[];
-  analysis_sections: Array<{ title: string; content: string }>;
+  analysis_sections: Array<{
+    title: string;
+    content: string;
+    /** "어느 기업과 연결되어 있는가?" 섹션에서만 사용. 검색(분석) 대상 회사 제외한 언급 회사명 목록 */
+    mentioned_companies?: string[];
+  }>;
   key_summary: {
     growth_driver: string;
     risk_factor: string;
@@ -46,17 +51,39 @@ const JSON_SCHEMA_PROMPT = `반드시 아래 JSON 형식으로만 응답하고, 
     },
     {
       "title": "어느 기업과 연결되어 있는가?",
-      "content": "주요 고객사, 공급사 및 실적이 연동되는 관련 기업을 명시하고, 이들 간의 실적 영향 관계를 분석한 서술형 내용이 들어감."
+      "content": "주요 고객사, 공급사 및 실적이 연동되는 관련 기업을 명시하고, 이들 간의 실적 영향 관계를 분석한 서술형 내용이 들어감.",
+      "mentioned_companies": ["관련기업1", "관련기업2"]
     }
   ],
-  "sectors": ["반도체", "2차전지"],
+  "sectors": ["정보기술 (IT)", "반도체/AI"],
   "key_summary": {
     "growth_driver": "핵심 성장 요소 1줄 요약",
     "risk_factor": "주의 리스크 1줄 요약",
     "overall_opinion": "전반적인 투자 상태에 대한 분석가적 총평"
   }
 }
-sectors: 이 기업이 속한 산업/섹터를 문자열 배열로 (최대 5개, 예: 반도체, 2차전지, 자동차, 헬스케어)`;
+mentioned_companies: "어느 기업과 연결되어 있는가?" 섹션에서만 필수. 분석 대상(metadata.company_name) 제외, content에 언급된 고객/공급/연동 기업명만 문자열 배열로 포함.
+
+sectors 규칙 (필수 준수):
+- 제1라벨 (필수): [1. 글로벌 표준 11대 섹터] 중 해당 기업과 가장 일치하는 항목을 반드시 하나 선택하여 첫 번째 요소로 지정. 기사에 해당 섹터 명칭이 없더라도 기업 업종에 맞춰 강제 부여.
+- 후속 라벨 (선택): 기사가 구체적 기술/트렌드를 다루면 [2. 투자자 중심 핵심 테마]에서 적절한 것을 선택해 뒤에 붙임 (최대 4개).
+- 우선순위: [표준 섹터] > [핵심 테마] > [기사 내 주요 종목/키워드] 순으로 배치.
+- 기사에 해당 단어가 없더라도 대분류 섹터명은 반드시 부여할 것.
+
+[1. 글로벌 표준 11대 섹터 (GICS 기준)]:
+- 정보기술 (IT): 반도체, 소프트웨어, 하드웨어, AI 인프라
+- 커뮤니케이션 서비스: 인터넷 포털, 통신, 엔터테인먼트(미디어, 게임)
+- 금융: 은행, 증권, 보험, 지주사
+- 경기소비재: 자동차, 유통, 호텔, 의류 (경기에 민감함)
+- 헬스케어: 제약, 바이오, 의료기기, 헬스케어 서비스
+- 산업재: 방산, 기계, 건설, 조선, 항공, 로보틱스
+- 에너지: 석유, 가스, 정유, 에너지 장비
+- 소재: 화학, 철강, 금속, 배터리 소재
+- 필수소비재: 음식료, 생활용품, 담배, 주류
+- 유틸리티: 전기, 수도, 가스 공급
+- 부동산: 리츠(REITs), 부동산 개발
+
+[2. 투자자 중심 핵심 테마 (표준 섹터보다 구체적, 태그용)]: 반도체/AI, 우주/항공, 방산, 모빌리티, 이차전지, 로보틱스, 바이오/신약, 빅테크, 핀테크, 신재생에너지.`;
 
 function getGeminiKey(): string {
   let key = (import.meta.env.VITE_GEMINI_API_KEY as string) ?? "";
@@ -86,9 +113,14 @@ function parseCompanyAnalysisResult(parsed: Record<string, unknown>): CompanyAna
   const analysis_sections = Array.isArray(sectionsRaw)
     ? sectionsRaw.map((s: unknown) => {
         const o = (s as Record<string, unknown>) ?? {};
+        const mentionsRaw = o.mentioned_companies;
+        const mentioned_companies = Array.isArray(mentionsRaw)
+          ? mentionsRaw.map((m: unknown) => String(m ?? "").trim()).filter(Boolean)
+          : undefined;
         return {
           title: String(o.title ?? "").trim(),
           content: String(o.content ?? "").trim(),
+          ...(mentioned_companies?.length ? { mentioned_companies } : {}),
         };
       }).filter((s) => s.title || s.content)
     : [];
