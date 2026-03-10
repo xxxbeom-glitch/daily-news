@@ -15,9 +15,11 @@ function getInsightModel(): "gemini" {
 
 function FeedCardWithReadTrack({
   itemId,
+  onViewed,
   children,
 }: {
   itemId: string;
+  onViewed?: (id: string) => void;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -29,6 +31,7 @@ function FeedCardWithReadTrack({
         for (const e of entries) {
           if (e.isIntersecting) {
             markInsightAsRead(itemId);
+            onViewed?.(itemId);
             break;
           }
         }
@@ -37,7 +40,7 @@ function FeedCardWithReadTrack({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [itemId]);
+  }, [itemId, onViewed]);
   return <div ref={ref}>{children}</div>;
 }
 
@@ -53,6 +56,8 @@ export function InsightChipPage() {
   const [selectedArchive, setSelectedArchive] = useState<InsightArchiveItem | null>(null);
   const [filterLabel, setFilterLabel] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [lastViewedFeedItemId, setLastViewedFeedItemId] = useState<string | null>(null);
+  const scrollToItemRef = useRef<HTMLButtonElement>(null);
   const hasRestoredRef = useRef(false);
 
   const { allLabels, labelCounts } = useMemo(() => {
@@ -86,6 +91,16 @@ export function InsightChipPage() {
     if (idx < 0) return [];
     return filteredItems.slice(idx);
   }, [filteredItems, selectedArchive]);
+
+  // 뒤로가기 후 리스트에서 마지막으로 읽은 게시물 위치로 스크롤
+  useEffect(() => {
+    if (!selectedArchive && lastViewedFeedItemId && scrollToItemRef.current) {
+      const el = scrollToItemRef.current;
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ block: "center", behavior: "auto" });
+      });
+    }
+  }, [selectedArchive, lastViewedFeedItemId]);
 
   useEffect(() => {
     setArchiveItems(loadInsightArchives());
@@ -338,7 +353,7 @@ export function InsightChipPage() {
             <div key="feed" className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-6">
               <div className="flex flex-col gap-6">
                 {feedItems.map((item) => (
-                  <FeedCardWithReadTrack key={item.id} itemId={item.id}>
+                  <FeedCardWithReadTrack key={item.id} itemId={item.id} onViewed={setLastViewedFeedItemId}>
                   <InsightReportView
                     data={item.report}
                     title={item.title}
@@ -425,9 +440,11 @@ export function InsightChipPage() {
                   filteredItems.map((item) => (
                     <button
                       key={item.id}
+                      ref={item.id === lastViewedFeedItemId ? scrollToItemRef : null}
                       type="button"
                       onClick={() => {
                         setSelectedArchive(item);
+                        setLastViewedFeedItemId(item.id);
                         markInsightAsRead(item.id);
                       }}
                       className="w-full h-[72px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
