@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { ChevronDown, BookmarkX, Pencil, Upload } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
 import { useFirebase } from "../context/FirebaseContext";
@@ -13,7 +12,6 @@ import { UploadPage } from "./UploadPage";
 const CONFIRM_MS = 2500;
 
 export function ReportPage() {
-  const navigate = useNavigate();
   const { sessions, deleteSession } = useArchive();
   const { refreshSessionsFromCloud, isEnabled: isFirebaseEnabled } = useFirebase();
   const { hideMarket } = useAdminSettings();
