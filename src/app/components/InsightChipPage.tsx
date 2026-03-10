@@ -3,6 +3,7 @@ import { Clipboard, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
 import { addInsightArchive, loadInsightArchives, removeInsightArchive } from "../utils/insightArchiveStorage";
+import { isInsightRead, markInsightAsRead } from "../utils/insightReadStorage";
 import { saveInsightChipState, loadInsightChipState } from "../utils/persistState";
 import { useFirebase } from "../context/FirebaseContext";
 import type { InsightArchiveItem } from "../data/insightReport";
@@ -381,11 +382,17 @@ export function InsightChipPage() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setSelectedArchive(item)}
+                      onClick={() => {
+                        setSelectedArchive(item);
+                        markInsightAsRead(item.id);
+                      }}
                       className="w-full h-[72px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
                     >
-                      <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate">
-                        {item.title || item.url}
+                      <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate flex items-center gap-2">
+                        {!isInsightRead(item.id) && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="읽지 않음" />
+                        )}
+                        <span className="truncate">{item.title || item.url}</span>
                       </div>
                       <div style={{ fontSize: 12 }} className="text-white/40 mt-1">
                         {item.source && `${item.source} · `}
