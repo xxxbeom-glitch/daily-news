@@ -389,7 +389,7 @@ export function InsightChipPage() {
                           setArchiveItems(loadInsightArchives());
                         }}
                       />
-                    )
+                    ))
                 )}
               </div>
             </div>
