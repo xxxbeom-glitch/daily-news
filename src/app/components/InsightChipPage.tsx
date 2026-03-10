@@ -335,7 +335,7 @@ export function InsightChipPage() {
       {activeTab === "아카이빙" && (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {selectedArchive ? (
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-6">
+            <div key="feed" className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-6">
               <div className="flex flex-col gap-6">
                 {feedItems.map((item) => (
                   <FeedCardWithReadTrack key={item.id} itemId={item.id}>
@@ -363,7 +363,7 @@ export function InsightChipPage() {
               </div>
             </div>
           ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          <div key="list" className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {archiveItems.length === 0 ? (
             <div className="py-12 text-center text-white/50" style={{ fontSize: 14 }}>
               아카이브된 인사이트가 없습니다.
