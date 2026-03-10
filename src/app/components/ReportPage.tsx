@@ -47,15 +47,12 @@ export function ReportPage() {
   const selectedSession = filteredSessions.find((s) => s.id === selectedSessionId)
     ?? filteredSessions[0] ?? null;
 
-  // 탭 변경 시 해당 영역의 첫 세션 자동 선택 (최초 1회 또는 탭/리스트 변경 시에만)
+  // 탭·리스트 변경 시 가장 최신 세션 선택 (리포트 탭 들어갔을 때 최신 먼저 보이도록)
   const filteredIds = filteredSessions.map((s) => s.id).join(",");
   useEffect(() => {
     if (filteredSessions.length > 0) {
-      const first = filteredSessions[0];
-      setSelectedSessionId((prev) => {
-        if (prev && filteredSessions.some((s) => s.id === prev)) return prev;
-        return first.id;
-      });
+      const mostRecent = filteredSessions[0];
+      setSelectedSessionId(mostRecent.id);
     } else {
       setSelectedSessionId(null);
     }

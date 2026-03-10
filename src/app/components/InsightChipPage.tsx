@@ -52,6 +52,13 @@ export function InsightChipPage() {
     );
   }, [archiveItems, filterLabel]);
 
+  const feedItems = useMemo(() => {
+    if (!selectedArchive) return [];
+    const idx = filteredItems.findIndex((i) => i.id === selectedArchive.id);
+    if (idx < 0) return [];
+    return filteredItems.slice(idx);
+  }, [filteredItems, selectedArchive]);
+
   useEffect(() => {
     setArchiveItems(loadInsightArchives());
   }, [result, activeTab]);
@@ -301,20 +308,30 @@ export function InsightChipPage() {
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {selectedArchive ? (
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-6">
-              <InsightReportView
-                data={selectedArchive.report}
-                title={selectedArchive.title}
-                publishedAt={selectedArchive.publishedAt}
-                createdAt={selectedArchive.createdAt}
-                aiModel={selectedArchive.aiModel}
-                embedded={false}
-                onDelete={() => {
-                  removeInsightArchive(selectedArchive.id);
-                  firebase.syncDeleteInsightArchive(selectedArchive.id);
-                  setSelectedArchive(null);
-                  setArchiveItems(loadInsightArchives());
-                }}
-              />
+              <div className="flex flex-col gap-6">
+                {feedItems.map((item) => (
+                  <InsightReportView
+                    key={item.id}
+                    data={item.report}
+                    title={item.title}
+                    publishedAt={item.publishedAt}
+                    createdAt={item.createdAt}
+                    aiModel={item.aiModel}
+                    embedded={false}
+                    onDelete={() => {
+                      removeInsightArchive(item.id);
+                      firebase.syncDeleteInsightArchive(item.id);
+                      const next = loadInsightArchives();
+                      setArchiveItems(next);
+                      if (item.id === selectedArchive.id) {
+                        const idx = feedItems.findIndex((i) => i.id === item.id);
+                        const nextItem = feedItems[idx + 1];
+                        setSelectedArchive(nextItem ?? null);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
