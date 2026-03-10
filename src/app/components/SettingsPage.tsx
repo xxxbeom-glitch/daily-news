@@ -4,7 +4,15 @@ import { CheckCircle2, XCircle, Trash2, Download, Cloud, RefreshCw, ChevronDown,
 import { useArchive } from "../context/ArchiveContext";
 import { getEffectiveSources } from "../data/newsSources";
 import { addCustomSource, removeCustomSource, isCustomSourceId } from "../utils/customRssStorage";
-import { getSelectedSources, setSelectedSources, getSelectedModelId, setSelectedModelId as persistSetSelectedModelId } from "../utils/persistState";
+import {
+  getSelectedSources,
+  setSelectedSources,
+  getSelectedModelId,
+  setSelectedModelId as persistSetSelectedModelId,
+  getCompanyAnalysisSystemInstruction,
+  setCompanyAnalysisSystemInstruction,
+  DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION,
+} from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
 import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
@@ -317,6 +325,8 @@ export function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
   const [exportPdfLoading, setExportPdfLoading] = useState(false);
   const [aiEngineExpanded, setAiEngineExpanded] = useState(false);
+  const [systemInstructionExpanded, setSystemInstructionExpanded] = useState(false);
+  const [systemInstructionEdit, setSystemInstructionEdit] = useState(() => getCompanyAnalysisSystemInstruction());
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [apiExpanded, setApiExpanded] = useState(false);
 
@@ -329,6 +339,20 @@ export function SettingsPage() {
   const handleSaveSelectedModel = () => {
     persistSetSelectedModelId(selectedModelId);
   };
+
+  const handleSaveSystemInstruction = () => {
+    setCompanyAnalysisSystemInstruction(systemInstructionEdit.trim() || DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION);
+  };
+
+  const handleResetSystemInstruction = () => {
+    setSystemInstructionEdit(DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION);
+  };
+
+  useEffect(() => {
+    if (systemInstructionExpanded) {
+      setSystemInstructionEdit(getCompanyAnalysisSystemInstruction());
+    }
+  }, [systemInstructionExpanded]);
 
   const getModelLabel = (id: string): string => {
     if (id.startsWith("gemini-")) return `Gemini (${id})`;
@@ -592,6 +616,57 @@ export function SettingsPage() {
                 onClick={handleSaveSelectedModel}
                 className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
               >저장</button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* System Instruction (기업분석용) */}
+      <section className="mb-4">
+        <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSystemInstructionExpanded((v) => !v)}
+            className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
+            style={{ fontSize: 14, fontWeight: 600 }}
+          >
+            <span>System Instruction</span>
+            <span className="text-white/50 text-xs truncate max-w-[50%]">
+              기업분석 JSON 양식
+            </span>
+            <ChevronDown
+              size={16}
+              className={`text-white/60 shrink-0 transition-transform ${systemInstructionExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+          {systemInstructionExpanded && (
+            <div className="px-4 pb-4 pt-4 border-t border-white/6">
+              <p style={{ fontSize: 12 }} className="text-white/50 mb-2">
+                기업분석 API 호출 시 사용됨. Gemini 2.5 Flash가 JSON 양식을 준수하도록 지시함.
+              </p>
+              <textarea
+                value={systemInstructionEdit}
+                onChange={(e) => setSystemInstructionEdit(e.target.value)}
+                placeholder={DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION}
+                className="w-full min-h-[180px] px-3 py-2 rounded-[8px] border border-white/15 bg-white/5 text-white placeholder-white/40 resize-y font-mono"
+                style={{ fontSize: 12, lineHeight: 1.5 }}
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveSystemInstruction}
+                  className="px-4 py-2 rounded-[8px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium"
+                >
+                  저장
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetSystemInstruction}
+                  className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white/80 border border-white/15 text-sm"
+                >
+                  기본값 복원
+                </button>
+              </div>
             </div>
           )}
         </div>

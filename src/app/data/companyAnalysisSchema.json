@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "company_name": "기업명",
+    "ticker": "종목코드",
+    "market": "KOSPI / NASDAQ 등",
+    "last_updated": "YYYY-MM-DD"
+  },
+  "analysis_sections": [
+    {
+      "title": "사업의 본질 및 핵심 비즈니스",
+      "content": "기업의 수익 구조와 시장 내 위치를 분석한 서술형 내용이 들어감."
+    },
+    {
+      "title": "재무 실적 및 수익성 평가",
+      "content": "최근 실적 수치와 수익성 변화 추이를 분석한 서술형 내용이 들어감."
+    },
+    {
+      "title": "최근 시장 동향 및 향후 전망",
+      "content": "주요 뉴스, 매크로 환경, 향후 성장 모멘텀을 분석한 서술형 내용이 들어감."
+    }
+  ],
+  "key_summary": {
+    "growth_driver": "핵심 성장 요소 1줄 요약",
+    "risk_factor": "주의 리스크 1줄 요약",
+    "overall_opinion": "전반적인 투자 상태에 대한 분석가적 총평"
+  }
+}

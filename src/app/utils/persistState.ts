@@ -11,6 +11,7 @@ const INTEREST_MEMORY_DOMESTIC_KEY = "newsbrief_interest_memory_domestic";
 const INTEREST_MEMORY_INTERNATIONAL_KEY = "newsbrief_interest_memory_international";
 const SELECTED_MODEL_KEY = "newsbrief_selected_model";
 const SELECTED_MODEL_ID_KEY = "newsbrief_selected_model_id";
+const COMPANY_ANALYSIS_SYSTEM_INSTRUCTION_KEY = "newsbrief_company_analysis_system_instruction";
 
 /** 설정에서 모델 저장 시 디스패치되는 이벤트 (SearchStateContext 동기화용) */
 export const SELECTED_MODEL_CHANGED_EVENT = "newsbrief_selected_model_changed";
@@ -148,6 +149,29 @@ export function setSelectedModelId(modelId: string): void {
     localStorage.setItem(SELECTED_MODEL_ID_KEY, modelId.trim());
     const model = modelId.startsWith(CLAUDE_PREFIX) ? "claude" : modelId.startsWith(GPT_PREFIX) ? "gpt" : "gemini";
     setSelectedModel(model);
+    window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
+  } catch {}
+}
+
+/** 기업분석 시스템 명령어 기본값 (Gemini 2.5 Flash JSON 양식 준수용) */
+export const DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION = `1. "귀하는 자본시장 전문 분석가로서 역할을 수행함. 모든 응답은 제공된 JSON 양식을 엄격히 준수해야 하며, 데이터 외의 부연 설명은 일절 배제함.
+2. 문체: 모든 서술형 문장은 농담이나 감정적 표현 없이 전문적인 **문어체(~함, ~임)**로 작성함.
+3. 내용: 각 분석 섹션(analysis_sections)의 content는 최소 2문장 이상의 서술형으로 작성하되, 수치적 근거를 포함해야 함.
+4. 통화: 한국 기업은 KRW(원), 미국 기업은 USD(달러) 단위를 사용함.
+5. 정확성: 반드시 최신 공시 정보와 시장 데이터를 기반으로 분석을 수행함."`;
+
+export function getCompanyAnalysisSystemInstruction(): string {
+  try {
+    const raw = localStorage.getItem(COMPANY_ANALYSIS_SYSTEM_INSTRUCTION_KEY);
+    return typeof raw === "string" && raw.trim() ? raw : DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION;
+  } catch {
+    return DEFAULT_COMPANY_ANALYSIS_SYSTEM_INSTRUCTION;
+  }
+}
+
+export function setCompanyAnalysisSystemInstruction(text: string): void {
+  try {
+    localStorage.setItem(COMPANY_ANALYSIS_SYSTEM_INSTRUCTION_KEY, text);
     window.dispatchEvent(new CustomEvent("newsbrief_settings_changed"));
   } catch {}
 }

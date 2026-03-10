@@ -1,14 +1,30 @@
 import { useState } from "react";
 import { BarChart2 } from "lucide-react";
+import { InsightReportView } from "./InsightReportView";
+import { runCompanyAnalysis } from "../utils/companyAnalysisApi";
+import type { InsightReportData } from "../data/insightReport";
+
+const NULL_REPORT_DATA: InsightReportData = {
+  articleSummary: ["(데이터 없음)"],
+  keyPoints: "(데이터 없음)",
+  score: 0,
+  signal: "중립",
+  strategy: "(데이터 없음)",
+};
 
 export function CompanyAnalysisPage() {
   const [companyName, setCompanyName] = useState("");
   const [analyzedCompany, setAnalyzedCompany] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     const trimmed = companyName.trim();
     if (!trimmed) return;
+    setAnalyzing(true);
+    const result = await runCompanyAnalysis(trimmed);
+    setAnalyzing(false);
     setAnalyzedCompany(trimmed);
+    void result;
   };
 
   return (
@@ -27,27 +43,22 @@ export function CompanyAnalysisPage() {
         <button
           type="button"
           onClick={handleAnalyze}
-          disabled={!companyName.trim()}
+          disabled={!companyName.trim() || analyzing}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-[#618EFF]/40 bg-[#618EFF]/20 text-[#618EFF] hover:bg-[#618EFF]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           style={{ fontSize: 14, fontWeight: 600 }}
         >
           <BarChart2 size={18} />
-          기업분석하기
+          {analyzing ? "분석 중…" : "기업분석하기"}
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {analyzedCompany && (
-          <div className="rounded-[10px] border border-white/10 bg-white/5 overflow-hidden p-4">
-            <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 mb-2">
-              {analyzedCompany}
-            </div>
-            <div className="rounded-[8px] border border-white/8 bg-white/5 px-4 py-6">
-              <p style={{ fontSize: 13 }} className="text-white/50 text-center">
-                분석 결과 영역 (데이터: null)
-              </p>
-            </div>
-          </div>
+          <InsightReportView
+            data={NULL_REPORT_DATA}
+            title={analyzedCompany}
+            embedded={true}
+          />
         )}
       </div>
     </div>
