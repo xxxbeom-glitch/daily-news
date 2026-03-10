@@ -72,10 +72,11 @@ async function searchViaDataGoKr(query: string): Promise<StockSearchResult[]> {
     const raw = json?.response?.body?.items;
     const items: Array<Record<string, unknown>> = [];
     if (Array.isArray(raw)) items.push(...raw);
-    else if (raw && typeof raw === "object" && Array.isArray((raw as { item?: unknown }).item))
-      items.push(...((raw as { item: unknown[] }).item as Record<string, unknown>[]);
-    else if (raw && typeof raw === "object" && (raw as { item?: unknown }).item)
-      items.push((raw as { item: Record<string, unknown> }).item);
+    else if (raw && typeof raw === "object") {
+      const r = raw as { item?: unknown };
+      if (Array.isArray(r.item)) items.push(...(r.item as Record<string, unknown>[]));
+      else if (r.item) items.push(r.item as Record<string, unknown>);
+    }
 
     if (items.length === 0) return [];
 
