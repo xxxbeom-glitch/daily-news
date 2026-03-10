@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Paperclip, FileText, X, Clipboard } from "lucide-react";
+import { Paperclip, X, Clipboard } from "lucide-react";
 import { generateMarketSummaryFromUploadedData, generateGlobalMarketDailyFromPdf } from "../utils/aiSummary";
 import { getSelectedModel, getSelectedModelId, saveArchiveState } from "../utils/persistState";
 import { useArchive } from "../context/ArchiveContext";
@@ -14,8 +14,8 @@ import {
 } from "../utils/cloudinaryUpload";
 type CountryTab = "kr" | "us";
 
-const ACCEPT_IMAGES = "image/png,image/jpeg,image/gif,image/webp";
-const ACCEPT_PDF = ".pdf,application/pdf";
+/** 모바일에서 파일종류 '전체'로 열리도록 */* 사용 (이미지/PDF는 handleFileChange에서 검증) */
+const ACCEPT_FILES = "*/*";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const PDF_TYPE = "application/pdf";
 /** 이미지 개수 제한 없음 (AI 요약 시간은 사용자 수용) */
@@ -110,7 +110,6 @@ export function UploadPage({ onClose, initialEditSessionId }: UploadPageProps = 
   const [progressStep, setProgressStep] = useState<1 | 2 | 3>(1);
   const [progressPercent, setProgressPercent] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const PROGRESS_LABELS: Record<1 | 2 | 3, string> = {
     1: "업로드",
@@ -579,7 +578,7 @@ export function UploadPage({ onClose, initialEditSessionId }: UploadPageProps = 
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={tab === "kr" ? "추가 텍스트 입력 (선택)" : "PDF는 위 버튼으로 첨부"}
+            placeholder={tab === "kr" ? "추가 텍스트 입력 (선택)" : "이미지·PDF는 위 버튼으로 첨부"}
             rows={5}
             className="w-full px-4 py-3 bg-transparent text-white placeholder:text-white/40 text-sm resize-y min-h-[120px] border-0 focus:outline-none focus:ring-0"
           />
@@ -589,17 +588,9 @@ export function UploadPage({ onClose, initialEditSessionId }: UploadPageProps = 
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
-                title="이미지 첨부"
+                title="이미지·PDF 첨부"
               >
                 <Paperclip size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => pdfInputRef.current?.click()}
-                className="p-2 text-white/50 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
-                title="PDF 첨부"
-              >
-                <FileText size={18} />
               </button>
             </div>
             <div className="flex shrink-0 h-10 rounded-[10px] border border-white/10 bg-white/5 overflow-hidden">
@@ -628,15 +619,7 @@ export function UploadPage({ onClose, initialEditSessionId }: UploadPageProps = 
           <input
             ref={fileInputRef}
             type="file"
-            accept={ACCEPT_IMAGES}
-            onChange={handleFileChange}
-            multiple
-            className="hidden"
-          />
-          <input
-            ref={pdfInputRef}
-            type="file"
-            accept={ACCEPT_PDF}
+            accept={ACCEPT_FILES}
             onChange={handleFileChange}
             multiple
             className="hidden"
