@@ -32,20 +32,7 @@ function getFinnhubKey(): string {
   return key;
 }
 
-/** 최근 확정 영업일 (YYYYMMDD) - 금융위 API 기준 */
-function getLatestBaseDate(): string {
-  const now = new Date();
-  const day = now.getDay();
-  let diff = 1;
-  if (day === 0) diff = 2;
-  else if (day === 6) diff = 1;
-  else if (day === 1 && now.getHours() < 14) diff = 3;
-  else if (now.getHours() < 14) diff = 1;
-  now.setDate(now.getDate() - diff);
-  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-}
-
-/** 공공데이터포털 금융위원회 주식발행정보 - 주식발행회사명으로 종목 검색 (국내) */
+/** 공공데이터포털 금융위원회 기업기본정보 - 기업명으로 종목 검색 (국내) */
 async function searchViaDataGoKr(query: string): Promise<StockSearchResult[]> {
   const key = getDataGoKrKey();
   if (!key) return [];
