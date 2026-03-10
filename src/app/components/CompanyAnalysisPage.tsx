@@ -1,30 +1,29 @@
 import { useState } from "react";
 import { BarChart2 } from "lucide-react";
-import { InsightReportView } from "./InsightReportView";
-import { runCompanyAnalysis } from "../utils/companyAnalysisApi";
-import type { InsightReportData } from "../data/insightReport";
-
-const NULL_REPORT_DATA: InsightReportData = {
-  articleSummary: ["(데이터 없음)"],
-  keyPoints: "(데이터 없음)",
-  score: 0,
-  signal: "중립",
-  strategy: "(데이터 없음)",
-};
+import { CompanyAnalysisResultView } from "./CompanyAnalysisResultView";
+import { runCompanyAnalysis, type CompanyAnalysisResult } from "../utils/companyAnalysisApi";
 
 export function CompanyAnalysisPage() {
   const [companyName, setCompanyName] = useState("");
-  const [analyzedCompany, setAnalyzedCompany] = useState<string | null>(null);
+  const [result, setResult] = useState<CompanyAnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
   const handleAnalyze = async () => {
     const trimmed = companyName.trim();
     if (!trimmed) return;
     setAnalyzing(true);
-    const result = await runCompanyAnalysis(trimmed);
-    setAnalyzing(false);
-    setAnalyzedCompany(trimmed);
-    void result;
+    setError(null);
+    setResult(null);
+    try {
+      const data = await runCompanyAnalysis(trimmed);
+      if (data) setResult(data);
+      else setError("분석 결과를 가져오지 못했습니다.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "기업분석에 실패했습니다.");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   return (
@@ -53,12 +52,13 @@ export function CompanyAnalysisPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {analyzedCompany && (
-          <InsightReportView
-            data={NULL_REPORT_DATA}
-            title={analyzedCompany}
-            embedded={true}
-          />
+        {error && (
+          <div style={{ fontSize: 13 }} className="text-red-400 py-3">
+            {error}
+          </div>
+        )}
+        {result && (
+          <CompanyAnalysisResultView data={result} embedded={true} />
         )}
       </div>
     </div>
