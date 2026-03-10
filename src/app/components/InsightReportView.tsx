@@ -121,7 +121,7 @@ export function InsightReportView({
                   type="button"
                   onClick={onDelete}
                   className="text-white/70 hover:text-red-400 transition-colors shrink-0"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 11, lineHeight: 1.5 }}
                 >
                   삭제하기
                 </button>

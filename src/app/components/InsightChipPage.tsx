@@ -40,7 +40,7 @@ export function InsightChipPage() {
       }
     }
     return {
-      allLabels: Array.from(set).sort(),
+      allLabels: Array.from(set).sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0)),
       labelCounts: counts,
     };
   }, [archiveItems]);
@@ -298,9 +298,9 @@ export function InsightChipPage() {
       )}
 
       {activeTab === "아카이빙" && (
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {selectedArchive ? (
-            <div className="pb-6 min-h-full">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-6">
               <InsightReportView
                 data={selectedArchive.report}
                 title={selectedArchive.title}
@@ -316,7 +316,9 @@ export function InsightChipPage() {
                 }}
               />
             </div>
-          ) : archiveItems.length === 0 ? (
+          ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          {archiveItems.length === 0 ? (
             <div className="py-12 text-center text-white/50" style={{ fontSize: 14 }}>
               아카이브된 인사이트가 없습니다.
             </div>
@@ -401,6 +403,8 @@ export function InsightChipPage() {
                 )}
               </div>
             </div>
+          )}
+          </div>
           )}
         </div>
       )}
