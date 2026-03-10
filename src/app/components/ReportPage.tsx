@@ -80,6 +80,10 @@ export function ReportPage() {
   const handleDeleteClick = (e: React.MouseEvent, session: ArchiveSession) => {
     e.stopPropagation();
     if (confirmDeleteId === session.id) {
+      if (!window.confirm("정말 삭제하시겠습니까?")) {
+        setConfirmDeleteId(null);
+        return;
+      }
       deleteSession(session.id);
       setConfirmDeleteId(null);
       if (selectedSessionId === session.id) {

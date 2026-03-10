@@ -63,7 +63,9 @@ export function CompanyAnalysisResultView({
             {onDelete && (
               <button
                 type="button"
-                onClick={onDelete}
+                onClick={() => {
+                  if (window.confirm("정말 삭제하시겠습니까?")) onDelete();
+                }}
                 className="text-white/70 hover:text-red-400 transition-colors shrink-0"
                 style={{ fontSize: 11 }}
               >
