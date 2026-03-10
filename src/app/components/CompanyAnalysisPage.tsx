@@ -8,8 +8,10 @@ import {
   removeCompanyAnalysisArchive,
   type CompanyAnalysisArchiveItem,
 } from "../utils/companyAnalysisArchiveStorage";
+import { useFirebase } from "../context/FirebaseContext";
 
 export function CompanyAnalysisPage() {
+  const firebase = useFirebase();
   const [companyName, setCompanyName] = useState("");
   const [result, setResult] = useState<CompanyAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,15 @@ export function CompanyAnalysisPage() {
     setArchiveItems(loadCompanyAnalysisArchives());
   }, [result, activeTab]);
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<CompanyAnalysisArchiveItem[]>;
+      if (ev.detail && Array.isArray(ev.detail)) setArchiveItems(ev.detail);
+    };
+    window.addEventListener("newsbrief_company_analysis_archives_loaded", handler);
+    return () => window.removeEventListener("newsbrief_company_analysis_archives_loaded", handler);
+  }, []);
+
   const handleAnalyze = async () => {
     const trimmed = companyName.trim();
     if (!trimmed) {
@@ -70,6 +81,7 @@ export function CompanyAnalysisPage() {
           result: data,
         };
         addCompanyAnalysisArchive(item);
+        firebase.syncAddCompanyAnalysisArchive(item);
         setResult(data);
       } else {
         setError("분석 결과를 가져오지 못했습니다.");
@@ -193,6 +205,7 @@ export function CompanyAnalysisPage() {
                 sectorCounts={sectorCounts}
                 onDelete={() => {
                   removeCompanyAnalysisArchive(selectedArchive.id);
+                  firebase.syncDeleteCompanyAnalysisArchive(selectedArchive.id);
                   const next = loadCompanyAnalysisArchives();
                   setArchiveItems(next);
                   setSelectedArchive(null);

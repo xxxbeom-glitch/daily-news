@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Trash2, Download, Cloud, RefreshCw, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useArchive } from "../context/ArchiveContext";
+import { useFirebase } from "../context/FirebaseContext";
 import { getEffectiveSources } from "../data/newsSources";
 import { addCustomSource, removeCustomSource, isCustomSourceId } from "../utils/customRssStorage";
 import {
@@ -15,14 +16,14 @@ import {
 } from "../utils/persistState";
 import { GEMINI_MODELS, CLAUDE_MODELS, OPENAI_MODELS } from "../utils/adminSettings";
 import { saveBlobToLocalStorage, uploadBlobToGoogleDrive } from "../utils/exportArchives";
-import { exportArchivesToPdfZip } from "../utils/exportPdfZip";
+import { exportAllDataToZip } from "../utils/exportAllData";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 
-const API_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 60분마다
+const API_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 60???
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
-/** 오전 6시~밤 12시(자정) 구간인지 */
+/** ?? 6?~? 12?(??) ???? */
 function isWithinApiCheckHours(): boolean {
   const hour = new Date().getHours();
   return hour >= 6 && hour < 24;
@@ -59,7 +60,7 @@ function getApiKey(name: string): string {
 async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_GEMINI_API_KEY 추가)" };
+    return { ok: false, message: "API ?? ???? ?????. (.env? VITE_GEMINI_API_KEY ??)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -75,7 +76,7 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "네트워크 오류";
+    const msg = e instanceof Error ? e.message : "???? ??";
     return { ok: false, message: msg };
   }
 }
@@ -107,13 +108,13 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
       return { ok: false, message: msg };
     } catch (e) {
       clearTimeout(timeout);
-      const msg = e instanceof Error ? e.message : "네트워크 오류";
+      const msg = e instanceof Error ? e.message : "???? ??";
       return { ok: false, message: msg };
     }
   }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_ANTHROPIC_API_KEY 또는 VITE_OPENROUTER_API_KEY 추가)" };
+    return { ok: false, message: "API ?? ???? ?????. (.env? VITE_ANTHROPIC_API_KEY ?? VITE_OPENROUTER_API_KEY ??)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -140,7 +141,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "네트워크 오류";
+    const msg = e instanceof Error ? e.message : "???? ??";
     return { ok: false, message: msg };
   }
 }
@@ -148,7 +149,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
 async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_OPENAI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API 키가 설정되지 않았습니다. (.env에 VITE_OPENAI_API_KEY 추가)" };
+    return { ok: false, message: "API ?? ???? ?????. (.env? VITE_OPENAI_API_KEY ??)" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -176,16 +177,16 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "네트워크 오류";
+    const msg = e instanceof Error ? e.message : "???? ??";
     return { ok: false, message: msg };
   }
 }
 
 async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
-  if (!key) return { ok: false, message: "API 키 미설정" };
+  if (!key) return { ok: false, message: "API ? ???" };
   const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
-  const url = `/api/data-go-kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&corpNm=삼성`;
+  const url = `/api/data-go-kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&corpNm=??`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
@@ -197,26 +198,26 @@ async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
     try {
       json = JSON.parse(text) as typeof json;
     } catch {
-      return { ok: false, message: `응답 파싱 실패 (HTML 등 비정상 응답, ${text.length}자)` };
+      return { ok: false, message: `?? ?? ?? (HTML ? ??? ??, ${text.length}?)` };
     }
     const header = json?.response?.header;
     const code = header?.resultCode;
     const msg = (header?.resultMsg ?? "").trim();
     if (code === "00" || (code === undefined && json?.response?.body != null)) return { ok: true };
     const err = msg || code || "UNKNOWN_ERROR";
-    if (err.includes("SERVICE_KEY") || err.includes("REGISTERED") || /인증/.test(err)) return { ok: false, message: `인증키 오류: ${err}` };
-    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: "데이터 없음" };
+    if (err.includes("SERVICE_KEY") || err.includes("REGISTERED") || /KEY|REGISTERED/.test(err)) return { ok: false, message: `??? ??: ${err}` };
+    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: "??? ??" };
     return { ok: false, message: err };
   } catch (e) {
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, message: msg || "네트워크 오류" };
+    return { ok: false, message: msg || "???? ??" };
   }
 }
 
 async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_FINNHUB_API_KEY");
-  if (!key) return { ok: false, message: "API 키 미설정" };
+  if (!key) return { ok: false, message: "API ? ???" };
   const url = `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${key}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
@@ -226,10 +227,10 @@ async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
     const data = (await res.json().catch(() => ({}))) as { c?: number; error?: string };
     if (!res.ok) return { ok: false, message: data?.error || `HTTP ${res.status}` };
     if (data && typeof data.c === "number") return { ok: true };
-    return { ok: false, message: data?.error || "응답 형식 오류" };
+    return { ok: false, message: data?.error || "?? ?? ??" };
   } catch (e) {
     clearTimeout(timeout);
-    return { ok: false, message: e instanceof Error ? e.message : "네트워크 오류" };
+    return { ok: false, message: e instanceof Error ? e.message : "???? ??" };
   }
 }
 
@@ -266,20 +267,20 @@ async function checkConnectionStatus(
 
   const sourceStatus = Object.fromEntries(sourceResults);
   const translateError = (msg: string | undefined): string => {
-    if (!msg) return "네트워크 오류";
-    if (msg === "nokey") return "키 미설정";
-    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "할당량초과";
-    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API 키오류";
+    if (!msg) return "???? ??";
+    if (msg === "nokey") return "? ???";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "?????";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ???";
     const lower = msg.toLowerCase();
-    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "지역제한";
-    if (msg.includes("not found") || msg.includes("model")) return "모델 오류";
-    return msg.length > 50 ? msg.slice(0, 50) + "…" : msg;
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "????";
+    if (msg.includes("not found") || msg.includes("model")) return "?? ??";
+    return msg.length > 50 ? msg.slice(0, 50) + "?" : msg;
   };
   const errors: string[] = [];
   if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
   if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
   if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
-  if (errors.length === 0) errors.push("정상");
+  if (errors.length === 0) errors.push("??");
 
   const dataGoKrKey = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
   const finnhubKey = getApiKey("VITE_FINNHUB_API_KEY");
@@ -308,6 +309,7 @@ async function checkConnectionStatus(
 
 export function SettingsPage() {
   const { sessions, clearAllSessions } = useArchive();
+  const firebase = useFirebase();
   const [selectedModelId, setSelectedModelId] = useState(getSelectedModelId());
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() => getSelectedSources().sources);
   const [newRssName, setNewRssName] = useState("");
@@ -330,7 +332,7 @@ export function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ type: string; ok: boolean; message: string } | null>(null);
-  const [exportPdfLoading, setExportPdfLoading] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
   const [aiEngineExpanded, setAiEngineExpanded] = useState(false);
   const [systemInstructionExpanded, setSystemInstructionExpanded] = useState(false);
   const [systemInstructionEdit, setSystemInstructionEdit] = useState(() => getCompanyAnalysisSystemInstruction());
@@ -382,7 +384,7 @@ export function SettingsPage() {
   }, []);
 
   const handleAddRss = useCallback(() => {
-    const name = newRssName.trim() || "커스텀 RSS";
+    const name = newRssName.trim() || "??? RSS";
     const url = newRssUrl.trim();
     if (!url) return;
     const added = addCustomSource(name, url);
@@ -426,7 +428,7 @@ export function SettingsPage() {
     const now = Date.now();
     if (now - lastCheckTime < REFRESH_COOLDOWN_MS && lastCheckTime > 0) {
       const remain = Math.ceil((REFRESH_COOLDOWN_MS - (now - lastCheckTime)) / 60000);
-      alert(`새로고침은 5분에 한 번만 가능합니다. (${remain}분 후)`);
+      alert(`????? 5?? ? ?? ?????. (${remain}? ?)`);
       return;
     }
     runCheck();
@@ -472,7 +474,7 @@ export function SettingsPage() {
     [checkingApiKey]
   );
 
-  // 설정 페이지 마운트 시 + API 설정 펼침 시 연결 확인
+  // ?? ??? ??? ? + API ?? ?? ? ?? ??
   useEffect(() => {
     runCheck();
   }, [runCheck]);
@@ -481,7 +483,7 @@ export function SettingsPage() {
     if (apiExpanded) runCheck();
   }, [apiExpanded, runCheck]);
 
-  // 오전 6시~밤 12시 구간에서 60분마다 자동 연결 확인 (탭 활성 시에만)
+  // ?? 6?~? 12? ???? 60??? ?? ?? ?? (? ?? ???)
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const schedule = () => {
@@ -513,10 +515,7 @@ export function SettingsPage() {
     };
   }, [runCheck]);
 
-  const handleClearAllClick = () => {
-    setDeleteConfirm(true);
-  };
-
+  const handleClearAllClick = () => setDeleteConfirm(true);
   const handleClearAllConfirm = () => {
     clearAllSessions();
     setDeleteConfirm(false);
@@ -526,46 +525,93 @@ export function SettingsPage() {
     setDeleteConfirm(false);
   };
 
-  const handleExportPdfZipToStorage = async () => {
-    setExportPdfLoading(true);
+  const handleBackupToLocal = async () => {
+    setBackupLoading(true);
+    setShowExportMenu(false);
     try {
-      const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
-      setShowExportMenu(false);
+      const { ok, blob, error } = await exportAllDataToZip();
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 생성 중…" });
+        setExportStatus({ type: "backup", ok: false, message: error || "?? ?? ??" });
       } else {
-        const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
+        const filename = `newsbrief-backup-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await saveBlobToLocalStorage(blob, filename);
-        setExportStatus({
-          type: "pdfzip",
-          ok: result.ok,
-          message: result.ok ? "PDF(ZIP)? 데이터 동기화로그인." : (result.error || "로그인??"),
-        });
+        setExportStatus({ type: "backup", ok: result.ok, message: result.ok ? "??? ??? ???????." : (result.error || "?? ??") });
       }
     } finally {
-      setExportPdfLoading(false);
+      setBackupLoading(false);
       setTimeout(() => setExportStatus(null), 4000);
     }
   };
 
-  const handleExportPdfZipToGoogleDrive = async () => {
-    setExportPdfLoading(true);
+  const handleBackupToGoogleDrive = async () => {
+    setBackupLoading(true);
+    setShowExportMenu(false);
     try {
-      const { ok, blob, error } = await exportArchivesToPdfZip(sessions);
-      setShowExportMenu(false);
+      const { ok, blob, error } = await exportAllDataToZip();
       if (!ok || !blob) {
-        setExportStatus({ type: "pdfzip", ok: false, message: error || "PDF 생성 중…" });
+        setExportStatus({ type: "backup", ok: false, message: error || "?? ?? ??" });
       } else {
-        const filename = `newsbrief-archives-${new Date().toISOString().slice(0, 10)}.zip`;
+        const filename = `newsbrief-backup-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await uploadBlobToGoogleDrive(blob, filename, "application/zip");
-        setExportStatus({
-          type: "pdfzip",
-          ok: result.ok,
-          message: result.ok ? "PDF(ZIP)? Google Drive? 내보내기.." : (result.error || "로그인?"),
-        });
+        setExportStatus({ type: "backup", ok: result.ok, message: result.ok ? "Google Drive? ???????." : (result.error || "??? ??") });
       }
     } finally {
-      setExportPdfLoading(false);
+      setBackupLoading(false);
+      setTimeout(() => setExportStatus(null), 4000);
+    }
+  };
+
+  const handleRefreshFromCloud = async () => {
+    if (!firebase.isEnabled) {
+      setExportStatus({ type: "backup", ok: false, message: "Firebase? ?????? ????." });
+      setTimeout(() => setExportStatus(null), 4000);
+      return;
+    }
+    setBackupLoading(true);
+    try {
+      await Promise.all([
+        firebase.refreshSessionsFromCloud(),
+        firebase.refreshInsightArchivesFromCloud(),
+        firebase.refreshCompanyAnalysisArchivesFromCloud(),
+      ]);
+      setExportStatus({ type: "backup", ok: true, message: "?????? ???? ??????." });
+    } catch (e) {
+      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "???? ??" });
+    } finally {
+      setBackupLoading(false);
+      setTimeout(() => setExportStatus(null), 4000);
+    }
+  };
+
+  const handleSyncToCloud = async () => {
+    if (!firebase.isEnabled) {
+      setExportStatus({ type: "backup", ok: false, message: "Firebase? ?????? ????." });
+      setTimeout(() => setExportStatus(null), 4000);
+      return;
+    }
+    setBackupLoading(true);
+    try {
+      const { loadInsightArchives } = await import("../utils/insightArchiveStorage");
+      const { loadCompanyAnalysisArchives } = await import("../utils/companyAnalysisArchiveStorage");
+      const { loadArchiveState, loadSearchState } = await import("../utils/persistState");
+      const insightItems = loadInsightArchives();
+      const companyItems = loadCompanyAnalysisArchives();
+      const archiveState = loadArchiveState();
+      const searchState = loadSearchState();
+      await firebase.syncSettings({});
+      await firebase.syncMeta(archiveState ?? { isInternational: true, selectedSessionId: null }, searchState);
+      const [sessionsRes, insightRes, companyRes] = await Promise.all([
+        firebase.syncAllSessionsToCloud(sessions),
+        firebase.syncAllInsightArchivesToCloud(insightItems),
+        firebase.syncAllCompanyAnalysisArchivesToCloud(companyItems),
+      ]);
+      const ok = sessionsRes.ok && insightRes.ok && companyRes.ok;
+      const msg = ok ? "????? ????????." : [sessionsRes.message, insightRes.message, companyRes.message].filter(Boolean).join(" / ");
+      setExportStatus({ type: "backup", ok, message: msg });
+    } catch (e) {
+      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "??? ??" });
+    } finally {
+      setBackupLoading(false);
       setTimeout(() => setExportStatus(null), 4000);
     }
   };
@@ -597,9 +643,9 @@ export function SettingsPage() {
               className="w-full max-w-[340px] rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>전체 삭제</p>
+              <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>?? ??</p>
               <p className="text-white/60 mb-5" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                모든 리포트를 삭제합니다. 삭제 후 복구할 수 없습니다...
+                ?? ???? ?????. ?? ? ??? ? ????...
               </p>
               <div className="flex gap-2">
                 <button
@@ -607,20 +653,20 @@ export function SettingsPage() {
                   onClick={handleClearAllCancel}
                   className="flex-1 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
-                >취소</button>
+                >??</button>
                 <button
                   type="button"
                   onClick={handleClearAllConfirm}
                   className="flex-1 py-2.5 rounded-[10px] border border-red-500/50 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
-                >삭제</button>
+                >??</button>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* AI 모델 설정 */}
+      {/* AI ?? ?? */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -629,7 +675,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>AI 모델</span>
+            <span>AI ??</span>
             <ChevronDown
               size={16}
               className={`text-white/60 transition-transform shrink-0 ${aiEngineExpanded ? "rotate-180" : ""}`}
@@ -677,13 +723,13 @@ export function SettingsPage() {
                 type="button"
                 onClick={handleSaveSelectedModel}
                 className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
-              >저장</button>
+              >??</button>
             </div>
           )}
         </div>
       </section>
 
-      {/* System Instruction (기업분석용) */}
+      {/* System Instruction (?????) */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -701,7 +747,7 @@ export function SettingsPage() {
           {systemInstructionExpanded && (
             <div className="px-4 pb-4 pt-4 border-t border-white/6">
               <p style={{ fontSize: 12 }} className="text-white/50 mb-2">
-                기업분석 API 호출 시 사용됨. Gemini 2.5 Flash가 JSON 양식을 준수하도록 지시함.
+                ???? API ?? ? ???. Gemini 2.5 Flash? JSON ??? ????? ???.
               </p>
               <textarea
                 value={systemInstructionEdit}
@@ -717,19 +763,19 @@ export function SettingsPage() {
                     onClick={handleSaveSystemInstruction}
                     className="px-4 py-2 rounded-[8px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium"
                   >
-                    저장
+                    ??
                   </button>
                   <button
                     type="button"
                     onClick={handleResetSystemInstruction}
                     className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white/80 border border-white/15 text-sm"
                   >
-                    기본값 복원
+                    ??? ??
                   </button>
                 </div>
                 {systemInstructionSaved && (
                   <span style={{ fontSize: 12 }} className="text-emerald-400">
-                    저장되었습니다.
+                    ???????.
                   </span>
                 )}
               </div>
@@ -738,9 +784,9 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* 데이터 동기화 - ?? */}
+      {/* ??? ??? - ?? */}
 
-      {/* 데이터 동기화? */}
+      {/* ??? ???? */}
       {false && (<section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -750,7 +796,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              데이터 동기화?
+              ??? ????
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${sourcesExpanded ? "rotate-180" : ""}`}
@@ -764,18 +810,18 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              로그인?
+              ????
             </button>
           </div>
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4 overflow-hidden min-w-0">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
-              RSS 소스
+              RSS ??
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mb-3 min-w-0">
               <input
                 type="text"
-                placeholder="이름"
+                placeholder="??"
                 value={newRssName}
                 onChange={(e) => setNewRssName(e.target.value)}
                 className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
@@ -821,7 +867,7 @@ export function SettingsPage() {
                   </label>
                   <div className="relative z-10 flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 12 }}>
-                      {status === "ok" ? <><CheckCircle2 size={12} />연결됨</> : <><XCircle size={12} />실패</>}
+                      {status === "ok" ? <><CheckCircle2 size={12} />???</> : <><XCircle size={12} />??</>}
                     </span>
                     <button
                       type="button"
@@ -836,7 +882,7 @@ export function SettingsPage() {
                         handleRemoveRss(s.id, isCustom);
                       }}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[8px] text-white/40 hover:text-red-400 hover:bg-white/5 active:bg-white/10 touch-manipulation"
-                      title={isCustom ? "삭제" : "선택 해제"}
+                      title={isCustom ? "??" : "?? ??"}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -850,7 +896,7 @@ export function SettingsPage() {
         </div>
       </section>)}
 
-      {/* API 설정 */}
+      {/* API ?? */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -859,7 +905,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>API 설정</span>
+            <span>API ??</span>
             <ChevronDown
               size={16}
               className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
@@ -871,7 +917,7 @@ export function SettingsPage() {
             { key: "gemini" as const, label: "Gemini" },
             { key: "anthropic" as const, label: "Claude" },
             { key: "gpt" as const, label: "ChatGPT" },
-            { key: "dataGoKr" as const, label: "공공데이터포털 (금융)" },
+            { key: "dataGoKr" as const, label: "??????? (??)" },
             { key: "finnhub" as const, label: "Finnhub" },
             { key: "yahoo" as const, label: "Yahoo Finance" },
           ].map(({ key, label }) => {
@@ -886,16 +932,16 @@ export function SettingsPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
                       {isThisChecking ? (
-                        "연결중"
+                        "???"
                       ) : apiStatus[key] === "ok" ? (
                         <>
                           <CheckCircle2 size={14} />
-                          연결됨
+                          ???
                         </>
                       ) : (
                         <>
                           <XCircle size={14} />
-                          {apiStatus[key] === "nokey" ? "키 미설정" : "실패"}
+                          {apiStatus[key] === "nokey" ? "? ???" : "??"}
                         </>
                       )}
                     </span>
@@ -905,7 +951,7 @@ export function SettingsPage() {
                         onClick={() => handleCheckSingleApi(key)}
                         disabled={!!checkingApiKey}
                         className="p-1.5 rounded-[6px] text-white/50 hover:text-white/80 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="연결 확인"
+                        title="?? ??"
                       >
                         <RefreshCw size={14} className={isThisChecking ? "animate-spin" : ""} />
                       </button>
@@ -914,7 +960,7 @@ export function SettingsPage() {
                 </div>
                 {isError && errMsg && (
                   <p style={{ fontSize: 11 }} className="text-amber-400/90 mt-1.5 break-words" title={errMsg}>
-                    {errMsg.length > 80 ? errMsg.slice(0, 80) + "…" : errMsg}
+                    {errMsg.length > 80 ? errMsg.slice(0, 80) + "?" : errMsg}
                   </p>
                 )}
               </div>
@@ -925,33 +971,49 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ?데이터 동기화? - 로그인? */}
-      {false && (
+      {/* ???? ???? - ???? */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
-          <button type="button" className="w-full h-[72px]">
-            ?데이터 동기화?
-          </button>
-          <div className="px-4 pb-4 pt-4 border-t border-white/6 space-y-2">
-          <button
-            type="button"
-            onClick={handleClearAllClick}
+          <div className="flex items-center justify-between px-4 h-[72px]">
+            <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white">??? ??</span>
+          </div>
+          <div className="px-4 pb-4 pt-0 border-t border-white/6 space-y-2">
+            {firebase.isEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleRefreshFromCloud}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:bg-white/8 transition-colors"
             style={{ fontSize: 14 }}
           >
-            <Trash2 size={16} />
-            로그인?
-          </button>
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowExportMenu((v) => !v)}
+            <RefreshCw size={16} className={backupLoading ? "animate-spin" : ""} />
+                  ?????? ????
+                </button>
+                <button type="button" onClick={handleSyncToCloud} disabled={backupLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:text-white/90 hover:bg-white/8 transition-colors disabled:opacity-50"
+                  style={{ fontSize: 14 }}>
+                  <Cloud size={16} />
+                  ????? ???
+                </button>
+              </>
+            )}
+            {sessions.length > 0 && (
+              <button type="button" onClick={handleClearAllClick}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                style={{ fontSize: 14 }}>
+                <Trash2 size={16} />
+                ??? ?? ??
+              </button>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowExportMenu((v) => !v)}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:bg-white/8 transition-colors"
               style={{ fontSize: 14 }}
             >
               <Download size={16} />
-              로그인?
+              ?? ?? (ZIP) ????
             </button>
             {showExportMenu && (
               <>
@@ -963,61 +1025,53 @@ export function SettingsPage() {
                 <div className="fixed bottom-24 left-4 right-4 max-w-[430px] mx-auto rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl z-[101] overflow-hidden">
                   <button
                     type="button"
-                    onClick={handleExportPdfZipToStorage}
-                    disabled={exportPdfLoading || sessions.length === 0}
+                    onClick={handleBackupToLocal}
+                    disabled={backupLoading}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left border-t border-white/6 first:border-t-0 disabled:opacity-50"
                     style={{ fontSize: 14 }}
                   >
                     <Download size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF 생성 중…" : "PDF(ZIP) ?? ??"}
+                      {backupLoading ? "?? ??" : "??? ??"}
                     </span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleExportPdfZipToGoogleDrive}
-                    disabled={exportPdfLoading || sessions.length === 0}
+                    onClick={handleBackupToGoogleDrive}
+                    disabled={backupLoading}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left border-t border-white/6 disabled:opacity-50"
                     style={{ fontSize: 14 }}
                   >
                     <Cloud size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {exportPdfLoading ? "PDF 생성 중…" : "PDF(ZIP) ?? ??"}
+                      {backupLoading ? "?? ??" : "Google Drive? ???"}
                     </span>
                   </button>
                 </div>
               </>
             )}
-          </div>
-          <Link
-            to="/"
-            className="block mt-2 text-[#618EFF] hover:text-[#8BABFF]"
-            style={{ fontSize: 13 }}
-          >
-            로그인 스크랩한 기사 보기          </Link>
-          {sessions.length > 0 && (
-            <p style={{ fontSize: 12 }} className="text-white/35 mt-1">
-              로그인 {sessions.length}?            </p>
-          )}
+            </div>
+            <p style={{ fontSize: 11 }} className="text-white/40 mt-2">
+              ???, ???? ?, ????, ??? ZIP ??? ?????.
+            </p>
           </div>
         </div>
       </section>
-      )}
 
-      {/* 로그인 */}
+      {/* ??? */}
       <section className="mb-4">
         <Link
           to="/settings/login"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>로그인</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>???</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* 로그인 */}
+      {/* ??? */}
       {false && (
 <section className="mb-4">
         <Link
@@ -1025,7 +1079,7 @@ export function SettingsPage() {
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>로그인</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>???</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
@@ -1033,7 +1087,7 @@ export function SettingsPage() {
 )}
 
 
-      {/* ?? 로그인? (lightweight-charts attributionLogo ?데이터 동기화로그인) */}
+      {/* ?? ???? (lightweight-charts attributionLogo ???? ??????) */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden px-4 py-3">
           <p style={{ fontSize: 12 }} className="text-white/50">

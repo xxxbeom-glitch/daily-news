@@ -7,6 +7,7 @@ import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, serverTimestamp } 
 import { getFirebaseDb } from "./firebase";
 import type { ArchiveSession } from "../app/data/newsSources";
 import type { InsightArchiveItem } from "../app/data/insightReport";
+import type { CompanyAnalysisArchiveItem } from "../app/utils/companyAnalysisArchiveStorage";
 import type { AdminSchedule } from "../app/utils/adminSettings";
 
 export interface FirestoreSettings {
@@ -180,5 +181,32 @@ export async function deleteInsightArchiveFromFirestore(uid: string, itemId: str
   const db = getFirebaseDb();
   if (!db) return;
   const ref = doc(db, "users", uid, "insightArchives", itemId);
+  await deleteDoc(ref);
+}
+
+/** 기업분석 아카이브 전체 로드 */
+export async function loadCompanyAnalysisArchivesFromFirestore(uid: string): Promise<CompanyAnalysisArchiveItem[]> {
+  const db = getFirebaseDb();
+  if (!db) return [];
+  const col = collection(db, "users", uid, "companyAnalysisArchives");
+  const snap = await getDocs(col);
+  const items = snap.docs.map((d) => ({ ...d.data(), id: d.id } as CompanyAnalysisArchiveItem));
+  return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/** 기업분석 아카이브 추가 */
+export async function addCompanyAnalysisArchiveToFirestore(uid: string, item: CompanyAnalysisArchiveItem): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) throw new Error("Firestore가 초기화되지 않았습니다.");
+  const ref = doc(db, "users", uid, "companyAnalysisArchives", item.id);
+  const payload = sanitizeForFirestore(item) as Record<string, unknown>;
+  await setDoc(ref, payload, { merge: true });
+}
+
+/** 기업분석 아카이브 삭제 */
+export async function deleteCompanyAnalysisArchiveFromFirestore(uid: string, itemId: string): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  const ref = doc(db, "users", uid, "companyAnalysisArchives", itemId);
   await deleteDoc(ref);
 }
