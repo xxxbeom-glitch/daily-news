@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Clipboard, X, Loader2, ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
 import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
@@ -11,6 +11,34 @@ import { getSelectedModelId } from "../utils/persistState";
 
 function getInsightModel(): "gemini" {
   return "gemini";
+}
+
+function FeedCardWithReadTrack({
+  itemId,
+  children,
+}: {
+  itemId: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            markInsightAsRead(itemId);
+            break;
+          }
+        }
+      },
+      { threshold: 0.2, rootMargin: "0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [itemId]);
+  return <div ref={ref}>{children}</div>;
 }
 
 export function InsightChipPage() {
@@ -310,8 +338,8 @@ export function InsightChipPage() {
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-6">
               <div className="flex flex-col gap-6">
                 {feedItems.map((item) => (
+                  <FeedCardWithReadTrack key={item.id} itemId={item.id}>
                   <InsightReportView
-                    key={item.id}
                     data={item.report}
                     title={item.title}
                     publishedAt={item.publishedAt}
@@ -330,6 +358,7 @@ export function InsightChipPage() {
                       }
                     }}
                   />
+                  </FeedCardWithReadTrack>
                 ))}
               </div>
             </div>
