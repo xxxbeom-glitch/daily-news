@@ -167,23 +167,49 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   }
 }
 
+function getLatestBaseDate(): string {
+  const now = new Date();
+  const day = now.getDay();
+  let diff = 1;
+  if (day === 0) diff = 2;
+  else if (day === 6) diff = 1;
+  else if (day === 1 && now.getHours() < 14) diff = 3;
+  else if (now.getHours() < 14) diff = 1;
+  now.setDate(now.getDate() - diff);
+  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+}
+
 async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
   if (!key) return { ok: false, message: "API 키 미설정" };
-  const basDt = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}01`;
-  const url = `/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2/getStockBasicInfo?serviceKey=${encodeURIComponent(key)}&pageNo=1&numOfRows=1&resultType=json&basDt=${basDt}&corpNm=삼성`;
+  const basDt = getLatestBaseDate();
+  const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
+  const url = `/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2/getStockBasicInfo?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&basDt=${basDt}&corpNm=삼성`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
-    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
-    const json = (await res.json()) as { response?: { header?: { resultCode?: string } } };
-    const code = json?.response?.header?.resultCode;
-    return { ok: code === "00" || code === undefined, message: code !== "00" && code ? code : undefined };
+    const text = await res.text();
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status}${text.length < 100 ? ": " + text.slice(0, 80) : ""}` };
+    let json: { response?: { header?: { resultCode?: string; resultMsg?: string }; body?: unknown } } = {};
+    try {
+      json = JSON.parse(text) as typeof json;
+    } catch {
+      return { ok: false, message: `응답 파싱 실패 (HTML 등 비정상 응답, ${text.length}자)` };
+    }
+    const header = json?.response?.header;
+    const code = header?.resultCode;
+    const msg = (header?.resultMsg ?? "").trim();
+    if (code === "00" || (code === undefined && json?.response?.body != null)) return { ok: true };
+    const err = msg || code || "UNKNOWN_ERROR";
+    if (err.includes("SERVICE_KEY") || err.includes("REGISTERED") || /인증/.test(err)) return { ok: false, message: `인증키 오류: ${err}` };
+    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: `데이터 없음 (basDt=${basDt})` };
+    return { ok: false, message: err };
   } catch (e) {
     clearTimeout(timeout);
-    return { ok: false, message: e instanceof Error ? e.message : "네트워크 오류" };
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg || "네트워크 오류" };
   }
 }
 
@@ -196,9 +222,10 @@ async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
-    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
-    const data = (await res.json()) as { c?: number };
-    return { ok: data && typeof data.c === "number" };
+    const data = (await res.json().catch(() => ({}))) as { c?: number; error?: string };
+    if (!res.ok) return { ok: false, message: data?.error || `HTTP ${res.status}` };
+    if (data && typeof data.c === "number") return { ok: true };
+    return { ok: false, message: data?.error || "응답 형식 오류" };
   } catch (e) {
     clearTimeout(timeout);
     return { ok: false, message: e instanceof Error ? e.message : "네트워크 오류" };
@@ -217,6 +244,7 @@ async function checkConnectionStatus(
     finnhub: "ok" | "error" | "nokey";
     yahoo: "ok" | "error";
     errorMessage: string;
+    apiErrorMessages: Record<string, string>;
   };
 }> {
   const [sourceResults, geminiResult, gptResult, anthropicResult, dataGoKrResult, finnhubResult] = await Promise.all([
@@ -255,6 +283,13 @@ async function checkConnectionStatus(
   const dataGoKrKey = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
   const finnhubKey = getApiKey("VITE_FINNHUB_API_KEY");
 
+  const apiErrorMessages: Record<string, string> = {};
+  if (!geminiResult.ok && geminiResult.message) apiErrorMessages.gemini = geminiResult.message;
+  if (!gptResult.ok && gptResult.message) apiErrorMessages.gpt = gptResult.message;
+  if (!anthropicResult.ok && anthropicResult.message) apiErrorMessages.anthropic = anthropicResult.message;
+  if (!dataGoKrResult.ok && dataGoKrResult.message && dataGoKrResult.message !== "nokey") apiErrorMessages.dataGoKr = dataGoKrResult.message;
+  if (!finnhubResult.ok && finnhubResult.message && finnhubResult.message !== "nokey") apiErrorMessages.finnhub = finnhubResult.message;
+
   return {
     sourceStatus,
     apiStatus: {
@@ -265,6 +300,7 @@ async function checkConnectionStatus(
       finnhub: !finnhubKey ? "nokey" : finnhubResult.ok ? "ok" : "error",
       yahoo: "ok",
       errorMessage: errors.join(" / "),
+      apiErrorMessages,
     },
   };
 }
@@ -285,7 +321,8 @@ export function SettingsPage() {
     finnhub: "ok" | "error" | "nokey";
     yahoo: "ok" | "error";
     errorMessage: string;
-  }>({ gpt: "error", gemini: "error", anthropic: "error", dataGoKr: "nokey", finnhub: "nokey", yahoo: "ok", errorMessage: "" });
+    apiErrorMessages: Record<string, string>;
+  }>({ gpt: "error", gemini: "error", anthropic: "error", dataGoKr: "nokey", finnhub: "nokey", yahoo: "ok", errorMessage: "", apiErrorMessages: {} });
   const [lastCheckTime, setLastCheckTime] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -721,26 +758,37 @@ export function SettingsPage() {
             { key: "dataGoKr" as const, label: "공공데이터포털 (금융)" },
             { key: "finnhub" as const, label: "Finnhub" },
             { key: "yahoo" as const, label: "Yahoo Finance" },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between py-3">
-              <span style={{ fontSize: 14 }} className="text-white/90">{label}</span>
-              <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
-                {isChecking ? (
-                  "연결중"
-                ) : apiStatus[key] === "ok" ? (
-                  <>
-                    <CheckCircle2 size={14} />
-                    연결됨
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={14} />
-                    {apiStatus[key] === "nokey" ? "키 미설정" : "실패"}
-                  </>
+          ].map(({ key, label }) => {
+            const errMsg = apiStatus.apiErrorMessages?.[key];
+            const isError = apiStatus[key] === "error";
+            return (
+              <div key={key} className="py-3">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: 14 }} className="text-white/90">{label}</span>
+                  <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
+                    {isChecking ? (
+                      "연결중"
+                    ) : apiStatus[key] === "ok" ? (
+                      <>
+                        <CheckCircle2 size={14} />
+                        연결됨
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={14} />
+                        {apiStatus[key] === "nokey" ? "키 미설정" : "실패"}
+                      </>
+                    )}
+                  </span>
+                </div>
+                {isError && errMsg && (
+                  <p style={{ fontSize: 11 }} className="text-amber-400/90 mt-1.5 break-words" title={errMsg}>
+                    {errMsg.length > 80 ? errMsg.slice(0, 80) + "…" : errMsg}
+                  </p>
                 )}
-              </span>
-            </div>
-          ))}
+              </div>
+            );
+          })}
           </div>
           )}
         </div>

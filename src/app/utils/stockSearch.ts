@@ -51,8 +51,9 @@ async function searchViaDataGoKr(query: string): Promise<StockSearchResult[]> {
   if (!key) return [];
 
   const basDt = getLatestBaseDate();
+  const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
   const base = "/api/data-go-kr/1160100/service/GetStoclssulnfoService_V2";
-  const url = `${base}/getStockBasicInfo?serviceKey=${encodeURIComponent(key)}&pageNo=1&numOfRows=15&resultType=json&basDt=${basDt}&corpNm=${encodeURIComponent(query)}`;
+  const url = `${base}/getStockBasicInfo?serviceKey=${serviceKey}&pageNo=1&numOfRows=15&resultType=json&basDt=${basDt}&corpNm=${encodeURIComponent(query)}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
 
