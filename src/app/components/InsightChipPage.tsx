@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Clipboard, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Clipboard, X, Loader2, ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
 import { runInsightAnalysis } from "../utils/insightAnalysis";
 import { InsightReportView } from "./InsightReportView";
 import { addInsightArchive, loadInsightArchives, removeInsightArchive } from "../utils/insightArchiveStorage";
-import { isInsightRead, markInsightAsRead } from "../utils/insightReadStorage";
 import { saveInsightChipState, loadInsightChipState } from "../utils/persistState";
 import { useFirebase } from "../context/FirebaseContext";
 import type { InsightArchiveItem } from "../data/insightReport";
@@ -170,10 +169,25 @@ export function InsightChipPage() {
     if (e.key === "Enter") addChipFromInput();
   };
 
+  const showBackButton = activeTab === "아카이빙" && (selectedArchive !== null || filterLabel !== null);
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pt-5 pb-6">
       <div className="flex items-stretch gap-2 mb-4 shrink-0">
-        <div className="flex-1 min-w-0 flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-white/5 px-3 py-1 h-10 overflow-hidden">
+        {showBackButton ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedArchive) setSelectedArchive(null);
+              else if (filterLabel) setFilterLabel(null);
+            }}
+            className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[10px] border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+            title={selectedArchive ? "목록" : "필터 해제"}
+          >
+            <ArrowLeft size={18} />
+          </button>
+        ) : null}
+        <div className={`flex-1 min-w-0 flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-white/5 px-3 py-1 h-10 overflow-hidden ${showBackButton ? "max-w-[calc(100%-3rem)]" : ""}`}>
           {chips.map((url) => (
             <div
               key={url}
@@ -288,36 +302,19 @@ export function InsightChipPage() {
       {activeTab === "아카이빙" && (
         <div className="flex-1 min-h-0 overflow-y-auto">
           {selectedArchive ? (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedArchive(null)}
-                  className="text-white hover:underline"
-                  style={{ fontSize: 13 }}
-                >
-                  목록
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    removeInsightArchive(selectedArchive.id);
-                    firebase.syncDeleteInsightArchive(selectedArchive.id);
-                    setSelectedArchive(null);
-                    setArchiveItems(loadInsightArchives());
-                  }}
-                  className="text-white/70 hover:text-red-400 transition-colors"
-                  style={{ fontSize: 13 }}
-                >
-                  삭제하기
-                </button>
-              </div>
+            <div className="pb-6">
               <InsightReportView
                 data={selectedArchive.report}
                 title={selectedArchive.title}
                 publishedAt={selectedArchive.publishedAt}
                 createdAt={selectedArchive.createdAt}
                 aiModel={selectedArchive.aiModel}
+                onDelete={() => {
+                  removeInsightArchive(selectedArchive.id);
+                  firebase.syncDeleteInsightArchive(selectedArchive.id);
+                  setSelectedArchive(null);
+                  setArchiveItems(loadInsightArchives());
+                }}
               />
             </div>
           ) : archiveItems.length === 0 ? (
@@ -372,36 +369,27 @@ export function InsightChipPage() {
                   </button>
                 </div>
               )}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-6 pb-6">
                 {filteredItems.length === 0 ? (
                   <div className="py-8 text-center text-white/50" style={{ fontSize: 13 }}>
                     해당 태그를 포함한 리포트가 없습니다.
                   </div>
                 ) : (
                   filteredItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedArchive(item);
-                        markInsightAsRead(item.id);
-                      }}
-                      className="w-full h-[72px] text-left rounded-[10px] border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/8 transition-colors flex flex-col justify-center"
-                    >
-                      <div style={{ fontSize: 14, fontWeight: 600 }} className="text-white/95 truncate flex items-center gap-2">
-                        {!isInsightRead(item.id) && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="읽지 않음" />
-                        )}
-                        <span className="truncate">{item.title || item.url}</span>
-                      </div>
-                      <div style={{ fontSize: 12 }} className="text-white/40 mt-1">
-                        {item.source && `${item.source} · `}
-                        {item.publishedAt
-                          ? new Date(item.publishedAt).toLocaleString("ko-KR")
-                          : new Date(item.createdAt).toLocaleDateString("ko-KR")}
-                      </div>
-                    </button>
-                  ))
+                      <InsightReportView
+                        key={item.id}
+                        data={item.report}
+                        title={item.title}
+                        publishedAt={item.publishedAt}
+                        createdAt={item.createdAt}
+                        aiModel={item.aiModel}
+                        onDelete={() => {
+                          removeInsightArchive(item.id);
+                          firebase.syncDeleteInsightArchive(item.id);
+                          setArchiveItems(loadInsightArchives());
+                        }}
+                      />
+                    )
                 )}
               </div>
             </div>
