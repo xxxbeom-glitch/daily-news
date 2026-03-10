@@ -5,9 +5,15 @@
 import React from "react";
 import type { CompanyAnalysisResult } from "../utils/companyAnalysisApi";
 
-function BlockTitle({ children }: { children: React.ReactNode }) {
+function BlockTitle({ children, isFirst }: { children: React.ReactNode; isFirst?: boolean }) {
   return (
-    <div className="mt-[26px] pt-[26px] pb-0 first:mt-0 first:pt-0 first:pb-0 border-t border-white/8 first:border-t-0">
+    <div
+      className={
+        isFirst
+          ? "pb-0"
+          : "mt-[26px] pt-[26px] pb-0 border-t border-white/8"
+      }
+    >
       <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.5 }} className="text-white">
         {children}
       </span>
@@ -67,7 +73,7 @@ export function CompanyAnalysisResultView({
         <div className="px-5 pt-6 pb-6">
           {data.analysis_sections.map((section, i) => (
             <div key={i}>
-              <BlockTitle>{section.title || `분석 ${i + 1}`}</BlockTitle>
+              <BlockTitle isFirst={i === 0}>{section.title || `분석 ${i + 1}`}</BlockTitle>
               <div
                 style={{ fontSize: 14, lineHeight: 1.6 }}
                 className="text-white/90 mt-[14px] whitespace-pre-line"
@@ -77,7 +83,7 @@ export function CompanyAnalysisResultView({
             </div>
           ))}
 
-          <BlockTitle>핵심 요약</BlockTitle>
+          <BlockTitle isFirst={data.analysis_sections.length === 0}>핵심 요약</BlockTitle>
           <div className="mt-[14px] space-y-[12px]">
             {data.key_summary.growth_driver && (
               <div>
