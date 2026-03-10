@@ -29,6 +29,7 @@ import {
   loadInsightArchivesFromFirestore,
   addInsightArchiveToFirestore,
   deleteInsightArchiveFromFirestore,
+  loadCompanyAnalysisArchivesFromFirestore,
   subscribeSessions,
   subscribeInsightArchives,
   subscribeCompanyAnalysisArchives,
