@@ -51,6 +51,7 @@ export function InsightReportView({
   createdAt,
   aiModel,
   onDelete,
+  embedded = true,
 }: {
   data: InsightReportData;
   title?: string;
@@ -60,6 +61,8 @@ export function InsightReportView({
   dateStr?: string;
   aiModel?: "gemini" | "gpt" | "claude";
   onDelete?: () => void;
+  /** false: 콘텐츠 높이대로 흐름, 부모가 스크롤 (SNS 피드 스타일) */
+  embedded?: boolean;
 }) {
   const bulletSize = 3;
   const bulletStyle = {
@@ -87,9 +90,16 @@ export function InsightReportView({
       ? formatArticleDate(createdAt, { withLabel: true })
       : "";
 
+  const containerClass = embedded
+    ? "flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] mt-0 mb-6 mx-0"
+    : "bg-white/5 border border-white/8 rounded-[10px] mt-0 mb-6 mx-0";
+  const contentClass = embedded
+    ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+    : "overflow-x-hidden";
+
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white/5 border border-white/8 rounded-[10px] mt-0 mb-6 mx-0">
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+    <div className={containerClass}>
+      <div className={contentClass}>
         <div className="px-[17px] pt-[20px] pb-[20px] border-b border-white/8">
           {dateDisplay && (
             <div style={{ fontSize: 11, lineHeight: 1.5 }} className="text-white/90">
