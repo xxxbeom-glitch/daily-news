@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, Loader2, ArrowLeft } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Search, Loader2, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { CompanyAnalysisResultView } from "./CompanyAnalysisResultView";
 import { runCompanyAnalysis, type CompanyAnalysisResult } from "../utils/companyAnalysisApi";
 import {
@@ -17,8 +17,35 @@ export function CompanyAnalysisPage() {
   const [activeTab, setActiveTab] = useState<"분석" | "결과">("분석");
   const [archiveItems, setArchiveItems] = useState<CompanyAnalysisArchiveItem[]>([]);
   const [selectedArchive, setSelectedArchive] = useState<CompanyAnalysisArchiveItem | null>(null);
+  const [sectorsExpanded, setSectorsExpanded] = useState(false);
+  const [filterSector, setFilterSector] = useState<string | null>(null);
 
   const showBackButton = activeTab === "결과" && selectedArchive !== null;
+
+  const { allSectors, sectorCounts } = useMemo(() => {
+    const set = new Set<string>();
+    const counts = new Map<string, number>();
+    for (const item of archiveItems) {
+      for (const s of item.result?.sectors ?? []) {
+        const sector = String(s).trim();
+        if (sector) {
+          set.add(sector);
+          counts.set(sector, (counts.get(sector) ?? 0) + 1);
+        }
+      }
+    }
+    return {
+      allSectors: Array.from(set).sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0)),
+      sectorCounts: counts,
+    };
+  }, [archiveItems]);
+
+  const filteredItems = useMemo(() => {
+    if (!filterSector) return archiveItems;
+    return archiveItems.filter(
+      (i) => i.result?.sectors?.some((s) => String(s).trim() === filterSector) ?? false
+    );
+  }, [archiveItems, filterSector]);
 
   useEffect(() => {
     setArchiveItems(loadCompanyAnalysisArchives());
@@ -177,8 +204,60 @@ export function CompanyAnalysisPage() {
                   저장된 기업분석 결과가 없습니다.
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {archiveItems.map((item) => (
+                <div>
+                  {allSectors.length > 0 && (
+                    <div className="mb-3 rounded-[10px] border border-white/10 bg-white/5 px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setSectorsExpanded((e) => !e)}
+                        className="w-full flex items-center justify-between text-left"
+                        style={{ fontSize: 12 }}
+                      >
+                        <span className="text-white/70">전체 섹터</span>
+                        {sectorsExpanded ? <ChevronUp size={16} className="text-white/50" /> : <ChevronDown size={16} className="text-white/50" />}
+                      </button>
+                      <div className={`flex flex-wrap gap-2 mt-2 ${sectorsExpanded ? "" : "overflow-hidden max-h-8"}`}>
+                        {allSectors.map((sector, i) => {
+                          const isActive = filterSector === sector;
+                          const colors = ["bg-emerald-500/20 text-emerald-300", "bg-blue-500/20 text-blue-300", "bg-amber-500/20 text-amber-300", "bg-purple-500/20 text-purple-300", "bg-cyan-500/20 text-cyan-300"];
+                          const colorClass = colors[i % colors.length];
+                          return (
+                            <button
+                              key={sector}
+                              type="button"
+                              onClick={() => setFilterSector(isActive ? null : sector)}
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-opacity ${colorClass} ${isActive ? "ring-1 ring-white/50" : ""}`}
+                            >
+                              {sector}
+                              <span className="ml-1 opacity-80">({sectorCounts.get(sector) ?? 0})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {filterSector && (
+                    <div className="mb-2 flex items-center gap-2">
+                      <span style={{ fontSize: 12 }} className="text-white/50">
+                        "{filterSector}" 필터 중
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterSector(null)}
+                        className="text-[#618EFF] hover:underline"
+                        style={{ fontSize: 12 }}
+                      >
+                        해제
+                      </button>
+                    </div>
+                  )}
+                  <div className="space-y-3">
+                    {filteredItems.length === 0 ? (
+                      <div className="py-8 text-center text-white/50" style={{ fontSize: 13 }}>
+                        해당 섹터를 포함한 기업이 없습니다.
+                      </div>
+                    ) : (
+                  filteredItems.map((item) => (
                     <button
                       key={item.id}
                       type="button"
@@ -196,7 +275,9 @@ export function CompanyAnalysisPage() {
                         {new Date(item.createdAt).toLocaleDateString("ko-KR")}
                       </div>
                     </button>
-                  ))}
+                  ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
