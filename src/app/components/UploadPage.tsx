@@ -14,8 +14,8 @@ import {
 } from "../utils/cloudinaryUpload";
 type CountryTab = "kr" | "us";
 
-/** 모바일에서 파일종류 '전체'로 열리도록 */* 사용 (이미지/PDF는 handleFileChange에서 검증) */
-const ACCEPT_FILES = "*/*";
+/** 모바일에서 파일종류 '전체'로 열리도록 사용 (이미지/PDF는 handleFileChange에서 검증) */
+const ACCEPT_FILES = "*" + "/" + "*";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const PDF_TYPE = "application/pdf";
 /** 이미지 개수 제한 없음 (AI 요약 시간은 사용자 수용) */
