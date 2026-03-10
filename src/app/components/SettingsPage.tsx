@@ -20,10 +20,10 @@ import { exportAllDataToZip } from "../utils/exportAllData";
 import { fetchViaCorsProxy } from "../utils/corsProxy";
 
 
-const API_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 60???
+const API_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 60 min
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
-/** ?? 6?~? 12?(??) ???? */
+/** Check API only between 6am and midnight (KST) */
 function isWithinApiCheckHours(): boolean {
   const hour = new Date().getHours();
   return hour >= 6 && hour < 24;
@@ -60,7 +60,7 @@ function getApiKey(name: string): string {
 async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_GEMINI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ?? ???? ?????. (.env? VITE_GEMINI_API_KEY ??)" };
+    return { ok: false, message: "API key not set. Add VITE_GEMINI_API_KEY to .env" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -76,7 +76,7 @@ async function checkGeminiApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "???? ??";
+    const msg = e instanceof Error ? e.message : "Network error";
     return { ok: false, message: msg };
   }
 }
@@ -108,13 +108,13 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
       return { ok: false, message: msg };
     } catch (e) {
       clearTimeout(timeout);
-      const msg = e instanceof Error ? e.message : "???? ??";
+      const msg = e instanceof Error ? e.message : "Network error";
       return { ok: false, message: msg };
     }
   }
   const key = getApiKey("VITE_ANTHROPIC_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ?? ???? ?????. (.env? VITE_ANTHROPIC_API_KEY ?? VITE_OPENROUTER_API_KEY ??)" };
+    return { ok: false, message: "API key not set. Add VITE_ANTHROPIC_API_KEY or VITE_OPENROUTER_API_KEY to .env" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -141,7 +141,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: msg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "???? ??";
+    const msg = e instanceof Error ? e.message : "Network error";
     return { ok: false, message: msg };
   }
 }
@@ -149,7 +149,7 @@ async function checkAnthropicApi(): Promise<{ ok: boolean; message?: string }> {
 async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_OPENAI_API_KEY");
   if (!key) {
-    return { ok: false, message: "API ?? ???? ?????. (.env? VITE_OPENAI_API_KEY ??)" };
+    return { ok: false, message: "API key not set. Add VITE_OPENAI_API_KEY to .env" };
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -177,16 +177,16 @@ async function checkOpenAIApi(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: fullMsg };
   } catch (e) {
     clearTimeout(timeout);
-    const msg = e instanceof Error ? e.message : "???? ??";
+    const msg = e instanceof Error ? e.message : "Network error";
     return { ok: false, message: msg };
   }
 }
 
 async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
-  if (!key) return { ok: false, message: "API ? ???" };
+  if (!key) return { ok: false, message: "API key not set" };
   const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
-  const url = `/api/data-go-kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&corpNm=??`;
+  const url = `/api/data-go-kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2?serviceKey=${serviceKey}&pageNo=1&numOfRows=1&resultType=json&corpNm=005930`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
@@ -198,26 +198,26 @@ async function checkDataGoKrApi(): Promise<{ ok: boolean; message?: string }> {
     try {
       json = JSON.parse(text) as typeof json;
     } catch {
-      return { ok: false, message: `?? ?? ?? (HTML ? ??? ??, ${text.length}?)` };
+      return { ok: false, message: `Invalid response (HTML or error, ${text.length} chars)` };
     }
     const header = json?.response?.header;
     const code = header?.resultCode;
     const msg = (header?.resultMsg ?? "").trim();
     if (code === "00" || (code === undefined && json?.response?.body != null)) return { ok: true };
     const err = msg || code || "UNKNOWN_ERROR";
-    if (err.includes("SERVICE_KEY") || err.includes("REGISTERED") || /KEY|REGISTERED/.test(err)) return { ok: false, message: `??? ??: ${err}` };
-    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: "??? ??" };
+    if (err.includes("SERVICE_KEY") || err.includes("REGISTERED") || /KEY|REGISTERED/.test(err)) return { ok: false, message: `API key error: ${err}` };
+    if (err.includes("NODATA") || err.includes("NO_DATA")) return { ok: false, message: "No data" };
     return { ok: false, message: err };
   } catch (e) {
     clearTimeout(timeout);
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, message: msg || "???? ??" };
+    return { ok: false, message: msg || "Request failed" };
   }
 }
 
 async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
   const key = getApiKey("VITE_FINNHUB_API_KEY");
-  if (!key) return { ok: false, message: "API ? ???" };
+  if (!key) return { ok: false, message: "API key not set" };
   const url = `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${key}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
@@ -227,10 +227,10 @@ async function checkFinnhubApi(): Promise<{ ok: boolean; message?: string }> {
     const data = (await res.json().catch(() => ({}))) as { c?: number; error?: string };
     if (!res.ok) return { ok: false, message: data?.error || `HTTP ${res.status}` };
     if (data && typeof data.c === "number") return { ok: true };
-    return { ok: false, message: data?.error || "?? ?? ??" };
+    return { ok: false, message: data?.error || "No data" };
   } catch (e) {
     clearTimeout(timeout);
-    return { ok: false, message: e instanceof Error ? e.message : "???? ??" };
+    return { ok: false, message: e instanceof Error ? e.message : "Load failed" };
   }
 }
 
@@ -267,20 +267,20 @@ async function checkConnectionStatus(
 
   const sourceStatus = Object.fromEntries(sourceResults);
   const translateError = (msg: string | undefined): string => {
-    if (!msg) return "???? ??";
-    if (msg === "nokey") return "? ???";
-    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "?????";
-    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "API ???";
+    if (!msg) return "Request failed";
+    if (msg === "nokey") return "Key not set";
+    if (msg.includes("quota") || msg.includes("billing") || msg.includes("exceeded") || msg.includes("rate_limit")) return "Quota exceeded";
+    if ((msg.includes("Invalid") && msg.includes("key")) || msg.includes("invalid_api_key") || msg.includes("401")) return "Invalid API key";
     const lower = msg.toLowerCase();
-    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "????";
-    if (msg.includes("not found") || msg.includes("model")) return "?? ??";
-    return msg.length > 50 ? msg.slice(0, 50) + "?" : msg;
+    if (msg.includes("403") || lower.includes("region") || lower.includes("country") || lower.includes("blocked") || lower.includes("geo") || lower.includes("forbidden") || lower.includes("not available") || lower.includes("restricted")) return "Region blocked";
+    if (msg.includes("not found") || msg.includes("model")) return "Model not found";
+    return msg.length > 50 ? msg.slice(0, 50) + "..." : msg;
   };
   const errors: string[] = [];
   if (!geminiResult.ok) errors.push(`Gemini: ${translateError(geminiResult.message)}`);
   if (!gptResult.ok) errors.push(`ChatGPT: ${translateError(gptResult.message)}`);
   if (!anthropicResult.ok) errors.push(`Claude: ${translateError(anthropicResult.message)}`);
-  if (errors.length === 0) errors.push("??");
+  if (errors.length === 0) errors.push("OK");
 
   const dataGoKrKey = getApiKey("VITE_DATA_GO_KR_SERVICE_KEY");
   const finnhubKey = getApiKey("VITE_FINNHUB_API_KEY");
@@ -384,7 +384,7 @@ export function SettingsPage() {
   }, []);
 
   const handleAddRss = useCallback(() => {
-    const name = newRssName.trim() || "??? RSS";
+    const name = newRssName.trim() || "Custom RSS";
     const url = newRssUrl.trim();
     if (!url) return;
     const added = addCustomSource(name, url);
@@ -428,7 +428,7 @@ export function SettingsPage() {
     const now = Date.now();
     if (now - lastCheckTime < REFRESH_COOLDOWN_MS && lastCheckTime > 0) {
       const remain = Math.ceil((REFRESH_COOLDOWN_MS - (now - lastCheckTime)) / 60000);
-      alert(`????? 5?? ? ?? ?????. (${remain}? ?)`);
+      alert(`Please wait 5 min before refresh. (${remain} min left)`);
       return;
     }
     runCheck();
@@ -474,7 +474,7 @@ export function SettingsPage() {
     [checkingApiKey]
   );
 
-  // ?? ??? ??? ? + API ?? ?? ? ?? ??
+  // Initial load + API check when sources change
   useEffect(() => {
     runCheck();
   }, [runCheck]);
@@ -483,7 +483,7 @@ export function SettingsPage() {
     if (apiExpanded) runCheck();
   }, [apiExpanded, runCheck]);
 
-  // ?? 6?~? 12? ???? 60??? ?? ?? ?? (? ?? ???)
+  // Run API check every 60 min (only during 6am-midnight)
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const schedule = () => {
@@ -531,11 +531,11 @@ export function SettingsPage() {
     try {
       const { ok, blob, error } = await exportAllDataToZip();
       if (!ok || !blob) {
-        setExportStatus({ type: "backup", ok: false, message: error || "?? ?? ??" });
+        setExportStatus({ type: "backup", ok: false, message: error || "Backup failed" });
       } else {
         const filename = `newsbrief-backup-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await saveBlobToLocalStorage(blob, filename);
-        setExportStatus({ type: "backup", ok: result.ok, message: result.ok ? "??? ??? ???????." : (result.error || "?? ??") });
+        setExportStatus({ type: "backup", ok: result.ok, message: result.ok ? "Backup saved to local." : (result.error || "Save failed") });
       }
     } finally {
       setBackupLoading(false);
@@ -549,11 +549,11 @@ export function SettingsPage() {
     try {
       const { ok, blob, error } = await exportAllDataToZip();
       if (!ok || !blob) {
-        setExportStatus({ type: "backup", ok: false, message: error || "?? ?? ??" });
+        setExportStatus({ type: "backup", ok: false, message: error || "Backup failed" });
       } else {
         const filename = `newsbrief-backup-${new Date().toISOString().slice(0, 10)}.zip`;
         const result = await uploadBlobToGoogleDrive(blob, filename, "application/zip");
-        setExportStatus({ type: "backup", ok: result.ok, message: result.ok ? "Google Drive? ???????." : (result.error || "??? ??") });
+        setExportStatus({ type: "backup", ok: result.ok, message: result.ok ? "Backed up to Google Drive." : (result.error || "Upload failed") });
       }
     } finally {
       setBackupLoading(false);
@@ -563,7 +563,7 @@ export function SettingsPage() {
 
   const handleRefreshFromCloud = async () => {
     if (!firebase.isEnabled) {
-      setExportStatus({ type: "backup", ok: false, message: "Firebase? ?????? ????." });
+      setExportStatus({ type: "backup", ok: false, message: "Firebase is disabled." });
       setTimeout(() => setExportStatus(null), 4000);
       return;
     }
@@ -574,9 +574,9 @@ export function SettingsPage() {
         firebase.refreshInsightArchivesFromCloud(),
         firebase.refreshCompanyAnalysisArchivesFromCloud(),
       ]);
-      setExportStatus({ type: "backup", ok: true, message: "?????? ???? ??????." });
+      setExportStatus({ type: "backup", ok: true, message: "Data loaded from cloud." });
     } catch (e) {
-      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "???? ??" });
+      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "Load failed" });
     } finally {
       setBackupLoading(false);
       setTimeout(() => setExportStatus(null), 4000);
@@ -585,7 +585,7 @@ export function SettingsPage() {
 
   const handleSyncToCloud = async () => {
     if (!firebase.isEnabled) {
-      setExportStatus({ type: "backup", ok: false, message: "Firebase? ?????? ????." });
+      setExportStatus({ type: "backup", ok: false, message: "Firebase is disabled." });
       setTimeout(() => setExportStatus(null), 4000);
       return;
     }
@@ -606,10 +606,10 @@ export function SettingsPage() {
         firebase.syncAllCompanyAnalysisArchivesToCloud(companyItems),
       ]);
       const ok = sessionsRes.ok && insightRes.ok && companyRes.ok;
-      const msg = ok ? "????? ????????." : [sessionsRes.message, insightRes.message, companyRes.message].filter(Boolean).join(" / ");
+      const msg = ok ? "Synced to cloud." : [sessionsRes.message, insightRes.message, companyRes.message].filter(Boolean).join(" / ");
       setExportStatus({ type: "backup", ok, message: msg });
     } catch (e) {
-      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "??? ??" });
+      setExportStatus({ type: "backup", ok: false, message: e instanceof Error ? e.message : "Sync failed" });
     } finally {
       setBackupLoading(false);
       setTimeout(() => setExportStatus(null), 4000);
@@ -643,9 +643,9 @@ export function SettingsPage() {
               className="w-full max-w-[340px] rounded-[10px] border border-white/10 bg-[#12121a] shadow-xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>?? ??</p>
+              <p className="text-white mb-1" style={{ fontSize: 16, fontWeight: 600 }}>Delete All</p>
               <p className="text-white/60 mb-5" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                ?? ???? ?????. ?? ? ??? ? ????...
+                All reports will be deleted. Cannot be recovered.
               </p>
               <div className="flex gap-2">
                 <button
@@ -653,20 +653,20 @@ export function SettingsPage() {
                   onClick={handleClearAllCancel}
                   className="flex-1 py-2.5 rounded-[10px] border border-white/10 bg-white/5 text-white/80 hover:bg-white/8 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
-                >??</button>
+                >Cancel</button>
                 <button
                   type="button"
                   onClick={handleClearAllConfirm}
                   className="flex-1 py-2.5 rounded-[10px] border border-red-500/50 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                   style={{ fontSize: 14, fontWeight: 500 }}
-                >??</button>
+                >Delete</button>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* AI ?? ?? */}
+      {/* AI Model */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -675,7 +675,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>AI ??</span>
+            <span>AI Model</span>
             <ChevronDown
               size={16}
               className={`text-white/60 transition-transform shrink-0 ${aiEngineExpanded ? "rotate-180" : ""}`}
@@ -723,13 +723,13 @@ export function SettingsPage() {
                 type="button"
                 onClick={handleSaveSelectedModel}
                 className="mt-3 w-full py-2.5 rounded-[10px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium transition-colors"
-              >??</button>
+              >Save</button>
             </div>
           )}
         </div>
       </section>
 
-      {/* System Instruction (?????) */}
+      {/* System Instruction (Company Analysis) */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -747,7 +747,7 @@ export function SettingsPage() {
           {systemInstructionExpanded && (
             <div className="px-4 pb-4 pt-4 border-t border-white/6">
               <p style={{ fontSize: 12 }} className="text-white/50 mb-2">
-                ???? API ?? ? ???. Gemini 2.5 Flash? JSON ??? ????? ???.
+                Used for Company Analysis API. Applied to Gemini 2.5 Flash JSON output format.
               </p>
               <textarea
                 value={systemInstructionEdit}
@@ -763,19 +763,19 @@ export function SettingsPage() {
                     onClick={handleSaveSystemInstruction}
                     className="px-4 py-2 rounded-[8px] bg-[#618EFF]/20 hover:bg-[#618EFF]/30 text-[#618EFF] border border-[#618EFF]/40 text-sm font-medium"
                   >
-                    ??
+                    Save
                   </button>
                   <button
                     type="button"
                     onClick={handleResetSystemInstruction}
                     className="px-4 py-2 rounded-[8px] bg-white/10 hover:bg-white/15 text-white/80 border border-white/15 text-sm"
                   >
-                    ??? ??
+                    Restore Default
                   </button>
                 </div>
                 {systemInstructionSaved && (
                   <span style={{ fontSize: 12 }} className="text-emerald-400">
-                    ???????.
+                    Saved.
                   </span>
                 )}
               </div>
@@ -784,9 +784,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ??? ??? - ?? */}
-
-      {/* ??? ???? */}
+      {/* News Sources */}
       {false && (<section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
@@ -796,7 +794,7 @@ export function SettingsPage() {
               className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity text-left flex-1 min-w-0"
               style={{ fontSize: 14, fontWeight: 600 }}
             >
-              ??? ????
+              News Sources
               <ChevronDown
                 size={16}
                 className={`text-white/60 transition-transform shrink-0 ${sourcesExpanded ? "rotate-180" : ""}`}
@@ -810,18 +808,18 @@ export function SettingsPage() {
               style={{ fontSize: 12 }}
             >
               <RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
-              ????
+              Refresh
             </button>
           </div>
           {sourcesExpanded && (
           <div className="border-t border-white/6 px-4 pb-4 pt-4 overflow-hidden min-w-0">
             <div className="text-white/40 mb-2" style={{ fontSize: 12, fontWeight: 600 }}>
-              RSS ??
+              Custom RSS
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mb-3 min-w-0">
               <input
                 type="text"
-                placeholder="??"
+                placeholder="Name"
                 value={newRssName}
                 onChange={(e) => setNewRssName(e.target.value)}
                 className="min-w-0 flex-1 rounded-[8px] border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/40"
@@ -867,7 +865,7 @@ export function SettingsPage() {
                   </label>
                   <div className="relative z-10 flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`flex items-center gap-1.5 shrink-0 ${status === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 12 }}>
-                      {status === "ok" ? <><CheckCircle2 size={12} />???</> : <><XCircle size={12} />??</>}
+                      {status === "ok" ? <><CheckCircle2 size={12} />Connected</> : <><XCircle size={12} />Failed</>}
                     </span>
                     <button
                       type="button"
@@ -882,7 +880,7 @@ export function SettingsPage() {
                         handleRemoveRss(s.id, isCustom);
                       }}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[8px] text-white/40 hover:text-red-400 hover:bg-white/5 active:bg-white/10 touch-manipulation"
-                      title={isCustom ? "??" : "?? ??"}
+                      title={isCustom ? "Remove" : "Deselect"}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -896,7 +894,7 @@ export function SettingsPage() {
         </div>
       </section>)}
 
-      {/* API ?? */}
+      {/* API Settings */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <button
@@ -905,7 +903,7 @@ export function SettingsPage() {
             className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors text-left px-4"
             style={{ fontSize: 14, fontWeight: 600 }}
           >
-            <span>API ??</span>
+            <span>API Settings</span>
             <ChevronDown
               size={16}
               className={`text-white/60 transition-transform shrink-0 ${apiExpanded ? "rotate-180" : ""}`}
@@ -917,7 +915,7 @@ export function SettingsPage() {
             { key: "gemini" as const, label: "Gemini" },
             { key: "anthropic" as const, label: "Claude" },
             { key: "gpt" as const, label: "ChatGPT" },
-            { key: "dataGoKr" as const, label: "??????? (??)" },
+            { key: "dataGoKr" as const, label: "Data.go.kr (Finance)" },
             { key: "finnhub" as const, label: "Finnhub" },
             { key: "yahoo" as const, label: "Yahoo Finance" },
           ].map(({ key, label }) => {
@@ -932,16 +930,16 @@ export function SettingsPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`flex items-center gap-1.5 ${apiStatus[key] === "ok" ? "text-emerald-400" : "text-red-400"}`} style={{ fontSize: 13 }}>
                       {isThisChecking ? (
-                        "???"
+                        "Connecting"
                       ) : apiStatus[key] === "ok" ? (
                         <>
                           <CheckCircle2 size={14} />
-                          ???
+                          Connected
                         </>
                       ) : (
                         <>
                           <XCircle size={14} />
-                          {apiStatus[key] === "nokey" ? "? ???" : "??"}
+                          {apiStatus[key] === "nokey" ? "Key not set" : "Failed"}
                         </>
                       )}
                     </span>
@@ -951,7 +949,7 @@ export function SettingsPage() {
                         onClick={() => handleCheckSingleApi(key)}
                         disabled={!!checkingApiKey}
                         className="p-1.5 rounded-[6px] text-white/50 hover:text-white/80 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="?? ??"
+                        title="Check connection"
                       >
                         <RefreshCw size={14} className={isThisChecking ? "animate-spin" : ""} />
                       </button>
@@ -960,7 +958,7 @@ export function SettingsPage() {
                 </div>
                 {isError && errMsg && (
                   <p style={{ fontSize: 11 }} className="text-amber-400/90 mt-1.5 break-words" title={errMsg}>
-                    {errMsg.length > 80 ? errMsg.slice(0, 80) + "?" : errMsg}
+                    {errMsg.length > 80 ? errMsg.slice(0, 80) + "..." : errMsg}
                   </p>
                 )}
               </div>
@@ -971,11 +969,11 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* ???? ???? - ???? */}
+      {/* Data Backup */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden">
           <div className="flex items-center justify-between px-4 h-[72px]">
-            <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white">??? ??</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }} className="text-white">Data Backup</span>
           </div>
           <div className="px-4 pb-4 pt-0 border-t border-white/6 space-y-2">
             {firebase.isEnabled && (
@@ -987,13 +985,13 @@ export function SettingsPage() {
             style={{ fontSize: 14 }}
           >
             <RefreshCw size={16} className={backupLoading ? "animate-spin" : ""} />
-                  ?????? ????
+                  Load from Cloud
                 </button>
                 <button type="button" onClick={handleSyncToCloud} disabled={backupLoading}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:text-white/90 hover:bg-white/8 transition-colors disabled:opacity-50"
                   style={{ fontSize: 14 }}>
                   <Cloud size={16} />
-                  ????? ???
+                  Sync to Cloud
                 </button>
               </>
             )}
@@ -1002,7 +1000,7 @@ export function SettingsPage() {
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border border-white/10 bg-white/5 text-white/70 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                 style={{ fontSize: 14 }}>
                 <Trash2 size={16} />
-                ??? ?? ??
+                Delete All Reports
               </button>
             )}
             <div className="relative">
@@ -1013,7 +1011,7 @@ export function SettingsPage() {
               style={{ fontSize: 14 }}
             >
               <Download size={16} />
-              ?? ?? (ZIP) ????
+              Full Backup (ZIP) Download
             </button>
             {showExportMenu && (
               <>
@@ -1032,7 +1030,7 @@ export function SettingsPage() {
                   >
                     <Download size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {backupLoading ? "?? ??" : "??? ??"}
+                      {backupLoading ? "Backing up?" : "Save to Local"}
                     </span>
                   </button>
                   <button
@@ -1044,7 +1042,7 @@ export function SettingsPage() {
                   >
                     <Cloud size={18} className="text-white/60" />
                     <span className="text-white/90">
-                      {backupLoading ? "?? ??" : "Google Drive? ???"}
+                      {backupLoading ? "Backing up?" : "Upload to Google Drive"}
                     </span>
                   </button>
                 </div>
@@ -1052,26 +1050,26 @@ export function SettingsPage() {
             )}
             </div>
             <p style={{ fontSize: 11 }} className="text-white/40 mt-2">
-              ???, ???? ?, ????, ??? ZIP ??? ?????.
+              Backs up Reports, Insights, Company Analysis, and Settings to a ZIP file.
             </p>
           </div>
         </div>
       </section>
 
-      {/* ??? */}
+      {/* Login */}
       <section className="mb-4">
         <Link
           to="/settings/login"
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>???</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Login</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
       </section>
 
-      {/* ??? */}
+      {/* Admin */}
       {false && (
 <section className="mb-4">
         <Link
@@ -1079,7 +1077,7 @@ export function SettingsPage() {
           className="block bg-white/5 border border-white/8 rounded-[10px] overflow-hidden"
         >
           <div className="w-full h-[72px] flex items-center justify-between gap-2 text-white hover:bg-white/5 transition-colors px-4">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>???</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Admin</span>
             <ChevronRight size={20} className="text-white/40 shrink-0" />
           </div>
         </Link>
@@ -1087,7 +1085,7 @@ export function SettingsPage() {
 )}
 
 
-      {/* ?? ???? (lightweight-charts attributionLogo ???? ??????) */}
+      {/* TradingView lightweight-charts attribution */}
       <section className="mb-4">
         <div className="bg-white/5 border border-white/8 rounded-[10px] overflow-hidden px-4 py-3">
           <p style={{ fontSize: 12 }} className="text-white/50">
